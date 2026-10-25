@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { MessageCircle, SlidersHorizontal } from 'lucide-react'
 import type { TFunction } from 'i18next'
-import type { ManagedSkill, OnboardingPlan, ToolOption } from './types'
+import type { ManagedSkill, OnboardingPlan, SkillHealthDto, ToolOption } from './types'
 import SkillCard from './SkillCard'
 
 type GithubInfo = {
@@ -34,6 +34,7 @@ type SkillsListProps = {
   onToggleBulkSelection: (skillId: string) => void
   getSkillScope: (skill: ManagedSkill) => 'global' | 'project'
   getSkillProjects: (skill: ManagedSkill) => string[]
+  skillHealthByName?: Record<string, SkillHealthDto>
   toolCounts?: Record<string, number>
   t: TFunction
 }
@@ -64,6 +65,7 @@ const SkillsList = ({
   onToggleBulkSelection,
   getSkillScope,
   getSkillProjects,
+  skillHealthByName,
   t,
 }: SkillsListProps) => {
   const selectedSkillSet = new Set(selectedSkillIds)
@@ -127,6 +129,7 @@ const SkillsList = ({
               skill={skill}
               installedTools={installedTools}
               toolCounts={toolCounts}
+              health={skillHealthByName?.[skill.name]}
               loading={loading}
               bulkMode={bulkMode}
               bulkSelected={selectedSkillSet.has(skill.id)}

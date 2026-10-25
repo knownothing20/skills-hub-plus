@@ -52,7 +52,7 @@ Upstream has moved to v1.0.1 since our baseline; these are the gaps we track, or
 
 From our [competitor research](docs/research-competitors-2026-10.md) (skills-manager, SkillDeck, vercel skills and others):
 
-- **P0** — health badges + idle-skill detection; `skills.lock` export/import
+- **P0** ✅ — health badges + idle-skill detection; `skills.lock` export/import *(shipped 2026-10)*
 - **P1** — multi-device library sync (upstream v0.10); explore page on the skills.sh ecosystem
 - **P2** — operation history with undo; batch updates & filters (upstream v1.0)
 - **P3** — in-app recycle bin; usage insights (full version)

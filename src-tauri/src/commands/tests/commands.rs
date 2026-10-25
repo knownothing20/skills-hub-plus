@@ -1,5 +1,7 @@
 use super::*;
-use crate::core::skill_store::SkillRecord;
+use crate::core::auto_update::managed_skill_update_capability;
+use crate::core::skill_store::{SkillRecord, SkillStore, SkillTargetRecord};
+use crate::core::sync_engine::SyncMode;
 use crate::core::tool_adapters::{save_tool_config, CustomToolConfig, ToolConfig};
 
 fn make_store() -> (tempfile::TempDir, SkillStore) {

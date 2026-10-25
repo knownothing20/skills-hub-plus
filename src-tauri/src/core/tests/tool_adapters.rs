@@ -1,14 +1,13 @@
 use std::fs;
 
-use crate::core::safe_fs::set_test_restore_collision_after_precheck;
 use crate::core::skill_store::{SkillRecord, SkillStore, SkillTargetRecord};
 use crate::core::sync_engine::SyncMode;
 use crate::core::tool_adapters::{
     adapter_by_key, adapters_sharing_project_skills_dir, adapters_sharing_skills_dir,
     default_tool_adapters, load_tool_config, project_relative_skills_dir, resolve_project_path,
     save_tool_config, scan_tool_dir, set_test_custom_tool_migration_failure,
-    set_test_custom_tool_post_apply_replacement, set_test_custom_tool_publish_race,
-    supports_project_scope, CustomToolConfig, ToolAdapter, ToolConfig, ToolId,
+    set_test_custom_tool_publish_race, supports_project_scope, CustomToolConfig, ToolAdapter,
+    ToolConfig, ToolId,
 };
 
 fn make_custom_tool(key: &str, label: &str, skills_dir: &str) -> CustomToolConfig {

@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 import { getToolSyncState, isActiveSkillTarget } from './skillSyncStatus'
 import { isSkillUpdateable } from './skillUpdateability'
-import type { ManagedSkill, ToolOption } from './types'
+import type { ManagedSkill, SkillHealthDto, ToolOption } from './types'
 import logoMark from '../../assets/logo-mark.svg'
 import SkillIcon from './SkillIcon'
 import ToolIcon from './ToolIcon'
@@ -19,6 +19,7 @@ type SkillCardProps = {
   loading: boolean
   bulkMode: boolean
   bulkSelected: boolean
+  health?: SkillHealthDto
   getGithubInfo: (url: string | null | undefined) => GithubInfo | null
   getSkillSourceLabel: (skill: ManagedSkill) => string
   formatRelative: (ms: number | null | undefined) => string
@@ -45,6 +46,7 @@ const SkillCard = ({
   loading,
   bulkMode,
   bulkSelected,
+  health,
   getGithubInfo,
   getSkillSourceLabel,
   formatRelative,
@@ -150,6 +152,25 @@ const SkillCard = ({
         <button className={`scope-badge ${scope}`} type="button" onClick={() => onOpenScope(skill)}>
           {scope === 'project' ? t('scope.projectCount', { count: projectCount }) : t('scope.globalBadge')}
         </button>
+
+        {health && health.broken.length > 0 ? (
+          <span
+            className="skill-health-badge is-broken"
+            title={health.broken
+              .map((broken) =>
+                `${broken.tool}: ${broken.path} (${t(`health.reason.${broken.reason}`, { defaultValue: broken.reason })})`,
+              )
+              .join('\n')}
+          >
+            {t('health.cardBroken', { count: health.broken.length })}
+          </span>
+        ) : null}
+
+        {health?.idle ? (
+          <span className="skill-health-badge is-idle" title={t('health.idleHint')}>
+            {t('health.cardIdle')}
+          </span>
+        ) : null}
 
         <button
           className="skill-central-badge"

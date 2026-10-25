@@ -1952,7 +1952,7 @@ pub fn scan_tool_dir(tool: &ToolAdapter, dir: &Path) -> Result<Vec<DetectedSkill
     Ok(results)
 }
 
-fn detect_link(path: &Path) -> (bool, Option<PathBuf>) {
+pub(crate) fn detect_link(path: &Path) -> (bool, Option<PathBuf>) {
     match std::fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
             let target = std::fs::read_link(path).ok();

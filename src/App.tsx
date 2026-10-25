@@ -55,6 +55,7 @@ import { useToolSync } from './hooks/useToolSync'
 import { useSkillScope } from './hooks/useSkillScope'
 import { useSkillLifecycle } from './hooks/useSkillLifecycle'
 import { useSystemSettings } from './hooks/useSystemSettings'
+import { useLibraryHealth } from './hooks/useLibraryHealth'
 import { useImportPlan } from './hooks/useImportPlan'
 import { useInstallScopeTargets } from './hooks/useInstallScopeTargets'
 import { useExploreSkills } from './hooks/useExploreSkills'
@@ -64,6 +65,7 @@ import {
 } from './components/skills/skillSyncStatus'
 import type {
   ManagedSkill,
+  SkillHealthDto,
   ToolOption,
   ToolStatusDto,
 } from './components/skills/types'
@@ -100,6 +102,7 @@ function App() {
   const [activeView, setActiveView] = useState<ActiveView>('myskills')
   const [managementTab, setManagementTab] = useState<ManagementTab>('tags')
   const [detailSkill, setDetailSkill] = useState<ManagedSkill | null>(null)
+  const { libraryHealth, refreshLibraryHealth } = useLibraryHealth()
   const {
     featuredSkills,
     featuredLoading,
@@ -188,6 +191,54 @@ function App() {
     for (const tool of tools) out[tool.id] = tool.label
     return out
   }, [tools])
+
+  const skillHealthByName = useMemo(() => {
+    const out: Record<string, SkillHealthDto> = {}
+    for (const skill of libraryHealth?.skills ?? []) out[skill.name] = skill
+    return out
+  }, [libraryHealth])
+
+  // Keep health badges fresh after every managed-skills reload (sync, delete,
+  // import, ... all end with loadManagedSkills).
+  useEffect(() => {
+    if (!isTauri) return
+    void refreshLibraryHealth()
+  }, [isTauri, managedSkills, refreshLibraryHealth])
+
+  const handleHealthBarClick = useCallback(() => {
+    if (!libraryHealth) return
+    const brokenSkills = libraryHealth.skills.filter(
+      (skill) => skill.broken.length > 0,
+    )
+    if (brokenSkills.length === 0) {
+      void refreshLibraryHealth()
+      return
+    }
+    const lines = brokenSkills.slice(0, 8).map((skill) =>
+      `${skill.name}: ${skill.broken
+        .map(
+          (broken) =>
+            `${toolLabelById[broken.tool] ?? broken.tool} · ${t(
+              `health.reason.${broken.reason}`,
+              { defaultValue: broken.reason },
+            )}`,
+        )
+        .join('; ')}`,
+    )
+    const more =
+      brokenSkills.length > 8
+        ? `\n+${brokenSkills.length - 8}`
+        : ''
+    toast.error(
+      t('health.brokenDetailsTitle', {
+        count: libraryHealth.summary.broken_targets,
+      }),
+      {
+        description: `${lines.join('\n')}${more}`,
+        duration: 8000,
+      },
+    )
+  }, [libraryHealth, refreshLibraryHealth, t, toolLabelById])
 
   const sharedToolIdsByToolId = useMemo(() => {
     // toolId -> all toolIds that share the same skills_dir.
@@ -1076,6 +1127,39 @@ function App() {
                 </button>
               </article>
             </section>
+            {libraryHealth ? (
+              <button
+                type="button"
+                className={`library-health-bar${libraryHealth.summary.broken_targets > 0 ? ' has-broken' : ''}`}
+                onClick={handleHealthBarClick}
+                aria-label={t('health.title')}
+                title={
+                  libraryHealth.summary.broken_targets > 0
+                    ? t('health.brokenDetailsTitle', {
+                        count: libraryHealth.summary.broken_targets,
+                      })
+                    : t('health.refreshTitle')
+                }
+              >
+                <span className="library-health-item">
+                  {t('health.total', { count: libraryHealth.summary.total })}
+                </span>
+                <span className="library-health-sep" aria-hidden="true">·</span>
+                <span className="library-health-item is-ok">
+                  {t('health.synced', { count: libraryHealth.summary.synced_skills })}
+                </span>
+                <span className="library-health-sep" aria-hidden="true">·</span>
+                <span
+                  className={`library-health-item${libraryHealth.summary.broken_targets > 0 ? ' is-error' : ''}`}
+                >
+                  {t('health.broken', { count: libraryHealth.summary.broken_targets })}
+                </span>
+                <span className="library-health-sep" aria-hidden="true">·</span>
+                <span className="library-health-item is-muted">
+                  {t('health.idle', { count: libraryHealth.summary.idle_skills })}
+                </span>
+              </button>
+            ) : null}
             <FilterBar
               sortBy={sortBy}
               searchQuery={searchQuery}
@@ -1128,6 +1212,7 @@ function App() {
               onToggleBulkSelection={handleToggleBulkSelection}
               getSkillScope={getSkillScope}
               getSkillProjects={getSkillProjects}
+              skillHealthByName={skillHealthByName}
               t={t}
             />
             {bulkMode ? (

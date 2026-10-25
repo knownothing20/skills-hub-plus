@@ -1,6 +1,8 @@
 pub mod auto_update_commands;
 pub mod common;
+pub mod health_commands;
 pub mod install_commands;
+pub mod lock_commands;
 pub mod onboarding_commands;
 pub mod setting_commands;
 pub mod skill_commands;
@@ -12,7 +14,11 @@ pub use auto_update_commands::*;
 #[allow(unused_imports)]
 pub use common::*;
 #[allow(unused_imports)]
+pub use health_commands::*;
+#[allow(unused_imports)]
 pub use install_commands::*;
+#[allow(unused_imports)]
+pub use lock_commands::*;
 #[allow(unused_imports)]
 pub use onboarding_commands::*;
 #[allow(unused_imports)]

@@ -421,7 +421,10 @@ pub fn run() {
             commands::create_backup_now,
             commands::restore_backup_now,
             commands::get_default_sync_mode,
-            commands::set_default_sync_mode
+            commands::set_default_sync_mode,
+            commands::get_library_health,
+            commands::export_skills_lock_cmd,
+            commands::import_skills_lock_cmd
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {

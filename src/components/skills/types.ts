@@ -240,4 +240,65 @@ export type ToolOptionWithCount = {
   count: number
 }
 
+export type BrokenTargetDto = {
+  tool: string
+  path: string
+  reason: 'missing' | 'broken_link' | string
+}
+
+export type SkillHealthDto = {
+  name: string
+  enabled: boolean
+  synced_tool_count: number
+  broken: BrokenTargetDto[]
+  last_modified: number
+  idle: boolean
+}
+
+export type HealthSummaryDto = {
+  total: number
+  synced_skills: number
+  broken_targets: number
+  idle_skills: number
+}
+
+export type LibraryHealthReportDto = {
+  summary: HealthSummaryDto
+  skills: SkillHealthDto[]
+}
+
+export type LockTargetEntryDto = {
+  tool: string
+  scope: string
+  target_path: string
+}
+
+export type LockSkillEntryDto = {
+  name: string
+  enabled: boolean
+  tags: string[]
+  source_ref?: string | null
+  content_hash: string
+  targets: LockTargetEntryDto[]
+}
+
+export type ExportLockResultDto = {
+  path: string
+  skill_count: number
+}
+
+export type LockDriftDto = {
+  name: string
+  lock_hash: string
+  local_hash: string
+}
+
+export type LockDiffReportDto = {
+  lock_path: string
+  missing_here: LockSkillEntryDto[]
+  extra_here: string[]
+  drifted: LockDriftDto[]
+  targets_changed: string[]
+}
+
 

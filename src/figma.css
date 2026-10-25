@@ -424,6 +424,35 @@
 .status-summary.error { color: var(--status-error); }
 .status-summary.idle { color: var(--text-secondary); }
 
+.library-health-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  padding: 7px 14px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.library-health-bar:hover { background: color-mix(in srgb, var(--accent-primary) 4%, var(--bg-panel)); }
+.library-health-bar:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.library-health-bar.has-broken { border-color: color-mix(in srgb, var(--status-error) 30%, var(--border-subtle)); }
+.library-health-bar.has-broken:hover { background: color-mix(in srgb, var(--status-error) 5%, transparent); }
+.library-health-bar.has-broken:focus-visible { outline-color: var(--status-error); }
+.library-health-item { display: inline-flex; align-items: center; white-space: nowrap; }
+.library-health-item.is-ok { color: var(--status-success); }
+.library-health-item.is-error { color: var(--status-error); font-weight: 600; }
+.library-health-item.is-muted { color: var(--text-tertiary); }
+.library-health-sep { color: var(--text-tertiary); }
+
 .filter-bar {
   padding: 0;
   gap: 8px;

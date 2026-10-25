@@ -703,6 +703,29 @@
   font-weight: 600;
 }
 
+.skill-health-badge {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-element);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.skill-health-badge.is-broken {
+  color: var(--status-error);
+  border-color: var(--status-error);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.skill-health-badge.is-idle {
+  color: var(--text-tertiary);
+}
+
 .repo-pill {
   display: inline-flex;
   align-items: center;
@@ -5278,4 +5301,49 @@
   .tools-panel-head {
     flex-direction: column;
   }
+}
+
+/* skills.lock manifest diff report (Settings → Manifest card) */
+.lock-report-path {
+  font-size: 12px;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.lock-report-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.lock-report-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  text-align: center;
+}
+
+.lock-report-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.lock-report-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.lock-report-list li {
+  margin: 2px 0;
+  word-break: break-all;
+}
+
+.lock-report-none,
+.lock-report-more {
+  font-size: 12px;
+  color: var(--text-tertiary);
 }

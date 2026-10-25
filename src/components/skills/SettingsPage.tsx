@@ -4,6 +4,9 @@ import {
   ArrowLeft,
   Database,
   ExternalLink,
+  FileDown,
+  FileJson,
+  FileUp,
   FolderOpen,
   Github,
   Link2,
@@ -15,7 +18,15 @@ import {
 import { openUrl } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
-import type { BackupConfigDto, BackupManifestDto, GithubProxyConfigDto } from './types'
+import { invokeTauri } from '../../hooks/useTauriInvoke'
+import LockDiffModal from './modals/LockDiffModal'
+import type {
+  BackupConfigDto,
+  BackupManifestDto,
+  ExportLockResultDto,
+  GithubProxyConfigDto,
+  LockDiffReportDto,
+} from './types'
 
 const PROJECT_REPOSITORY_URL = 'https://github.com/mcncarl/skills-hub'
 
@@ -199,6 +210,71 @@ const SettingsPage = ({
       toast.error(t('restoreFailed', { error: String(err) }))
     } finally {
       setIsRestoring(false)
+    }
+  }
+
+  const [isExportingLock, setIsExportingLock] = useState(false)
+  const [isComparingLock, setIsComparingLock] = useState(false)
+  const [lockReport, setLockReport] = useState<LockDiffReportDto | null>(null)
+  const [lockReportOpen, setLockReportOpen] = useState(false)
+
+  const handleExportLock = async () => {
+    if (!isTauri) return
+    let target: string | null = null
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog')
+      target = await save({
+        title: t('lock.exportDialogTitle'),
+        defaultPath: 'skills.lock',
+      })
+    } catch (err) {
+      toast.error(t('lock.exportFailed', { error: String(err) }))
+      return
+    }
+    if (!target) return
+
+    setIsExportingLock(true)
+    try {
+      const result = await invokeTauri<ExportLockResultDto>('export_skills_lock_cmd', {
+        path: target,
+      })
+      toast.success(t('lock.exportSuccess', { count: result.skill_count, path: result.path }))
+    } catch (err) {
+      toast.error(t('lock.exportFailed', { error: String(err) }))
+    } finally {
+      setIsExportingLock(false)
+    }
+  }
+
+  const handleImportLock = async () => {
+    if (!isTauri) return
+    let selected: string | null = null
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog')
+      const picked = await open({
+        multiple: false,
+        title: t('lock.importDialogTitle'),
+      })
+      if (picked && typeof picked === 'string') {
+        selected = picked
+      }
+    } catch (err) {
+      toast.error(t('lock.importFailed', { error: String(err) }))
+      return
+    }
+    if (!selected) return
+
+    setIsComparingLock(true)
+    try {
+      const report = await invokeTauri<LockDiffReportDto>('import_skills_lock_cmd', {
+        path: selected,
+      })
+      setLockReport(report)
+      setLockReportOpen(true)
+    } catch (err) {
+      toast.error(t('lock.importFailed', { error: String(err) }))
+    } finally {
+      setIsComparingLock(false)
     }
   }
 
@@ -519,6 +595,41 @@ const SettingsPage = ({
                 </div>
               </div>
             </section>
+
+            <section className="settings-card">
+              <div className="settings-card-head">
+                <span className="settings-card-icon">
+                  <FileJson size={18} />
+                </span>
+                <div>
+                  <h2>{t('lock.title')}</h2>
+                  <p>{t('lock.description')}</p>
+                </div>
+              </div>
+              <div className="settings-card-body">
+                <div className="settings-field" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    disabled={isExportingLock || isComparingLock}
+                    onClick={() => void handleExportLock()}
+                  >
+                    <FileDown size={14} style={{ marginRight: '6px' }} />
+                    {isExportingLock ? t('lock.exporting') : t('lock.exportBtn')}
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    disabled={isExportingLock || isComparingLock}
+                    onClick={() => void handleImportLock()}
+                  >
+                    <FileUp size={14} style={{ marginRight: '6px' }} />
+                    {isComparingLock ? t('lock.comparing') : t('lock.importBtn')}
+                  </button>
+                </div>
+                <div className="settings-helper">{t('lock.reportHint')}</div>
+              </div>
+            </section>
           </div>
 
           <div className="settings-column">
@@ -651,13 +762,13 @@ const SettingsPage = ({
 
             <section className="settings-card">
             <div className="settings-card-head">
-              <span className="settings-card-icon">
-                <ShieldCheck size={18} />
-              </span>
-              <div>
-                <h2>{t('settingsSectionUpdates')}</h2>
-                <p>{t('settingsSectionUpdatesDesc')}</p>
-              </div>
+                <span className="settings-card-icon">
+                  <ShieldCheck size={18} />
+                </span>
+                <div>
+                  <h2>{t('settingsSectionUpdates')}</h2>
+                  <p>{t('settingsSectionUpdatesDesc')}</p>
+                </div>
             </div>
             <div className="settings-card-body">
               <div className="settings-version-row">
@@ -672,6 +783,13 @@ const SettingsPage = ({
           </div>
         </div>
       </div>
+
+      <LockDiffModal
+        open={lockReportOpen}
+        report={lockReport}
+        onRequestClose={() => setLockReportOpen(false)}
+        t={t}
+      />
     </div>
   )
 }
