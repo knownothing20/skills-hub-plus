@@ -1,0 +1,307 @@
+import { memo, useState } from 'react'
+import { Copy, RefreshCw, Tag, Trash2, Link2, Box } from 'lucide-react'
+import { openPath } from '@tauri-apps/plugin-opener'
+import type { TFunction } from 'i18next'
+import { toast } from 'sonner'
+import { getToolSyncState, isActiveSkillTarget } from './skillSyncStatus'
+import { isSkillUpdateable } from './skillUpdateability'
+import type { ManagedSkill, ToolOption } from './types'
+import logoMark from '../../assets/logo-mark.svg'
+import SkillIcon from './SkillIcon'
+import ToolIcon from './ToolIcon'
+import ToolContextMenu, { type ToolContextMenuState } from './ToolContextMenu'
+
+type GithubInfo = { label: string; href: string }
+
+type SkillCardProps = {
+  skill: ManagedSkill
+  installedTools: ToolOption[]
+  loading: boolean
+  bulkMode: boolean
+  bulkSelected: boolean
+  getGithubInfo: (url: string | null | undefined) => GithubInfo | null
+  getSkillSourceLabel: (skill: ManagedSkill) => string
+  formatRelative: (ms: number | null | undefined) => string
+  onUpdate: (skill: ManagedSkill) => void
+  onDelete: (skillId: string) => void
+  onToggleEnabled: (skill: ManagedSkill) => void
+  onToggleTool: (skill: ManagedSkill, toolId: string) => void
+  onSyncToolWithMode?: (skill: ManagedSkill, toolId: string, mode: 'copy' | 'junction') => void
+  onUnsyncTool?: (skill: ManagedSkill, toolId: string) => void
+  onOpenScope: (skill: ManagedSkill) => void
+  onOpenDetail: (skill: ManagedSkill) => void
+  onEditTags: (skill: ManagedSkill) => void
+  onToggleBulkSelection: (skillId: string) => void
+  getSkillScope: (skill: ManagedSkill) => 'global' | 'project'
+  getSkillProjects: (skill: ManagedSkill) => string[]
+  toolCounts?: Record<string, number>
+  t: TFunction
+}
+
+const SkillCard = ({
+  skill,
+  installedTools,
+  toolCounts,
+  loading,
+  bulkMode,
+  bulkSelected,
+  getGithubInfo,
+  getSkillSourceLabel,
+  formatRelative,
+  onUpdate,
+  onDelete,
+  onToggleEnabled,
+  onToggleTool,
+  onSyncToolWithMode,
+  onUnsyncTool,
+  onOpenScope,
+  onOpenDetail,
+  onEditTags,
+  onToggleBulkSelection,
+  getSkillScope,
+  getSkillProjects,
+  t,
+}: SkillCardProps) => {
+  const [contextMenu, setContextMenu] = useState<ToolContextMenuState | null>(null)
+
+  const github = getGithubInfo(skill.source_ref)
+  const sourceLabel = github?.label ?? getSkillSourceLabel(skill)
+  const copyValue = (github?.href ?? skill.source_ref ?? skill.central_path).trim()
+  const description = skill.description?.trim() || ''
+  const scope = getSkillScope(skill)
+  const projectCount = getSkillProjects(skill).length
+  const enabled = skill.enabled !== false
+  const updateable = isSkillUpdateable(skill)
+  const handleCopySource = async () => {
+    if (!copyValue) return
+    try {
+      await navigator.clipboard.writeText(copyValue)
+      toast.success(t('copied'))
+    } catch {
+      toast.error(t('copyFailed'))
+    }
+  }
+
+  return (
+    <div
+      className={`skill-card${bulkMode ? ' bulk-mode' : ''}${bulkSelected ? ' bulk-selected' : ''}${enabled ? '' : ' disabled-skill'}`}
+    >
+      {bulkMode ? (
+        <label className="bulk-skill-check" aria-label={t('bulk.toggleSkill')}>
+          <input
+            type="checkbox"
+            checked={bulkSelected}
+            onChange={() => onToggleBulkSelection(skill.id)}
+            disabled={loading}
+          />
+          <span />
+        </label>
+      ) : null}
+
+      <div className="skill-card-head">
+        <div className="skill-identity">
+          <SkillIcon
+            name={skill.name}
+            iconDataUrl={skill.icon_data_url}
+            brandColor={skill.brand_color}
+          />
+          <div className="skill-identity-copy">
+            <div className="skill-title-line">
+              <button className="skill-name clickable" type="button" onClick={() => onOpenDetail(skill)}>
+                {skill.name}
+              </button>
+              <button
+                className="skill-source-copy"
+                type="button"
+                title={`${t('copy')}：${sourceLabel}`}
+                aria-label={`${t('copy')}：${sourceLabel}`}
+                onClick={() => void handleCopySource()}
+                disabled={!copyValue}
+              >
+                <Copy size={12} />
+              </button>
+            </div>
+            {description ? (
+              <div className="skill-description" title={description}>
+                {description}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <button
+          className={`skill-switch${enabled ? ' enabled' : ''}`}
+          type="button"
+          onClick={() => onToggleEnabled(skill)}
+          disabled={loading}
+          aria-label={enabled ? t('disableSkill') : t('enableSkill')}
+        ><span /></button>
+      </div>
+
+      <div className="skill-card-meta">
+        <div className="skill-tags-inline">
+          {skill.tags.length > 0 ? skill.tags.slice(0, 2).map((tag) => (
+            <button key={tag.id} className="skill-tag-pill" type="button" onClick={() => onEditTags(skill)}>
+              {tag.name}
+            </button>
+          )) : <span className="table-empty">{t('untagged')}</span>}
+        </div>
+
+        <button className={`scope-badge ${scope}`} type="button" onClick={() => onOpenScope(skill)}>
+          {scope === 'project' ? t('scope.projectCount', { count: projectCount }) : t('scope.globalBadge')}
+        </button>
+
+        <button
+          className="skill-central-badge"
+          type="button"
+          aria-label="本地母版"
+          title={`本地母版（点击在文件资源管理器中打开）\n路径: ${skill.central_path || 'D:\\GitHub\\skill-hub\\skills'}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (skill.central_path) {
+              openPath(skill.central_path).catch(() => {
+                toast.error('无法打开母版目录')
+              })
+            }
+          }}
+        >
+          <img src={logoMark} alt="本地母版" className="central-badge-logo" />
+        </button>
+
+        <div className="skill-updated">{formatRelative(skill.updated_at)}</div>
+      </div>
+
+      <div className="skill-card-footer">
+        <div className="skill-tools-block">
+          {(() => {
+            const externalTools = installedTools.filter((t) => {
+              if (t.id === 'agents') return false
+              const synced = getToolSyncState(skill, t.id, scope) === 'synced'
+              if (synced) return true
+              // 如果软件在全库中一个 skill 都没有，默认隐藏该工具的占位图标
+              return (toolCounts?.[t.id] ?? 0) > 0
+            })
+            return (
+              <>
+                <span>
+                  {`可用 ${
+                    externalTools.filter((t) => getToolSyncState(skill, t.id, scope) === 'synced').length
+                  } 个`}
+                </span>
+                <div className="skill-tool-avatars">
+                  {externalTools.map((tool) => {
+                    const syncState = getToolSyncState(skill, tool.id, scope)
+                    const synced = syncState === 'synced'
+
+              const target = skill.targets.find(
+                (t) =>
+                  t.tool === tool.id &&
+                  (t.scope ?? 'global') === scope &&
+                  isActiveSkillTarget(t),
+              )
+              const isCopy = target?.mode === 'copy'
+              const modeLabel = isCopy
+                ? '实体副本 (Copy)'
+                : target?.mode === 'junction'
+                  ? '软链接 (Junction)'
+                  : '软链接 (Symlink)'
+
+              let finalClass: string = syncState
+              let stateLabel = ''
+              if (synced) {
+                finalClass = isCopy ? 'synced is-copy' : 'synced is-symlink'
+                stateLabel = `已同步 · ${modeLabel}`
+              } else if (syncState === 'failed') {
+                finalClass = 'failed'
+                stateLabel = t('toolManagement.syncFailed')
+              } else if (syncState === 'partial') {
+                finalClass = 'partial'
+                stateLabel = t('toolManagement.syncPartialFailed')
+              } else {
+                finalClass = 'not-synced'
+                stateLabel = '未安装 (点击同步)'
+              }
+
+              return (
+                <button
+                  key={tool.id}
+                  className={`tool-sync-btn ${finalClass}`}
+                  type="button"
+                  title={`${tool.label} · ${stateLabel} (右键更多操作)`}
+                  aria-label={`${tool.label} · ${stateLabel}`}
+                  aria-pressed={synced}
+                  onClick={() => enabled && onToggleTool(skill, tool.id)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (!enabled) return
+                    setContextMenu({
+                      x: e.clientX,
+                      y: e.clientY,
+                      tool,
+                      skill,
+                      synced,
+                      isCopy,
+                      targetPath: target?.target_path,
+                    })
+                  }}
+                  disabled={!enabled}
+                >
+                  <ToolIcon
+                    toolKey={tool.id}
+                    label={tool.label}
+                    avatar={tool.avatar}
+                  />
+                  {synced && (
+                    <span
+                      className={`sync-mode-badge ${isCopy ? 'badge-copy' : 'badge-symlink'}`}
+                      aria-hidden="true"
+                    >
+                      {isCopy ? <Box size={8} /> : <Link2 size={8} />}
+                    </span>
+                  )}
+                </button>
+                  )
+                })}
+              </div>
+            </>
+          )
+        })()}
+      </div>
+
+        <div className="skill-actions-col">
+          <button type="button" onClick={() => onEditTags(skill)} disabled={loading} aria-label={t('editTags')}><Tag size={16} /></button>
+          <button
+            type="button"
+            onClick={() => onUpdate(skill)}
+            disabled={loading || !enabled || !updateable}
+            aria-label={updateable ? t('update') : t('updateSourceUnavailable')}
+            title={updateable ? t('update') : t('updateSourceUnavailable')}
+          ><RefreshCw size={16} /></button>
+          <button type="button" onClick={() => onDelete(skill.id)} disabled={loading} aria-label={t('remove')}><Trash2 size={16} /></button>
+        </div>
+      </div>
+
+      {contextMenu && (
+        <ToolContextMenu
+          state={contextMenu}
+          onClose={() => setContextMenu(null)}
+          onSyncWithMode={(s, tId, mode) => {
+            onSyncToolWithMode?.(s, tId, mode)
+          }}
+          onUnsync={(s, tId) => {
+            onUnsyncTool?.(s, tId)
+          }}
+          onOpenFolder={(path) => {
+            openPath(path).catch(() => {
+              toast.error('无法打开目标目录')
+            })
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+export default memo(SkillCard)
+
