@@ -1,8 +1,8 @@
+use crate::core::central_repo::resolve_central_repo_path;
+use crate::core::skill_store::SkillStore;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use crate::core::central_repo::resolve_central_repo_path;
-use crate::core::skill_store::SkillStore;
 
 const BACKUP_CONFIG_KEY: &str = "backup_config_v1";
 
@@ -95,7 +95,9 @@ pub(crate) fn copy_dir_all(src: &Path, dst: &Path) {
             } else if path.is_file() {
                 let should_copy = if dest_child.exists() {
                     let src_mtime = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-                    let dst_mtime = std::fs::metadata(&dest_child).and_then(|m| m.modified()).ok();
+                    let dst_mtime = std::fs::metadata(&dest_child)
+                        .and_then(|m| m.modified())
+                        .ok();
                     match (src_mtime, dst_mtime) {
                         (Some(sm), Some(dm)) => sm > dm,
                         _ => true,
@@ -171,7 +173,9 @@ pub fn perform_backup<R: tauri::Runtime>(
         });
     }
 
-    let now_str = store.get_local_now_string().unwrap_or_else(|_| "2026-09-03 00:00:00".to_string());
+    let now_str = store
+        .get_local_now_string()
+        .unwrap_or_else(|_| "2026-09-03 00:00:00".to_string());
     let manifest = BackupManifest {
         version: "1.0".to_string(),
         backup_time: now_str,
@@ -212,7 +216,13 @@ pub fn perform_restore<R: tauri::Runtime>(
     let src_db = backup_path.join("database").join("skills_hub.db");
     if src_db.exists() {
         if let Ok(db_path) = crate::core::skill_store::default_db_path(app) {
-            let bak_old = db_path.with_extension(format!("bak-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()));
+            let bak_old = db_path.with_extension(format!(
+                "bak-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs()
+            ));
             let _ = std::fs::copy(&db_path, &bak_old);
             let _ = std::fs::copy(&src_db, &db_path);
         }

@@ -866,7 +866,10 @@ fn project_relative_skills_dir_maps_supported_agents() {
     assert!(!supports_project_scope(&workbuddy));
 
     let workbuddy_ai = adapter_by_key("workbuddy_ai").unwrap();
-    assert_eq!(project_relative_skills_dir(&workbuddy_ai), ".workbuddy-ai/skills");
+    assert_eq!(
+        project_relative_skills_dir(&workbuddy_ai),
+        ".workbuddy-ai/skills"
+    );
     assert!(!supports_project_scope(&workbuddy_ai));
 }
 

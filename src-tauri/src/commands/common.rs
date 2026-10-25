@@ -207,7 +207,10 @@ pub struct RuntimeTool {
     pub sync_mode: SyncMode,
 }
 
-pub fn runtime_tools(store: &SkillStore, include_disabled: bool) -> anyhow::Result<Vec<RuntimeTool>> {
+pub fn runtime_tools(
+    store: &SkillStore,
+    include_disabled: bool,
+) -> anyhow::Result<Vec<RuntimeTool>> {
     let config = load_tool_config(store)?;
     let mut tools = Vec::new();
 

@@ -143,7 +143,8 @@ pub fn auto_reconcile_skill_targets(
 
         for adapter in &adapters {
             // 快速短路检查：如果数据库中已经记录该目标且状态为 ok，直接 0 耗时跳过！
-            let existing = store.get_skill_target(&skill.id, adapter.id.as_key(), "global", None)?;
+            let existing =
+                store.get_skill_target(&skill.id, adapter.id.as_key(), "global", None)?;
             if let Some(ref rec) = existing {
                 if rec.status == "ok" {
                     continue;
@@ -175,7 +176,9 @@ pub fn auto_reconcile_skill_targets(
                 };
 
                 let record = SkillTargetRecord {
-                    id: existing.map(|t| t.id).unwrap_or_else(|| Uuid::new_v4().to_string()),
+                    id: existing
+                        .map(|t| t.id)
+                        .unwrap_or_else(|| Uuid::new_v4().to_string()),
                     skill_id: skill.id.clone(),
                     tool: adapter.id.as_key().to_string(),
                     scope: "global".to_string(),
@@ -233,9 +236,7 @@ pub fn sync_skill_to_tool_impl(
     if !paths_have_same_identity(&managed_source, &expected_source)?
         || !paths_have_same_identity(std::path::Path::new(source_path), &managed_source)?
     {
-        anyhow::bail!(
-            "UNSAFE_PATH|sourcePath must exactly match the managed central Skill path"
-        );
+        anyhow::bail!("UNSAFE_PATH|sourcePath must exactly match the managed central Skill path");
     }
 
     let runtime_tool = runtime_tool_by_key(store, tool)?;
@@ -354,9 +355,8 @@ pub fn sync_skill_to_tool_impl(
         None => default_mode == "copy",
         _ => false,
     };
-    let should_keep_entity_as_copy = can_adopt_existing
-        && is_target_physical_dir
-        && (is_copy_mode || is_source_path);
+    let should_keep_entity_as_copy =
+        can_adopt_existing && is_target_physical_dir && (is_copy_mode || is_source_path);
 
     let result = if should_keep_entity_as_copy {
         log::info!(
@@ -484,8 +484,7 @@ pub async fn sync_skill_to_tool(
     syncMode: Option<String>,
 ) -> Result<SyncResultDto, String> {
     let store = store.inner().clone();
-    let central_root = resolve_central_repo_path(&app, &store)
-        .map_err(|err| err.to_string())?;
+    let central_root = resolve_central_repo_path(&app, &store).map_err(|err| err.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
         sync_skill_to_tool_impl(
             &central_root,
@@ -1210,9 +1209,7 @@ pub async fn unsync_skill_from_tool(
 }
 
 #[tauri::command]
-pub async fn reconcile_all_skill_targets(
-    store: State<'_, SkillStore>,
-) -> Result<usize, String> {
+pub async fn reconcile_all_skill_targets(store: State<'_, SkillStore>) -> Result<usize, String> {
     let store = store.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         auto_reconcile_skill_targets(&store, None).map_err(format_anyhow_error)
@@ -1229,7 +1226,9 @@ pub fn scan_dir_latest_mtime(dir: &std::path::Path) -> (u64, usize) {
     let mut file_count = 0usize;
     let rules = crate::core::content_hash::load_ignore_patterns(dir);
     let walker = walkdir::WalkDir::new(dir).follow_links(false).into_iter();
-    for entry in walker.filter_entry(|e| !crate::core::content_hash::is_entry_ignored(dir, e, &rules)) {
+    for entry in
+        walker.filter_entry(|e| !crate::core::content_hash::is_entry_ignored(dir, e, &rules))
+    {
         if let Ok(entry) = entry {
             if entry.file_type().is_file() {
                 file_count += 1;
@@ -1351,7 +1350,10 @@ pub async fn promote_target_to_central(
         let ignore_rules = crate::core::content_hash::load_ignore_patterns(&dst_dir);
 
         // 递归反向拷贝文件：目标软件 -> 中心母版 (跳过受保护的忽略规则，如 local/)
-        for entry in walkdir::WalkDir::new(&src_dir).into_iter().filter_map(|e| e.ok()) {
+        for entry in walkdir::WalkDir::new(&src_dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
             if crate::core::content_hash::is_entry_ignored(&src_dir, &entry, &ignore_rules) {
                 continue;
             }

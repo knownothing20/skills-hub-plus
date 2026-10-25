@@ -124,7 +124,7 @@ pub fn hash_dir(path: &Path) -> Result<String> {
             .path()
             .strip_prefix(path)
             .with_context(|| format!("strip prefix {:?}", entry.path()))?;
-        
+
         let relative_norm = relative.to_string_lossy().replace('\\', "/");
         hasher.update(relative_norm.as_bytes());
 

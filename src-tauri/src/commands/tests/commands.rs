@@ -914,4 +914,3 @@ fn test_discovered_skill_preserves_physical_entity_without_converting_to_link() 
     #[cfg(windows)]
     assert!(!junction::exists(&client_skill_dir).unwrap_or(false));
 }
-

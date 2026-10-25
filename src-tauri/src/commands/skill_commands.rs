@@ -512,11 +512,17 @@ pub async fn get_skill_ignore_config(
                     let clean_rule = r.replace('\\', "/").trim_matches('/').to_string();
                     clean_rule == clean_name
                         || (clean_rule.starts_with('*') && clean_name.ends_with(&clean_rule[1..]))
-                        || (clean_rule.ends_with('*') && clean_name.starts_with(&clean_rule[..clean_rule.len().saturating_sub(1)]))
+                        || (clean_rule.ends_with('*')
+                            && clean_name
+                                .starts_with(&clean_rule[..clean_rule.len().saturating_sub(1)]))
                 });
                 items.push(SkillIgnoreItemDto {
                     name,
-                    path: if is_dir { format!("{}/", clean_name) } else { clean_name },
+                    path: if is_dir {
+                        format!("{}/", clean_name)
+                    } else {
+                        clean_name
+                    },
                     is_dir,
                     is_ignored,
                 });
@@ -563,7 +569,7 @@ pub async fn save_skill_ignore_config(
         };
 
         let skillignore_path = root.join(".skillignore");
-        
+
         let mut text = String::from("# Managed by Skills Hub\n");
         for rule in &rules {
             let trimmed = rule.trim();

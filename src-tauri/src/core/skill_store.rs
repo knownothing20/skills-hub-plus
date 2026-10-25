@@ -216,7 +216,6 @@ impl SkillStore {
         })
     }
 
-
     #[allow(dead_code)]
     pub fn set_onboarding_completed(&self, completed: bool) -> Result<()> {
         self.set_setting(

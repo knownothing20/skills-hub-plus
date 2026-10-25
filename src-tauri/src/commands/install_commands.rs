@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use serde::Serialize;
+use std::sync::Arc;
 use tauri::State;
 
 use crate::core::cancel_token::CancelToken;

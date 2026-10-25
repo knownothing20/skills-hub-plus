@@ -13,7 +13,9 @@ pub fn app_install_skills_dir() -> PathBuf {
                     return parent.join("skills");
                 }
                 if let Some(grandparent) = parent.parent() {
-                    if grandparent.join("package.json").exists() || grandparent.join(".git").exists() {
+                    if grandparent.join("package.json").exists()
+                        || grandparent.join(".git").exists()
+                    {
                         return grandparent.join("skills");
                     }
                 }

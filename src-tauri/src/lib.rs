@@ -4,9 +4,7 @@ mod core;
 use std::sync::Arc;
 
 use core::cancel_token::CancelToken;
-use core::onboarding::{
-    save_discovery_scan_config, DiscoveryScanConfig,
-};
+use core::onboarding::{save_discovery_scan_config, DiscoveryScanConfig};
 use core::skill_store::{default_db_path, SkillStore};
 use core::tool_adapters::{default_tool_adapters, load_tool_config, save_tool_config, ToolConfig};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
@@ -436,4 +434,3 @@ pub fn run() {
         .expect("error while running tauri application")
         .run(|_app, _event| {});
 }
-

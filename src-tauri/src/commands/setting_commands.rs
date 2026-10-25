@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use serde::Serialize;
+use std::sync::Arc;
 use tauri::State;
 
 use crate::core::backup::{
@@ -221,12 +221,10 @@ pub async fn create_backup_now(
     customDir: Option<String>,
 ) -> Result<BackupManifest, String> {
     let store = store.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        perform_backup(&app, &store, customDir)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(format_anyhow_error)
+    tauri::async_runtime::spawn_blocking(move || perform_backup(&app, &store, customDir))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(format_anyhow_error)
 }
 
 #[allow(non_snake_case)]
@@ -237,12 +235,10 @@ pub async fn restore_backup_now(
     sourceDir: Option<String>,
 ) -> Result<usize, String> {
     let store = store.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        perform_restore(&app, &store, sourceDir)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(format_anyhow_error)
+    tauri::async_runtime::spawn_blocking(move || perform_restore(&app, &store, sourceDir))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(format_anyhow_error)
 }
 
 #[tauri::command]
