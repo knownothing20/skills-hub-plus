@@ -65,7 +65,9 @@ skill-hub/            (repo folder, any path works)
 │   └── skills-hub.exe   ← the app (frontend embedded, self-contained)
 ├── skills/              ← master library, all skills live here
 ├── package.json / .git  ← path anchors for auto-locating skills/
-└── backup/              ← optional: tags & settings snapshots
+├── backup/              ← optional: tags & settings snapshots
+├── dev/                 ← optional: build/launch helper scripts
+└── release/             ← optional: local archive of downloaded builds
 ```
 
 On a new machine: copy the folder, double-click `dist-app\skills-hub.exe` — the central library is auto-adopted on first launch, then re-sync your tools with one click. `node_modules/` and `src-tauri/target/` are never needed to *run* the app.
@@ -73,7 +75,7 @@ On a new machine: copy the folder, double-click `dist-app\skills-hub.exe` — th
 ## Build
 
 - **Cloud (recommended)**: GitHub → **Actions → Build Windows (manual)** → *Run workflow* → download `release-assets-x64` (portable exe + NSIS installer). Free on public repos; ~3 min once cached. Use it consciously — avoid unnecessary runs.
-- **Local**: `npm install`, then `npm run tauri:build` (or `build_release.ps1`). Requires Node 20+, Rust/MSVC and ~14 GB of build cache.
+- **Local**: `npm install`, then `npm run tauri:build` (or `dev/build_release.ps1`). Requires Node 20+, Rust/MSVC and ~14 GB of build cache.
 
 ## Documentation
 

@@ -16,16 +16,17 @@ $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
 $env:RUSTUP_DIST_SERVER = "https://rsproxy.cn"
 $env:RUSTUP_UPDATE_ROOT = "https://rsproxy.cn/rustup"
 
-Set-Location $PSScriptRoot
+$repoRoot = Split-Path $PSScriptRoot -Parent
+Set-Location $repoRoot
 npx tauri build --no-bundle
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$distDir = Join-Path $PSScriptRoot "dist-app"
+$distDir = Join-Path $repoRoot "dist-app"
 if (-not (Test-Path $distDir)) {
     New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 }
 
-$exeSource = Join-Path $PSScriptRoot "src-tauri\target\release\skills-hub.exe"
+$exeSource = Join-Path $repoRoot "src-tauri\target\release\skills-hub.exe"
 $exeTarget = Join-Path $distDir "skills-hub.exe"
 Copy-Item -Path $exeSource -Destination $exeTarget -Force
 Write-Host "BUILD_SUCCESS_EMBEDDED: $exeTarget"

@@ -65,7 +65,9 @@ skill-hub/            (仓库文件夹,放哪个盘都行)
 │   └── skills-hub.exe   ← 程序本体(界面已内嵌,自包含)
 ├── skills/              ← 母版库,所有 skill 在这里
 ├── package.json / .git  ← 自动定位 skills/ 用的锚点
-└── backup/              ← 可选:标签与配置的备份快照
+├── backup/              ← 可选:标签与配置的备份快照
+├── dev/                 ← 可选:构建/启动辅助脚本
+└── release/             ← 可选:下载构建的本地归档
 ```
 
 新电脑上:整个文件夹拷过去,双击 `dist-app\skills-hub.exe`——首次启动自动"收养"母版库里的全部 skill,然后逐个工具点一次同步重建链接。**运行程序完全不需要** `node_modules/` 和 `src-tauri/target/`。
@@ -73,7 +75,7 @@ skill-hub/            (仓库文件夹,放哪个盘都行)
 ## 构建
 
 - **云端编译(推荐)**:GitHub → **Actions → Build Windows (manual)** → *Run workflow* → 下载 `release-assets-x64`(便携版 exe + NSIS 安装包)。公开仓库免费,缓存命中后约 3 分钟。**按需触发,避免不必要的运行**。
-- **本地编译**:`npm install` 后执行 `npm run tauri:build`(或 `build_release.ps1`)。需要 Node 20+、Rust/MSVC,编译缓存约占 14 GB 硬盘。
+- **本地编译**:`npm install` 后执行 `npm run tauri:build`(或 `dev/build_release.ps1`)。需要 Node 20+、Rust/MSVC,编译缓存约占 14 GB 硬盘。
 
 ## 文档
 

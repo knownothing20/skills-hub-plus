@@ -22,7 +22,8 @@ $env:RUSTUP_DIST_SERVER = "https://rsproxy.cn"
 $env:RUSTUP_UPDATE_ROOT = "https://rsproxy.cn/rustup"
 
 Write-Host "`n[1/3] 正在执行发布前隐私与敏感信息安全审计..." -ForegroundColor Yellow
-Set-Location $PSScriptRoot
+$repoRoot = Split-Path $PSScriptRoot -Parent
+Set-Location $repoRoot
 npm run check:privacy
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -31,12 +32,12 @@ npx tauri build --no-bundle
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "`n[3/3] 整理便携程序目录 (dist-app)..." -ForegroundColor Yellow
-$distDir = Join-Path $PSScriptRoot "dist-app"
+$distDir = Join-Path $repoRoot "dist-app"
 if (-not (Test-Path $distDir)) {
     New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 }
 
-$exeSource = Join-Path $PSScriptRoot "src-tauri\target\release\skills-hub.exe"
+$exeSource = Join-Path $repoRoot "src-tauri\target\release\skills-hub.exe"
 $exeTarget = Join-Path $distDir "skills-hub.exe"
 
 if (Test-Path $exeSource) {

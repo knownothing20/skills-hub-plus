@@ -3,9 +3,9 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliar
 set PATH=%USERPROFILE%\.cargo\bin;%PATH%
 set RUSTUP_DIST_SERVER=https://rsproxy.cn
 set RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup
-cd /d "D:\GitHub\skill-hub"
+cd /d "%~dp0.."
 call npx tauri build --no-bundle
 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-if not exist "dist-app" mkdir "dist-app"
-copy /y "D:\GitHub\skill-hub\src-tauri\target\release\skills-hub.exe" "D:\GitHub\skill-hub\dist-app\skills-hub.exe"
+if not exist "..\dist-app" mkdir "..\dist-app"
+copy /y "%~dp0..\src-tauri\target\release\skills-hub.exe" "%~dp0..\dist-app\skills-hub.exe"
 echo BUILD SUCCESS
