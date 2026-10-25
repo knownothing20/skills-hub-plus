@@ -48,6 +48,15 @@
 | AI 技能管理 + 独立 CLI | v0.11.0 | 用 AI 对话管理技能;工程量大,低优先级 |
 | Linux `.deb` / `.AppImage` 安装包 | v0.11.0 | 超出范围——本分支以 Windows 为主 |
 
+## 路线图
+
+出自[竞品调研与借鉴分析](research-competitors-2026-10.md)(skills-manager、SkillDeck、vercel skills 等):
+
+- **P0** — 健康度徽章 + 闲置技能检测;`skills.lock` 清单导入导出
+- **P1** — 多设备母版库同步(上游 v0.10);发现页接入 skills.sh 生态
+- **P2** — 操作历史与一键撤销;批量更新与状态/工具过滤(上游 v1.0)
+- **P3** — 应用内回收站;用量洞察(完整版)
+
 ## 功能总览
 
 - **集中母版库** — 所有 skill 只存一份,放在程序旁的 `skills/` 文件夹

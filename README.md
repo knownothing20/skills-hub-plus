@@ -48,6 +48,15 @@ Upstream has moved to v1.0.1 since our baseline; these are the gaps we track, or
 | AI skill management + standalone CLI | v0.11.0 | Interesting but heavy; low priority. |
 | Linux `.deb` / `.AppImage` installers | v0.11.0 | Out of scope — this fork is Windows-first. |
 
+## Roadmap
+
+From our [competitor research](docs/research-competitors-2026-10.md) (skills-manager, SkillDeck, vercel skills and others):
+
+- **P0** — health badges + idle-skill detection; `skills.lock` export/import
+- **P1** — multi-device library sync (upstream v0.10); explore page on the skills.sh ecosystem
+- **P2** — operation history with undo; batch updates & filters (upstream v1.0)
+- **P3** — in-app recycle bin; usage insights (full version)
+
 ## Features
 
 - **Central master library** — every skill lives once in the `skills/` folder next to the app.
