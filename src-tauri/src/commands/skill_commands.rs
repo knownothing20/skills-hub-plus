@@ -397,23 +397,37 @@ pub async fn ignore_managed_skill(
         for target in &targets {
             let target_path = std::path::PathBuf::from(&target.target_path);
             if target_path.exists() {
-                let is_link = target_path
+                let is_junction = {
+                    #[cfg(windows)]
+                    {
+                        junction::exists(&target_path).unwrap_or(false)
+                    }
+                    #[cfg(not(windows))]
+                    {
+                        false
+                    }
+                };
+                let is_symlink = target_path
                     .symlink_metadata()
                     .map(|m| m.file_type().is_symlink())
-                    .unwrap_or(false)
-                    || target.sync_mode.as_deref() == Some("junction")
-                    || target.sync_mode.as_deref() == Some("symlink");
+                    .unwrap_or(false);
+                let is_link = is_junction
+                    || is_symlink
+                    || target.mode == "junction"
+                    || target.mode == "symlink";
+
                 if is_link {
                     if let Some(parent) = target_path.parent() {
-                        if let Ok(temp_dir) = tempfile::Builder::new()
-                            .prefix("skill_detach_")
-                            .tempdir_in(parent)
-                        {
-                            let temp_skill_dir = temp_dir.path().join(&skill.name);
-                            if crate::core::sync_engine::copy_dir_recursive(&central_path, &temp_skill_dir).is_ok() {
-                                let _ = std::fs::remove_dir(&target_path)
-                                    .or_else(|_| std::fs::remove_file(&target_path));
+                        let temp_name =
+                            format!(".detach_{}_{}", skill.name, uuid::Uuid::new_v4().simple());
+                        let temp_skill_dir = parent.join(temp_name);
+                        if crate::core::sync_engine::copy_dir_recursive(&central_path, &temp_skill_dir).is_ok() {
+                            let removed = std::fs::remove_dir(&target_path)
+                                .or_else(|_| std::fs::remove_file(&target_path));
+                            if removed.is_ok() {
                                 let _ = std::fs::rename(&temp_skill_dir, &target_path);
+                            } else {
+                                let _ = std::fs::remove_dir_all(&temp_skill_dir);
                             }
                         }
                     }
