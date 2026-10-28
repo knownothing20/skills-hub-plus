@@ -430,12 +430,16 @@ fn install_local_skill_with_existing_policy<R: tauri::Runtime>(
                 .into_iter()
                 .find(|skill| Path::new(&skill.central_path) == central_path);
             if let Some(record) = existing {
-                return Ok(InstallResult {
-                    skill_id: record.id,
-                    name: record.name,
-                    central_path,
-                    content_hash: record.content_hash,
-                });
+                let source_hash = hash_dir(source_path).ok();
+                let central_hash = hash_dir(&central_path).ok();
+                if source_hash.is_some() && source_hash == central_hash {
+                    return Ok(InstallResult {
+                        skill_id: record.id,
+                        name: record.name,
+                        central_path,
+                        content_hash: record.content_hash,
+                    });
+                }
             }
         }
         anyhow::bail!("skill already exists in central repo: {:?}", central_path);
@@ -2147,7 +2151,11 @@ pub fn backfill_skill_descriptions(store: &SkillStore) {
         Err(_) => return,
     };
     for skill in skills {
-        if skill.description.is_some() {
+        let is_stale = match skill.description.as_deref() {
+            None => true,
+            Some(d) => d == ">-" || d == "|" || d == ">" || d == "|-" || d.trim().is_empty(),
+        };
+        if !is_stale {
             continue;
         }
         let central = std::path::Path::new(&skill.central_path);
