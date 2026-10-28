@@ -1,20 +1,55 @@
+<p align="center">
+  <img src="docs/assets/skills-hub-banner.png" alt="Skills Hub Plus Banner" width="100%" />
+</p>
+
 # Skills Hub Plus
 
 A cross-platform desktop app (Tauri + React) that keeps all your **Agent Skills in one central master library** and syncs them to every AI coding tool on your machine — *"install once, sync everywhere"*.
 
 > **📍 Based on an open-source project** — This project derives from **[qufei1993/skills-hub](https://github.com/qufei1993/skills-hub)** (MIT, baseline `v0.9.1`, via [mcncarl/skills-hub](https://github.com/mcncarl/skills-hub)) and evolves independently as **Skills Hub Plus**. Full credit to the upstream author — see [Acknowledgments](#acknowledgments--license). Upstream is actively developed (v1.0.1 as of 2026-10); differences are documented in [What's different](#whats-different-from-upstream) and [Worth adopting](#upstream-features-worth-adopting).
 >
-> 中文说明:[`docs/README.zh.md`](docs/README.zh.md)
+> 中文说明: [`docs/README.zh.md`](docs/README.zh.md)
+
+## Architecture & Sync Model
+
+<p align="center">
+  <img src="docs/assets/sync-architecture.png" alt="Skills Hub Plus Architecture and Workflow" width="100%" />
+</p>
+
+```mermaid
+graph LR
+    Master[("📁 Central Master Library<br/>(skills/)")]
+    
+    subgraph SyncEngine["⚡ Sync & Safety Engine"]
+        Junction["🔗 Directory Junction<br/>(Zero-copy, Instant)"]
+        Copy["📄 Safe Physical Copy<br/>(e.g. Cursor, Sandboxes)"]
+        Promote["⬆️ Reverse Promote<br/>(Push tool changes to Master)"]
+        ShieldFilter["🛡️ Shield & Ignore Filter<br/>(Keep local, silent auto-scan)"]
+    end
+
+    subgraph Tools["🤖 AI Coding & Agent Tools"]
+        Cursor["Cursor"]
+        Claude["Claude Code"]
+        Doubao["Doubao Work (豆包工作)"]
+        Windsurf["Windsurf"]
+        Others["Antigravity / VS Code / 50+ Tools"]
+    end
+
+    Master <--> Junction <--> Tools
+    Master <--> Copy <--> Tools
+    Tools -.-> Promote -.-> Master
+    Tools --- ShieldFilter
+```
 
 ## Screenshots
 
-| My Skills | Bulk Actions | Tools Management |
+| My Skills (Master Library) | Tools Management (Doubao, Cursor...) | Settings & Preferences |
 |:---:|:---:|:---:|
-| ![My Skills card view](docs/assets/my-skills-card-view.png) | ![Bulk actions](docs/assets/my-skills-list-bulk-actions.png) | ![Tools management](docs/assets/tools-management.png) |
+| ![My Skills card view](docs/assets/my-skills-card-view.png) | ![Tools management](docs/assets/tools-management.png) | ![Settings & Preferences](docs/assets/settings-app-preferences.png) |
 
-| Explore Online Skills | Add from Git | Scheduled Updates |
+| Bulk Actions | Explore Online Skills | Scheduled Updates |
 |:---:|:---:|:---:|
-| ![Explore online skills](docs/assets/explore-online-skills.png) | ![Add skill from git repository](docs/assets/add-skill-git-repository.png) | ![Scheduled updates](docs/assets/updates-scheduled-run.png) |
+| ![Bulk actions](docs/assets/my-skills-list-bulk-actions.png) | ![Explore online skills](docs/assets/explore-online-skills.png) | ![Scheduled updates](docs/assets/updates-scheduled-run.png) |
 
 ## What's different from upstream
 
@@ -32,6 +67,8 @@ Improvements this fork ships on top of the upstream `v0.9.1` baseline:
 | 8 | **Privacy audit gate** | `npm run check:privacy` scans tracked files, commit emails and credential patterns before every release build. |
 | 9 | **Architecture 2.0** | Frontend decomposed into 16 domain hooks (`App.tsx` −60%), backend IPC split into 8 modules, 110 unit tests. |
 | 10 | **Trash-only deletion** | Deletions always go through the OS Trash / Recycle Bin; skill-owned icon metadata. |
+| 11 | **Skill Shielding & Silent Filter** | Unmanage a skill without breaking tool copies (auto-dereferencing junction links into standalone physical folders); permanently ignore during background scans & onboarding; manage & unignore in Settings. |
+| 12 | **Deep Doubao Work Support** | Calibrated deep user skill workspace (`%LOCALAPPDATA%\DoubaoWork\...\.user_skills`); redesigned new-tool detection to prevent unwanted bulk skill pushes. |
 
 ## Upstream features worth adopting
 

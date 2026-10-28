@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/skills-hub-banner.png" alt="Skills Hub Plus 封面横幅" width="100%" />
+</p>
+
 # Skills Hub Plus
 
 跨平台桌面应用(Tauri + React):把所有 **Agent Skill 集中在一个母版库**里管理,并同步到本机每一个 AI 编程工具——*"装一次,处处同步"*。
@@ -6,15 +10,46 @@
 >
 > English readme:[`../README.md`](../README.md)
 
+## 架构与同步模型
+
+<p align="center">
+  <img src="assets/sync-architecture.png" alt="Skills Hub Plus 同步架构与工作流" width="100%" />
+</p>
+
+```mermaid
+graph LR
+    Master[("📁 中心母版库<br/>(skills/)")]
+    
+    subgraph SyncEngine["⚡ 同步与安全引擎"]
+        Junction["🔗 目录 Junction 链接<br/>(零拷贝、即时生效)"]
+        Copy["📄 安全物理实体拷贝<br/>(Cursor、沙箱工具等)"]
+        Promote["⬆️ 反向设为母版<br/>(将工具修改一键推回母库)"]
+        ShieldFilter["🛡️ 屏蔽与防打扰过滤<br/>(本地解引用保留、自动扫描静默)"]
+    end
+
+    subgraph Tools["🤖 AI 编程与 Agent 工具"]
+        Cursor["Cursor"]
+        Claude["Claude Code"]
+        Doubao["豆包工作 (Doubao Work)"]
+        Windsurf["Windsurf"]
+        Others["Antigravity / VS Code / 50+ 工具"]
+    end
+
+    Master <--> Junction <--> Tools
+    Master <--> Copy <--> Tools
+    Tools -.-> Promote -.-> Master
+    Tools --- ShieldFilter
+```
+
 ## 截图
 
-| 我的技能 | 批量操作 | 工具管理 |
+| 我的技能 (中心母库) | 工具管理 (豆包工作、Cursor 等) | 设置与偏好 |
 |:---:|:---:|:---:|
-| ![我的技能卡片视图](assets/my-skills-card-view.png) | ![批量操作](assets/my-skills-list-bulk-actions.png) | ![工具管理](assets/tools-management.png) |
+| ![我的技能卡片视图](assets/my-skills-card-view.png) | ![工具管理](assets/tools-management.png) | ![设置与偏好](assets/settings-app-preferences.png) |
 
-| 探索在线技能 | 从 Git 添加 | 定时更新 |
+| 批量操作 | 探索在线技能 | 定时更新 |
 |:---:|:---:|:---:|
-| ![探索在线技能](assets/explore-online-skills.png) | ![从 Git 仓库添加技能](assets/add-skill-git-repository.png) | ![定时更新](assets/updates-scheduled-run.png) |
+| ![批量操作](assets/my-skills-list-bulk-actions.png) | ![探索在线技能](assets/explore-online-skills.png) | ![定时更新](assets/updates-scheduled-run.png) |
 
 ## 与上游的差异
 
@@ -32,6 +67,8 @@
 | 8 | **隐私审计闸门** | `npm run check:privacy` 在每次发布构建前扫描跟踪文件、提交邮箱与凭据特征 |
 | 9 | **架构 2.0** | 前端拆成 16 个领域 hook(`App.tsx` 减少 60%),后端 IPC 拆成 8 个模块,110 个单元测试 |
 | 10 | **仅回收站删除** | 删除一律走系统回收站;skill 拥有自己的图标元数据 |
+| 11 | **屏蔽技能与永久防打扰** | 删除技能时支持解除托管并转换为独立实体物理目录,母库移入回收站;自动记录屏蔽白名单并在后续扫描/向导中永久静默;设置页可随时查看并取消屏蔽 |
+| 12 | **豆包工作深度适配与零骚扰检测** | 精准校正豆包工作用户深层技能环境(`%LOCALAPPDATA%\DoubaoWork\...\.user_skills`);重构新工具检测逻辑,杜绝全量强塞母库技能,保障工具本地纯净安全 |
 
 ## 值得借鉴的上游功能
 
