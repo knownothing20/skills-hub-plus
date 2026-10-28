@@ -421,7 +421,12 @@ pub async fn ignore_managed_skill(
                         let temp_name =
                             format!(".detach_{}_{}", skill.name, uuid::Uuid::new_v4().simple());
                         let temp_skill_dir = parent.join(temp_name);
-                        if crate::core::sync_engine::copy_dir_recursive(&central_path, &temp_skill_dir).is_ok() {
+                        if crate::core::sync_engine::copy_dir_recursive(
+                            &central_path,
+                            &temp_skill_dir,
+                        )
+                        .is_ok()
+                        {
                             let removed = std::fs::remove_dir(&target_path)
                                 .or_else(|_| std::fs::remove_file(&target_path));
                             if removed.is_ok() {
@@ -453,20 +458,13 @@ pub async fn ignore_managed_skill(
 }
 
 #[tauri::command]
-pub async fn get_ignored_skills(
-    store: State<'_, SkillStore>,
-) -> Result<Vec<String>, String> {
-    crate::core::onboarding::load_ignored_skills(&store)
-        .map_err(|e| e.to_string())
+pub async fn get_ignored_skills(store: State<'_, SkillStore>) -> Result<Vec<String>, String> {
+    crate::core::onboarding::load_ignored_skills(&store).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn unignore_skill(
-    store: State<'_, SkillStore>,
-    name: String,
-) -> Result<(), String> {
-    crate::core::onboarding::remove_ignored_skill(&store, &name)
-        .map_err(|e| e.to_string())
+pub async fn unignore_skill(store: State<'_, SkillStore>, name: String) -> Result<(), String> {
+    crate::core::onboarding::remove_ignored_skill(&store, &name).map_err(|e| e.to_string())
 }
 
 pub fn validated_skill_content_root<R: tauri::Runtime>(
