@@ -542,6 +542,7 @@ function App() {
     handleDeletePrompt,
     handleCloseDelete,
     handleDeleteManaged,
+    handleIgnoreManaged,
     handleToggleSkillEnabled,
     handleUpdateSkill,
   } = useSkillLifecycle({
@@ -1482,6 +1483,9 @@ function App() {
         onRequestClose={handleCloseDelete}
         onConfirm={() => {
           if (pendingDeleteSkill) void handleDeleteManaged(pendingDeleteSkill)
+        }}
+        onIgnore={() => {
+          if (pendingDeleteSkill) void handleIgnoreManaged(pendingDeleteSkill)
         }}
         t={t}
       />

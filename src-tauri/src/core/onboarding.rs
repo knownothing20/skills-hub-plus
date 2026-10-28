@@ -106,8 +106,16 @@ pub fn build_onboarding_plan<R: tauri::Runtime>(
         &disabled_source_keys,
     )?;
 
-    // 关键过滤：凡是在中心库已经托管的 Skill，绝不再作为未托管技能
-    plan.groups.retain(|g| !existing_names.contains(&g.name));
+    // 关键过滤：凡是在中心库已经托管的 Skill，或被用户屏蔽忽略的 Skill，绝不再作为未托管技能
+    let ignored_names = load_ignored_skills(store)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|s| s.to_lowercase())
+        .collect::<HashSet<_>>();
+
+    plan.groups.retain(|g| {
+        !existing_names.contains(&g.name) && !ignored_names.contains(&g.name.to_lowercase())
+    });
     plan.total_skills_found = plan.groups.len();
 
     Ok(plan)
@@ -202,6 +210,32 @@ fn load_discovery_scan_config(store: &SkillStore) -> Result<DiscoveryScanConfig>
         .as_deref()
         .and_then(|value| serde_json::from_str(value).ok())
         .unwrap_or_default())
+}
+
+pub const IGNORED_SKILLS_SETTING: &str = "ignored_skills_v1";
+
+pub fn load_ignored_skills(store: &SkillStore) -> Result<Vec<String>> {
+    let raw = store.get_setting(IGNORED_SKILLS_SETTING)?;
+    Ok(raw
+        .as_deref()
+        .and_then(|val| serde_json::from_str(val).ok())
+        .unwrap_or_default())
+}
+
+pub fn add_ignored_skill(store: &SkillStore, name: &str) -> Result<()> {
+    let mut current = load_ignored_skills(store)?;
+    if !current.iter().any(|s| s.eq_ignore_ascii_case(name)) {
+        current.push(name.to_string());
+        store.set_setting(IGNORED_SKILLS_SETTING, &serde_json::to_string(&current)?)?;
+    }
+    Ok(())
+}
+
+pub fn remove_ignored_skill(store: &SkillStore, name: &str) -> Result<()> {
+    let mut current = load_ignored_skills(store)?;
+    current.retain(|s| !s.eq_ignore_ascii_case(name));
+    store.set_setting(IGNORED_SKILLS_SETTING, &serde_json::to_string(&current)?)?;
+    Ok(())
 }
 
 fn tool_scan_source_key(relative_skills_dir: &str) -> String {

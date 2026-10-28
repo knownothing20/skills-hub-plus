@@ -86,6 +86,44 @@ export function useSkillLifecycle({
     ],
   )
 
+  const handleIgnoreManaged = useCallback(
+    async (skill: ManagedSkill) => {
+      setLoading(true)
+      setLoadingStartAt(Date.now())
+      setActionMessage(t('actions.removing', { name: skill.name }))
+      setError(null)
+      try {
+        await invokeTauri('ignore_managed_skill', { skillId: skill.id })
+        setSuccessToastMessage(t('delete.ignoreSuccess'))
+        setActionMessage(null)
+        setSkillScopeState((prev) => {
+          const next = { ...prev }
+          delete next[skill.id]
+          return next
+        })
+        await loadManagedSkills()
+        await loadTags()
+        setPendingDeleteId(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setLoading(false)
+        setLoadingStartAt(null)
+      }
+    },
+    [
+      loadManagedSkills,
+      loadTags,
+      setActionMessage,
+      setError,
+      setLoading,
+      setLoadingStartAt,
+      setSkillScopeState,
+      setSuccessToastMessage,
+      t,
+    ],
+  )
+
   const handleToggleSkillEnabled = useCallback(
     async (skill: ManagedSkill) => {
       const nextEnabled = skill.enabled === false
@@ -185,6 +223,7 @@ export function useSkillLifecycle({
     handleDeletePrompt,
     handleCloseDelete,
     handleDeleteManaged,
+    handleIgnoreManaged,
     handleToggleSkillEnabled,
     handleUpdateManaged,
     handleUpdateSkill,

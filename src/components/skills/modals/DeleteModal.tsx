@@ -8,6 +8,7 @@ type DeleteModalProps = {
   skillName: string | null
   onRequestClose: () => void
   onConfirm: () => void
+  onIgnore?: () => void
   t: TFunction
 }
 
@@ -17,6 +18,7 @@ const DeleteModal = ({
   skillName,
   onRequestClose,
   onConfirm,
+  onIgnore,
   t,
 }: DeleteModalProps) => {
   if (!open) return null
@@ -60,13 +62,26 @@ const DeleteModal = ({
           >
             {t('cancel')}
           </button>
-          <button
-            className="btn btn-danger-solid"
-            onClick={onConfirm}
-            disabled={loading}
-          >
-            {t('delete.confirmButton')}
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {onIgnore && (
+              <button
+                className="btn btn-secondary"
+                style={{ borderColor: 'var(--border-color)' }}
+                onClick={onIgnore}
+                disabled={loading}
+                title={t('delete.warningDeleteFromHub')}
+              >
+                {t('delete.ignoreButton')}
+              </button>
+            )}
+            <button
+              className="btn btn-danger-solid"
+              onClick={onConfirm}
+              disabled={loading}
+            >
+              {t('delete.confirmButton')}
+            </button>
+          </div>
         </div>
       </div>
     </div>

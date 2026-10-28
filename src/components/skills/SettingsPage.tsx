@@ -14,6 +14,7 @@ import {
   Radar,
   RefreshCw,
   ShieldCheck,
+  EyeOff,
 } from 'lucide-react'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
@@ -111,6 +112,34 @@ const SettingsPage = ({
   })
   const [isBackingUp, setIsBackingUp] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
+
+  const [ignoredSkills, setIgnoredSkills] = useState<string[]>([])
+  const loadIgnoredSkills = useCallback(async () => {
+    if (!isTauri) return
+    try {
+      const list = await invokeTauri<string[]>('get_ignored_skills')
+      setIgnoredSkills(list ?? [])
+    } catch {
+      setIgnoredSkills([])
+    }
+  }, [isTauri])
+
+  useEffect(() => {
+    void loadIgnoredSkills()
+  }, [loadIgnoredSkills])
+
+  const handleUnignore = useCallback(
+    async (name: string) => {
+      try {
+        await invokeTauri('unignore_skill', { name })
+        toast.success(t('unignoreSuccess'))
+        await loadIgnoredSkills()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [loadIgnoredSkills, t],
+  )
 
   useEffect(() => {
     if (isTauri) {
@@ -779,6 +808,49 @@ const SettingsPage = ({
               </div>
               <div className="settings-helper">{t('safeBuildUpdatePolicy')}</div>
             </div>
+            </section>
+            <section className="settings-card">
+              <div className="settings-card-head">
+                <span className="settings-card-icon">
+                  <EyeOff size={18} />
+                </span>
+                <div>
+                  <h2>{t('ignoredSkillsTitle')}</h2>
+                  <p>{t('ignoredSkillsDesc')}</p>
+                </div>
+              </div>
+              <div className="settings-card-body">
+                {ignoredSkills.length === 0 ? (
+                  <div className="settings-helper">{t('noIgnoredSkills')}</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {ignoredSkills.map((name) => (
+                      <div
+                        key={name}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                        }}
+                      >
+                        <span style={{ fontWeight: 500 }}>{name}</span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 8px', fontSize: '12px' }}
+                          onClick={() => void handleUnignore(name)}
+                        >
+                          {t('unignoreSkill')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </section>
           </div>
         </div>

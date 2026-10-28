@@ -372,6 +372,89 @@ pub async fn delete_managed_skill(
     .map_err(format_anyhow_error)
 }
 
+#[tauri::command]
+#[allow(non_snake_case)]
+pub async fn ignore_managed_skill(
+    app: tauri::AppHandle,
+    store: State<'_, SkillStore>,
+    skillId: String,
+) -> Result<(), String> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _mutation_guard = lock_central_mutation()?;
+        println!("[ignore_managed_skill] skillId={}", skillId);
+
+        let skill = store
+            .get_skill_by_id(&skillId)?
+            .ok_or_else(|| anyhow::anyhow!("skill not found"))?;
+        validate_skill_name(&skill.name)?;
+        let central_root = resolve_central_repo_path(&app, &store)?;
+        ensure_central_repo(&central_root)?;
+        let central_path = std::path::PathBuf::from(&skill.central_path);
+        validate_direct_skill_path(&central_root, &central_path)?;
+
+        let targets = store.list_skill_targets(&skillId)?;
+        for target in &targets {
+            let target_path = std::path::PathBuf::from(&target.target_path);
+            if target_path.exists() {
+                let is_link = target_path
+                    .symlink_metadata()
+                    .map(|m| m.file_type().is_symlink())
+                    .unwrap_or(false)
+                    || target.sync_mode.as_deref() == Some("junction")
+                    || target.sync_mode.as_deref() == Some("symlink");
+                if is_link {
+                    if let Some(parent) = target_path.parent() {
+                        if let Ok(temp_dir) = tempfile::Builder::new()
+                            .prefix("skill_detach_")
+                            .tempdir_in(parent)
+                        {
+                            let temp_skill_dir = temp_dir.path().join(&skill.name);
+                            if crate::core::sync_engine::copy_dir_recursive(&central_path, &temp_skill_dir).is_ok() {
+                                let _ = std::fs::remove_dir(&target_path)
+                                    .or_else(|_| std::fs::remove_file(&target_path));
+                                let _ = std::fs::rename(&temp_skill_dir, &target_path);
+                            }
+                        }
+                    }
+                }
+            }
+            let _ = store.delete_skill_target(
+                &skillId,
+                &target.tool,
+                &target.scope,
+                target.project_path.as_deref(),
+            );
+        }
+
+        let _ = move_skill_to_trash(&central_root, &central_path)?;
+        store.delete_skill(&skillId)?;
+        crate::core::onboarding::add_ignored_skill(&store, &skill.name)?;
+
+        Ok::<_, anyhow::Error>(())
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map_err(format_anyhow_error)
+}
+
+#[tauri::command]
+pub async fn get_ignored_skills(
+    store: State<'_, SkillStore>,
+) -> Result<Vec<String>, String> {
+    crate::core::onboarding::load_ignored_skills(&store)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn unignore_skill(
+    store: State<'_, SkillStore>,
+    name: String,
+) -> Result<(), String> {
+    crate::core::onboarding::remove_ignored_skill(&store, &name)
+        .map_err(|e| e.to_string())
+}
+
 pub fn validated_skill_content_root<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     store: &SkillStore,
