@@ -421,6 +421,7 @@ pub fn run() {
             commands::get_untagged_skill_ids,
             commands::delete_managed_skill,
             commands::ignore_managed_skill,
+            commands::ignore_skill,
             commands::get_ignored_skills,
             commands::unignore_skill,
             commands::get_featured_skills,

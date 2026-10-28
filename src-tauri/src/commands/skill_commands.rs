@@ -463,6 +463,11 @@ pub async fn get_ignored_skills(store: State<'_, SkillStore>) -> Result<Vec<Stri
 }
 
 #[tauri::command]
+pub async fn ignore_skill(store: State<'_, SkillStore>, name: String) -> Result<(), String> {
+    crate::core::onboarding::add_ignored_skill(&store, &name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn unignore_skill(store: State<'_, SkillStore>, name: String) -> Result<(), String> {
     crate::core::onboarding::remove_ignored_skill(&store, &name).map_err(|e| e.to_string())
 }

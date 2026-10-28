@@ -96,6 +96,8 @@ export default {
     saveAndRescan: '保存并重新扫描',
     saving: '正在保存…',
     saved: '扫描设置已保存，发现结果已刷新。',
+    ignoreAction: '屏蔽',
+    ignoreTitle: '屏蔽此技能（保留在软件自带自用，后续不再扫描识别）',
   },
   appVersion: '应用版本',
   projectLink: {
@@ -550,6 +552,7 @@ export default {
   update: '更新',
   updateSourceUnavailable: '这个 Skill 没有已记录的外部更新来源',
   remove: '移除',
+  removeOrIgnore: '移到垃圾篓或屏蔽',
   localTab: '本地目录',
   gitTab: 'Git 仓库',
   searchTab: '搜索',

@@ -96,6 +96,8 @@ export default {
     saveAndRescan: 'Save and rescan',
     saving: 'Saving…',
     saved: 'Scan settings saved and discovery results refreshed.',
+    ignoreAction: 'Ignore',
+    ignoreTitle: 'Ignore this skill (Keep in tool only, ignore in future scans)',
   },
   appVersion: 'App version',
   projectLink: {
@@ -565,6 +567,7 @@ export default {
   update: 'Update',
   updateSourceUnavailable: 'No external source is recorded for this Skill',
   remove: 'Remove',
+  removeOrIgnore: 'Trash or Ignore',
   localTab: 'Local Folder',
   gitTab: 'Git Repository',
   searchTab: 'Search',

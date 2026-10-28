@@ -299,7 +299,15 @@ const SkillCard = ({
             aria-label={updateable ? t('update') : t('updateSourceUnavailable')}
             title={updateable ? t('update') : t('updateSourceUnavailable')}
           ><RefreshCw size={16} /></button>
-          <button type="button" onClick={() => onDelete(skill.id)} disabled={loading} aria-label={t('remove')}><Trash2 size={16} /></button>
+          <button
+            type="button"
+            onClick={() => onDelete(skill.id)}
+            disabled={loading}
+            aria-label={t('removeOrIgnore', { defaultValue: '移到垃圾篓或屏蔽' })}
+            title={t('removeOrIgnore', { defaultValue: '移到垃圾篓或屏蔽' })}
+          >
+            <Trash2 size={16} />
+          </button>
         </div>
       </div>
 

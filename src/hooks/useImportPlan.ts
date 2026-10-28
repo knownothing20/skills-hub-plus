@@ -119,6 +119,27 @@ export function useImportPlan({
     if (!loading) setShowImportModal(false)
   }, [loading])
 
+  const handleIgnoreGroup = useCallback(
+    async (groupName: string) => {
+      try {
+        await invokeTauri('ignore_skill', { name: groupName })
+        setSuccessToastMessage(t('delete.ignoreSuccess'))
+        setPlan((prev) => {
+          if (!prev) return prev
+          const remaining = prev.groups.filter((g) => g.name !== groupName)
+          return {
+            ...prev,
+            groups: remaining,
+            total_skills_found: remaining.length,
+          }
+        })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [setError, setSuccessToastMessage, t],
+  )
+
   const handleImport = useCallback(
     async (mode: 'junction' | 'copy' = defaultSyncMode) => {
       if (!plan) return
@@ -293,6 +314,7 @@ export function useImportPlan({
     reloadPlanQuietly,
     handleToggleGroup,
     handleSelectVariant,
+    handleIgnoreGroup,
     handleReviewImport,
     handleCloseImport,
     handleImport,

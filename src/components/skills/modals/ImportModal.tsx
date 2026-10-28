@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react'
-import { Download, Search, Link2, Box } from 'lucide-react'
+import { Download, Search, Link2, Box, ShieldOff } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import type { OnboardingPlan } from '../types'
 
@@ -13,6 +13,7 @@ type ImportModalProps = {
   onRequestClose: () => void
   onToggleGroup: (groupName: string, checked: boolean) => void
   onSelectVariant: (groupName: string, path: string) => void
+  onIgnoreGroup?: (groupName: string) => void
   onImport: (mode: 'junction' | 'copy') => void
   t: TFunction
 }
@@ -27,6 +28,7 @@ const ImportModal = ({
   onRequestClose,
   onToggleGroup,
   onSelectVariant,
+  onIgnoreGroup,
   onImport,
   t,
 }: ImportModalProps) => {
@@ -134,11 +136,37 @@ const ImportModal = ({
                     />
                     <span>{group.name}</span>
                   </label>
-                  {group.has_conflict ? (
-                    <span className="badge danger">{t('conflict')}</span>
-                  ) : (
-                    <span className="badge">{t('consistent')}</span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {group.has_conflict ? (
+                      <span className="badge danger">{t('conflict')}</span>
+                    ) : (
+                      <span className="badge">{t('consistent')}</span>
+                    )}
+                    {onIgnoreGroup && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{
+                          fontSize: '12px',
+                          padding: '2px 8px',
+                          height: '24px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          borderColor: 'var(--border-color)',
+                          color: 'var(--text-muted)',
+                        }}
+                        title={t('discoveryScan.ignoreTitle', {
+                          defaultValue: '屏蔽此技能（保留在软件自带自用，后续不再扫描识别）',
+                        })}
+                        onClick={() => onIgnoreGroup(group.name)}
+                        disabled={loading}
+                      >
+                        <ShieldOff size={13} />
+                        <span>{t('discoveryScan.ignoreAction', { defaultValue: '屏蔽' })}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="group-variants">
                   {group.variants.map((variant) => {

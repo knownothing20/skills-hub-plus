@@ -457,6 +457,7 @@ function App() {
     reloadPlanQuietly,
     handleToggleGroup,
     handleSelectVariant,
+    handleIgnoreGroup,
     handleReviewImport,
     handleCloseImport,
     handleImport,
@@ -1386,6 +1387,7 @@ function App() {
           onRequestClose={handleCloseImport}
           onToggleGroup={handleToggleGroup}
           onSelectVariant={handleSelectVariant}
+          onIgnoreGroup={handleIgnoreGroup}
           onImport={handleImport}
           t={t}
         />

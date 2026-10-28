@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { TriangleAlert } from 'lucide-react'
+import { TriangleAlert, ShieldOff, Trash2 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 
 type DeleteModalProps = {
@@ -66,20 +66,32 @@ const DeleteModal = ({
             {onIgnore && (
               <button
                 className="btn btn-secondary"
-                style={{ borderColor: 'var(--border-color)' }}
+                style={{
+                  borderColor: 'var(--border-color)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
                 onClick={onIgnore}
                 disabled={loading}
                 title={t('delete.warningDeleteFromHub')}
               >
-                {t('delete.ignoreButton')}
+                <ShieldOff size={15} />
+                <span>{t('delete.ignoreButton')}</span>
               </button>
             )}
             <button
               className="btn btn-danger-solid"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
               onClick={onConfirm}
               disabled={loading}
             >
-              {t('delete.confirmButton')}
+              <Trash2 size={15} />
+              <span>{t('delete.confirmButton')}</span>
             </button>
           </div>
         </div>
