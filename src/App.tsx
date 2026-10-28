@@ -891,109 +891,10 @@ function App() {
   }, [exploreInstallTrigger])
 
 
-  const handleSyncAllManagedToTools = useCallback(
-    async (toolIds: string[]) => {
-      if (managedSkills.length === 0) return
-      const installedIds = uniqueToolIdsBySkillsDir(
-        toolIds.filter((id) => isInstalled(id)),
-      )
-      if (installedIds.length === 0) return
-
-      setLoading(true)
-      setLoadingStartAt(Date.now())
-      setError(null)
-      try {
-        const collectedErrors: { title: string; message: string }[] = []
-        for (let si = 0; si < managedSkills.length; si++) {
-          const skill = managedSkills[si]
-          const skillScope = getSkillScope(skill)
-          const projects = getSkillProjects(skill)
-          for (let ti = 0; ti < installedIds.length; ti++) {
-            const toolId = installedIds[ti]
-            const toolLabel = tools.find((t) => t.id === toolId)?.label ?? toolId
-            if (skillScope === 'project') {
-              if (!toolSupportsProjectScope(toolId)) continue
-              if (projects.length === 0) continue
-            }
-            setActionMessage(
-              t('actions.syncStep', {
-                index: si + 1,
-                total: managedSkills.length,
-                name: skill.name,
-                tool: toolLabel,
-              }),
-            )
-            try {
-              if (skillScope === 'project') {
-                for (const projectPath of projects) {
-                  await invokeTauri('sync_skill_to_tool', {
-                    sourcePath: skill.central_path,
-                    skillId: skill.id,
-                    tool: toolId,
-                    name: skill.name,
-                    overwriteIfSameContent: true,
-                    scope: 'project',
-                    projectPath,
-                  })
-                }
-              } else {
-                await invokeTauri('sync_skill_to_tool', {
-                  sourcePath: skill.central_path,
-                  skillId: skill.id,
-                  tool: toolId,
-                  name: skill.name,
-                  overwriteIfSameContent: true,
-                  scope: 'global',
-                })
-              }
-            } catch (err) {
-              const raw = err instanceof Error ? err.message : String(err)
-              collectedErrors.push({
-                title: t('errors.syncFailedTitle', {
-                  name: skill.name,
-                  tool: toolLabel,
-                }),
-                message: raw.startsWith('TOOL_NOT_INSTALLED|')
-                  ? t('errors.toolNotInstalled')
-                  : raw.startsWith('TOOL_NOT_WRITABLE|')
-                    ? t('errors.toolNotWritable', {
-                        tool: raw.split('|')[1] ?? toolLabel,
-                        path: raw.split('|')[2] ?? '',
-                      })
-                    : raw,
-              })
-            }
-          }
-        }
-        await loadManagedSkills()
-        if (collectedErrors.length > 0) {
-          showActionErrors(collectedErrors)
-        } else {
-          setSuccessToastMessage(t('status.syncCompleted'))
-        }
-        setActionMessage(null)
-      } finally {
-        setLoading(false)
-        setLoadingStartAt(null)
-      }
-    },
-    [
-      invokeTauri,
-      getSkillProjects,
-      getSkillScope,
-      isInstalled,
-      loadManagedSkills,
-      managedSkills,
-      showActionErrors,
-      t,
-      tools,
-      toolSupportsProjectScope,
-      uniqueToolIdsBySkillsDir,
-    ],
-  )
-
   const handleSyncAllNewTools = useCallback(() => {
     if (!toolStatus) return
+    // Only register the new tools as sync targets (tick their checkboxes).
+    // Do NOT push all managed skills to them — the user can sync per-skill.
     setSyncTargets((prev) => {
       const next = { ...prev }
       for (const id of toolStatus.newly_installed) {
@@ -1003,8 +904,8 @@ function App() {
       return next
     })
     setShowNewToolsModal(false)
-    void handleSyncAllManagedToTools(toolStatus.newly_installed)
-  }, [handleSyncAllManagedToTools, sharedToolIdsByToolId, toolStatus])
+    reloadPlanQuietly()
+  }, [reloadPlanQuietly, setSyncTargets, sharedToolIdsByToolId, toolStatus])
 
 
 

@@ -589,9 +589,9 @@ export default {
     'Running file/network operations. First fetch may take a while depending on network; subsequent installs use cache and are faster.',
   newToolsTitle: 'New tools detected',
   newToolsBody:
-    'We detected newly installed tools: {{tools}}. Sync managed skills now?',
-  later: 'Later',
-  syncAll: 'Sync all managed skills',
+    'Detected newly installed tools: {{tools}}. They have been added to your sync targets. Future skill installs or manual syncs will push to these tools.',
+  later: 'Close',
+  syncAll: 'Got it',
   gitPickTitle: 'Select skills to import',
   gitPickBody:
     'Multiple skills found in this repository. Choose which ones to install.',
