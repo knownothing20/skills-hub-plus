@@ -429,13 +429,6 @@ pub fn run() {
             commands::export_skills_lock_cmd,
             commands::import_skills_lock_cmd
         ])
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // 点击右上角 X 关闭时，阻止退出并隐藏至托盘
-                api.prevent_close();
-                let _ = window.hide();
-            }
-        })
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|_app, _event| {});
