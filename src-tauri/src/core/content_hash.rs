@@ -65,16 +65,14 @@ fn matches_rule(pattern: &str, relative_norm: &str, file_name: &str) -> bool {
     }
 
     // 3. 通配符后缀匹配（如 *.key, *.log）
-    if pattern.starts_with('*') {
-        let suffix = &pattern[1..];
+    if let Some(suffix) = pattern.strip_prefix('*') {
         if file_name.ends_with(suffix) || relative_norm.ends_with(suffix) {
             return true;
         }
     }
 
     // 4. 通配符前缀匹配（如 connections*.json）
-    if pattern.ends_with('*') {
-        let prefix = &pattern[..pattern.len() - 1];
+    if let Some(prefix) = pattern.strip_suffix('*') {
         if file_name.starts_with(prefix) {
             return true;
         }

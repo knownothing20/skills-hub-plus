@@ -1226,21 +1226,20 @@ pub fn scan_dir_latest_mtime(dir: &std::path::Path) -> (u64, usize) {
     let mut file_count = 0usize;
     let rules = crate::core::content_hash::load_ignore_patterns(dir);
     let walker = walkdir::WalkDir::new(dir).follow_links(false).into_iter();
-    for entry in
-        walker.filter_entry(|e| !crate::core::content_hash::is_entry_ignored(dir, e, &rules))
+    for entry in walker
+        .filter_entry(|e| !crate::core::content_hash::is_entry_ignored(dir, e, &rules))
+        .flatten()
     {
-        if let Ok(entry) = entry {
-            if entry.file_type().is_file() {
-                file_count += 1;
-                if let Ok(meta) = entry.metadata() {
-                    if let Ok(modified) = meta.modified() {
-                        let ms = modified
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .map(|d| d.as_millis() as u64)
-                            .unwrap_or(0);
-                        if ms > max_mtime {
-                            max_mtime = ms;
-                        }
+        if entry.file_type().is_file() {
+            file_count += 1;
+            if let Ok(meta) = entry.metadata() {
+                if let Ok(modified) = meta.modified() {
+                    let ms = modified
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .unwrap_or(0);
+                    if ms > max_mtime {
+                        max_mtime = ms;
                     }
                 }
             }

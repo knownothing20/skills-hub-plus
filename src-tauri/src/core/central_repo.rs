@@ -71,7 +71,7 @@ pub fn migrate_legacy_central_if_needed<R: tauri::Runtime>(
                     let name = entry.file_name();
                     let target = new_central.join(&name);
                     if !target.exists() {
-                        let _ = crate::core::backup::copy_dir_all(&path, &target);
+                        crate::core::backup::copy_dir_all(&path, &target);
                     }
                 }
             }
