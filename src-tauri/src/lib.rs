@@ -106,6 +106,20 @@ fn refresh_enabled_auto_update_task(store: &SkillStore) -> anyhow::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    {
+        let existing = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").unwrap_or_default();
+        if !existing.contains("--disable-features=CalculateNativeWinOcclusion") {
+            let extra = "--disable-features=CalculateNativeWinOcclusion --disable-gpu-compositing";
+            let args = if existing.is_empty() {
+                extra.to_string()
+            } else {
+                format!("{existing} {extra}")
+            };
+            std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", args);
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
