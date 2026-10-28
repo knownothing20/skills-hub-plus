@@ -1,0 +1,13 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="adal-bg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#14B8A6" />
+      <stop offset="1" stop-color="#0F766E" />
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="5.5" fill="url(#adal-bg)" />
+  <!-- Ada concentric math orbit rings -->
+  <circle cx="12" cy="12" r="6.5" stroke="#FFFFFF" stroke-width="2" />
+  <circle cx="12" cy="12" r="3.2" fill="#5EEAD4" />
+  <circle cx="16.5" cy="7.5" r="1.5" fill="#FFFFFF" />
+</svg>

@@ -1,0 +1,14 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cmd-bg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#262626" />
+      <stop offset="1" stop-color="#141414" />
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="5.5" fill="url(#cmd-bg)" />
+  <rect x="1" y="1" width="22" height="22" rx="4.5" stroke="#404040" stroke-width="0.8" />
+  <!-- Prompt > -->
+  <path d="M6.5 7.5L11.5 12L6.5 16.5" stroke="#38BDF8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Cursor _ -->
+  <line x1="13.5" y1="16.5" x2="18.5" y2="16.5" stroke="#4ADE80" stroke-width="2.4" stroke-linecap="round" />
+</svg>

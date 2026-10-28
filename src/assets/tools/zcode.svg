@@ -1,0 +1,13 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="zcode-bg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A855F7" />
+      <stop offset="1" stop-color="#6B21A8" />
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="5.5" fill="url(#zcode-bg)" />
+  <!-- Dynamic Z shape -->
+  <path d="M6 7H18L8.5 17H18" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="18" cy="7" r="1.4" fill="#38BDF8" />
+  <circle cx="6" cy="17" r="1.4" fill="#38BDF8" />
+</svg>

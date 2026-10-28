@@ -783,5 +783,9 @@ export default {
     windsurf: 'Windsurf',
     moltbot: 'MoltBot',
     hermes_agent: 'Hermes Agent',
+    copaw: 'Copaw',
+    zcode: 'ZCode',
+    autoclaw: 'AutoClaw',
+    doubao_work: '豆包工作',
   },
 } as const

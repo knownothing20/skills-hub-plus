@@ -1,0 +1,14 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pochi-bg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FB7185" />
+      <stop offset="1" stop-color="#E11D48" />
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="5.5" fill="url(#pochi-bg)" />
+  <!-- Cute fox / pet face outline -->
+  <path d="M5.5 8L8 14H16L18.5 8L15 11L12 9L9 11L5.5 8Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linejoin="round" />
+  <circle cx="9.5" cy="13.5" r="1.1" fill="#BE123C" />
+  <circle cx="14.5" cy="13.5" r="1.1" fill="#BE123C" />
+  <path d="M12 16L11 17H13L12 16Z" fill="#BE123C" />
+</svg>

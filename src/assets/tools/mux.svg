@@ -1,0 +1,17 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="mux-bg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B82F6" />
+      <stop offset="1" stop-color="#1D4ED8" />
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="5.5" fill="url(#mux-bg)" />
+  <!-- Inputs -->
+  <circle cx="6" cy="7" r="1.8" fill="#93C5FD" />
+  <circle cx="6" cy="12" r="1.8" fill="#93C5FD" />
+  <circle cx="6" cy="17" r="1.8" fill="#93C5FD" />
+  <!-- Output -->
+  <circle cx="18" cy="12" r="2.2" fill="#FFFFFF" />
+  <!-- Connection lines -->
+  <path d="M7.8 7L13 10L16 12M7.8 12H16M7.8 17L13 14L16 12" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

@@ -733,8 +733,8 @@ fn adapter_by_key_finds_known_tool() {
 }
 
 #[test]
-fn builtin_tool_count_matches_v090_documentation() {
-    assert_eq!(default_tool_adapters().len(), 48);
+fn builtin_tool_count_matches_documentation() {
+    assert_eq!(default_tool_adapters().len(), 52);
 }
 
 #[test]
@@ -748,6 +748,20 @@ fn adapter_by_key_finds_new_tools() {
     assert!(adapter_by_key("hermes_agent").is_some());
     assert!(adapter_by_key("workbuddy").is_some());
     assert!(adapter_by_key("workbuddy_ai").is_some());
+    assert!(adapter_by_key("zcode").is_some());
+    assert!(adapter_by_key("autoclaw").is_some());
+    assert!(adapter_by_key("doubao_work").is_some());
+}
+
+#[test]
+fn doubao_work_adapter_uses_native_skill_dirs() {
+    let doubao_work = adapter_by_key("doubao_work").unwrap();
+
+    assert_eq!(doubao_work.id, ToolId::DoubaoWork);
+    assert_eq!(doubao_work.relative_skills_dir, "DoubaoWork/skills");
+    assert_eq!(doubao_work.relative_detect_dir, "DoubaoWork");
+    assert_eq!(project_relative_skills_dir(&doubao_work), ".doubao/skills");
+    assert!(supports_project_scope(&doubao_work));
 }
 
 #[test]

@@ -1,0 +1,15 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="aug-grad1" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B7CFD" />
+      <stop offset="1" stop-color="#5542F6" />
+    </linearGradient>
+    <linearGradient id="aug-grad2" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.95" />
+      <stop offset="1" stop-color="#DCD6FE" stop-opacity="0.8" />
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="5.5" fill="url(#aug-grad1)" />
+  <path d="M12 4.5L18.5 18H15L13.5 14.8H10.5L9 18H5.5L12 4.5ZM12 8.3L11.1 12.3H12.9L12 8.3Z" fill="url(#aug-grad2)" />
+  <path d="M11.2 5.5L6.5 17.5H8.2L11.5 8.5L11.2 5.5Z" fill="#FFFFFF" fill-opacity="0.4" />
+</svg>

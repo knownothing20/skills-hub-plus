@@ -1,0 +1,12 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="iflow-bg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1" />
+      <stop offset="1" stop-color="#4338CA" />
+    </linearGradient>
+  </defs>
+  <rect width="24" height="24" rx="5.5" fill="url(#iflow-bg)" />
+  <!-- Infinity flow wave -->
+  <path d="M7.5 15C5.5 15 4 13.6 4 12C4 10.4 5.5 9 7.5 9C9.8 9 11.2 12 12 12C12.8 12 14.2 9 16.5 9C18.5 9 20 10.4 20 12C20 13.6 18.5 15 16.5 15C14.2 15 12.8 12 12 12C11.2 12 9.8 15 7.5 15Z" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="12" cy="12" r="1.5" fill="#38BDF8" />
+</svg>

@@ -69,6 +69,7 @@ pub enum ToolId {
     HermesAgent,
     ZCode,
     AutoClaw,
+    DoubaoWork,
 }
 
 impl ToolId {
@@ -125,6 +126,7 @@ impl ToolId {
             ToolId::HermesAgent => "hermes_agent",
             ToolId::ZCode => "zcode",
             ToolId::AutoClaw => "autoclaw",
+            ToolId::DoubaoWork => "doubao_work",
         }
     }
 }
@@ -1767,6 +1769,13 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             relative_skills_dir: ".openclaw-autoclaw/skills",
             relative_detect_dir: ".openclaw-autoclaw",
         },
+        ToolAdapter {
+            id: ToolId::DoubaoWork,
+            display_name: "Doubao Work",
+            // Doubao Work default path: ~/DoubaoWork/skills (supports ~/.doubao fallback)
+            relative_skills_dir: "DoubaoWork/skills",
+            relative_detect_dir: "DoubaoWork",
+        },
     ]
 }
 
@@ -1795,6 +1804,16 @@ pub fn adapter_by_key(key: &str) -> Option<ToolAdapter> {
 
 pub fn resolve_default_path(adapter: &ToolAdapter) -> Result<PathBuf> {
     let home = dirs::home_dir().context("failed to resolve home directory")?;
+    if adapter.id == ToolId::DoubaoWork {
+        let primary_detect = home.join(adapter.relative_detect_dir);
+        if primary_detect.exists() {
+            return Ok(home.join(adapter.relative_skills_dir));
+        }
+        let alt_detect = home.join(".doubao");
+        if alt_detect.exists() {
+            return Ok(alt_detect.join("skills"));
+        }
+    }
     Ok(home.join(adapter.relative_skills_dir))
 }
 
@@ -1855,6 +1874,7 @@ pub fn project_relative_skills_dir(adapter: &ToolAdapter) -> &'static str {
         ToolId::AdaL => ".adal/skills",
         ToolId::ZCode => ".zcode/skills",
         ToolId::AutoClaw => "skills",
+        ToolId::DoubaoWork => ".doubao/skills",
         ToolId::Copaw
         | ToolId::OpenClaude
         | ToolId::QoderWork
@@ -1866,6 +1886,16 @@ pub fn project_relative_skills_dir(adapter: &ToolAdapter) -> &'static str {
 
 pub fn resolve_detect_path(adapter: &ToolAdapter) -> Result<PathBuf> {
     let home = dirs::home_dir().context("failed to resolve home directory")?;
+    if adapter.id == ToolId::DoubaoWork {
+        let primary = home.join(adapter.relative_detect_dir);
+        if primary.exists() {
+            return Ok(primary);
+        }
+        let alt = home.join(".doubao");
+        if alt.exists() {
+            return Ok(alt);
+        }
+    }
     Ok(home.join(adapter.relative_detect_dir))
 }
 

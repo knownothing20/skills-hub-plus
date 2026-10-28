@@ -7,11 +7,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mcncarl/skills-hub.git"
+    "url": "git+https://github.com/knownothing20/skills-hub-plus.git"
   },
-  "homepage": "https://github.com/mcncarl/skills-hub#readme",
+  "homepage": "https://github.com/knownothing20/skills-hub-plus#readme",
   "bugs": {
-    "url": "https://github.com/mcncarl/skills-hub/issues"
+    "url": "https://github.com/knownothing20/skills-hub-plus/issues"
   },
   "type": "module",
   "scripts": {
