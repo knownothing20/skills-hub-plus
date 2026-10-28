@@ -6,6 +6,7 @@ set RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup
 cd /d "%~dp0.."
 call npx tauri build --no-bundle
 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
-if not exist "..\dist-app" mkdir "..\dist-app"
+if not exist "%~dp0..\dist-app" mkdir "%~dp0..\dist-app"
 copy /y "%~dp0..\src-tauri\target\release\skills-hub.exe" "%~dp0..\dist-app\skills-hub.exe"
+rmdir /s /q "%~dp0..\src-tauri\target" >nul 2>&1
 echo BUILD SUCCESS
