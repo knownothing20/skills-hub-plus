@@ -187,7 +187,7 @@ const SettingsPage = ({
           path: backupConfig.backup_dir,
         }),
       )
-    } catch (err: any) {
+    } catch (err) {
       toast.error(t('backupFailed', { error: String(err) }))
     } finally {
       setIsBackingUp(false)
@@ -206,7 +206,7 @@ const SettingsPage = ({
         sourceDir: backupConfig.backup_dir,
       })
       toast.success(t('restoreSuccess', { count }))
-    } catch (err: any) {
+    } catch (err) {
       toast.error(t('restoreFailed', { error: String(err) }))
     } finally {
       setIsRestoring(false)

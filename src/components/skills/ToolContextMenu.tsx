@@ -33,7 +33,6 @@ export default function ToolContextMenu({
   const { tool, skill, synced, isCopy, targetPath, x, y } = state
 
   useEffect(() => {
-    let timer: number
     const handlePointerDown = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose()
@@ -50,7 +49,7 @@ export default function ToolContextMenu({
     }
 
     // 延迟 50ms 挂载外部点击关闭，避免第一下右键操作本身的后续 pointer 事件意外关闭
-    timer = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       window.addEventListener('pointerdown', handlePointerDown)
     }, 50)
     window.addEventListener('keydown', handleKeyDown)
