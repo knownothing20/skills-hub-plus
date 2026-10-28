@@ -1804,7 +1804,26 @@ pub fn adapter_by_key(key: &str) -> Option<ToolAdapter> {
 
 pub fn resolve_default_path(adapter: &ToolAdapter) -> Result<PathBuf> {
     let home = dirs::home_dir().context("failed to resolve home directory")?;
+    resolve_default_path_in_home(adapter, &home)
+}
+
+pub fn resolve_default_path_in_home(adapter: &ToolAdapter, home: &Path) -> Result<PathBuf> {
     if adapter.id == ToolId::DoubaoWork {
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(local_app_data) = dirs::data_local_dir() {
+                let doubao_app_data = local_app_data.join("DoubaoWork");
+                if doubao_app_data.exists() {
+                    return Ok(doubao_app_data
+                        .join("User Data")
+                        .join("Default")
+                        .join(".doubaowork")
+                        .join("agent_mode")
+                        .join("workspace")
+                        .join(".user_skills"));
+                }
+            }
+        }
         let primary_detect = home.join(adapter.relative_detect_dir);
         if primary_detect.exists() {
             return Ok(home.join(adapter.relative_skills_dir));
@@ -1886,7 +1905,20 @@ pub fn project_relative_skills_dir(adapter: &ToolAdapter) -> &'static str {
 
 pub fn resolve_detect_path(adapter: &ToolAdapter) -> Result<PathBuf> {
     let home = dirs::home_dir().context("failed to resolve home directory")?;
+    resolve_detect_path_in_home(adapter, &home)
+}
+
+pub fn resolve_detect_path_in_home(adapter: &ToolAdapter, home: &Path) -> Result<PathBuf> {
     if adapter.id == ToolId::DoubaoWork {
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(local_app_data) = dirs::data_local_dir() {
+                let doubao_app_data = local_app_data.join("DoubaoWork");
+                if doubao_app_data.exists() {
+                    return Ok(doubao_app_data);
+                }
+            }
+        }
         let primary = home.join(adapter.relative_detect_dir);
         if primary.exists() {
             return Ok(primary);

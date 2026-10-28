@@ -7,8 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use super::central_repo::resolve_central_repo_path;
 use super::content_hash::hash_dir;
-use super::skill_store::SkillStore;
-use super::tool_adapters::{default_tool_adapters, scan_tool_dir, DetectedSkill};
+use super::tool_adapters::{
+    default_tool_adapters, resolve_default_path_in_home, resolve_detect_path_in_home,
+    scan_tool_dir, DetectedSkill,
+};
 
 const DISCOVERY_SCAN_CONFIG_SETTING: &str = "discovery_scan_config_v1";
 const CLAUDE_PLUGIN_SOURCE_KEY: &str = "claude_plugins";
@@ -133,7 +135,9 @@ fn get_discovery_scan_settings_in_home(
     let mut source_indexes = HashMap::<String, usize>::new();
 
     for adapter in default_tool_adapters() {
-        if !home.join(adapter.relative_detect_dir).exists() {
+        let detect_path = resolve_detect_path_in_home(&adapter, home)
+            .unwrap_or_else(|_| home.join(adapter.relative_detect_dir));
+        if !detect_path.exists() {
             continue;
         }
         let key = tool_scan_source_key(adapter.relative_skills_dir);
@@ -143,12 +147,14 @@ fn get_discovery_scan_settings_in_home(
             source.label.push_str(adapter.display_name);
             continue;
         }
+        let dir = resolve_default_path_in_home(&adapter, home)
+            .unwrap_or_else(|_| home.join(adapter.relative_skills_dir));
         source_indexes.insert(key.clone(), sources.len());
         sources.push(DiscoveryScanSource {
             enabled: !disabled.contains(&key),
             key,
             label: adapter.display_name.to_string(),
-            path: home.join(adapter.relative_skills_dir),
+            path: dir,
         });
     }
 
@@ -241,7 +247,9 @@ pub(crate) fn build_onboarding_plan_with_claude_dir(
     let mut scanned_claude = false;
 
     for adapter in &adapters {
-        if !home.join(adapter.relative_detect_dir).exists() {
+        let detect_path = resolve_detect_path_in_home(adapter, home)
+            .unwrap_or_else(|_| home.join(adapter.relative_detect_dir));
+        if !detect_path.exists() {
             continue;
         }
         if disabled_source_keys.contains(&tool_scan_source_key(adapter.relative_skills_dir)) {
@@ -251,7 +259,8 @@ pub(crate) fn build_onboarding_plan_with_claude_dir(
         if adapter.id.as_key() == "claude_code" {
             scanned_claude = true;
         }
-        let dir = home.join(adapter.relative_skills_dir);
+        let dir = resolve_default_path_in_home(adapter, home)
+            .unwrap_or_else(|_| home.join(adapter.relative_skills_dir));
         let detected = scan_tool_dir(adapter, &dir)?;
         all_detected.extend(filter_detected(
             detected,
