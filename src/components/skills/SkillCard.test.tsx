@@ -77,4 +77,34 @@ describe('SkillCard update action', () => {
     expect(markup).toContain('--skill-icon-color:#123ABC')
     expect(markup).toContain('src="data:image/png;base64,iVBORw0KGgo="')
   })
+
+  it('renders ignore button when onIgnore prop is provided', () => {
+    const markup = renderToStaticMarkup(
+      <SkillCard
+        skill={createSkill(true)}
+        installedTools={[]}
+        loading={false}
+        bulkMode={false}
+        bulkSelected={false}
+        getGithubInfo={() => null}
+        getSkillSourceLabel={() => 'source'}
+        formatRelative={() => 'now'}
+        onUpdate={vi.fn()}
+        onDelete={vi.fn()}
+        onIgnore={vi.fn()}
+        onToggleEnabled={vi.fn()}
+        onToggleTool={vi.fn()}
+        onOpenScope={vi.fn()}
+        onOpenDetail={vi.fn()}
+        onEditTags={vi.fn()}
+        onToggleBulkSelection={vi.fn()}
+        getSkillScope={() => 'global'}
+        getSkillProjects={() => []}
+        t={translate}
+      />,
+    )
+
+    expect(markup).toContain('aria-label="ignoreSkill"')
+    expect(markup).toContain('title="ignoreSkillTooltip"')
+  })
 })

@@ -28,9 +28,11 @@ import SkillsList from './components/skills/SkillsList'
 import TagsPage from './components/skills/TagsPage'
 import AddSkillModal from './components/skills/modals/AddSkillModal'
 import BulkDeleteModal from './components/skills/modals/BulkDeleteModal'
+import BulkIgnoreModal from './components/skills/modals/BulkIgnoreModal'
 import BulkSyncModal from './components/skills/modals/BulkSyncModal'
 import BulkTagsModal from './components/skills/modals/BulkTagsModal'
 import DeleteModal from './components/skills/modals/DeleteModal'
+import IgnoreModal from './components/skills/modals/IgnoreModal'
 import DiscoveryScanModal from './components/skills/modals/DiscoveryScanModal'
 import EditSkillTagsModal from './components/skills/modals/EditSkillTagsModal'
 import GitPickModal from './components/skills/modals/GitPickModal'
@@ -542,6 +544,10 @@ function App() {
     pendingDeleteSkill,
     handleDeletePrompt,
     handleCloseDelete,
+    pendingIgnoreId,
+    pendingIgnoreSkill,
+    handleIgnorePrompt,
+    handleCloseIgnore,
     handleDeleteManaged,
     handleIgnoreManaged,
     handleToggleSkillEnabled,
@@ -592,6 +598,7 @@ function App() {
     allVisibleBulkSelected,
     showBulkSyncModal,
     showBulkDeleteModal,
+    showBulkIgnoreModal,
     showBulkTagsModal,
     bulkSyncToolIds,
     handleToggleBulkMode,
@@ -604,6 +611,9 @@ function App() {
     handleOpenBulkDelete,
     handleCloseBulkDelete,
     handleConfirmBulkDelete,
+    handleOpenBulkIgnore,
+    handleCloseBulkIgnore,
+    handleConfirmBulkIgnore,
     handleOpenBulkTags,
     handleCloseBulkTags,
     handleConfirmBulkTags,
@@ -1105,6 +1115,7 @@ function App() {
               onOpenScanSettings={handleOpenDiscoveryScanSettings}
               onUpdateSkill={handleUpdateSkill}
               onDeleteSkill={handleDeletePrompt}
+              onIgnoreSkill={handleIgnorePrompt}
               onToggleSkillEnabled={handleToggleSkillEnabled}
               onToggleTool={handleToggleToolForSkill}
               onSyncToolWithMode={handleSyncToolWithMode}
@@ -1175,6 +1186,14 @@ function App() {
                     disabled={loading || bulkSelectedIds.length === 0}
                   >
                     {bulkShouldEnable ? t('bulk.enable') : t('bulk.disable')}
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={handleOpenBulkIgnore}
+                    disabled={loading || bulkSelectedIds.length === 0}
+                  >
+                    {t('bulk.ignore', { defaultValue: '屏蔽' })}
                   </button>
                   <button
                     className="btn btn-danger"
@@ -1373,6 +1392,19 @@ function App() {
         skillNames={bulkSelectedNames}
         onRequestClose={handleCloseBulkDelete}
         onConfirm={handleConfirmBulkDelete}
+        onIgnore={() => {
+          handleCloseBulkDelete()
+          handleOpenBulkIgnore()
+        }}
+        t={t}
+      />
+
+      <BulkIgnoreModal
+        open={showBulkIgnoreModal}
+        loading={loading}
+        skillNames={bulkSelectedNames}
+        onRequestClose={handleCloseBulkIgnore}
+        onConfirm={() => void handleConfirmBulkIgnore()}
         t={t}
       />
 
@@ -1488,6 +1520,17 @@ function App() {
         }}
         onIgnore={() => {
           if (pendingDeleteSkill) void handleIgnoreManaged(pendingDeleteSkill)
+        }}
+        t={t}
+      />
+
+      <IgnoreModal
+        open={Boolean(pendingIgnoreId)}
+        loading={loading}
+        skillName={pendingIgnoreSkill?.name ?? null}
+        onRequestClose={handleCloseIgnore}
+        onConfirm={() => {
+          if (pendingIgnoreSkill) void handleIgnoreManaged(pendingIgnoreSkill)
         }}
         t={t}
       />

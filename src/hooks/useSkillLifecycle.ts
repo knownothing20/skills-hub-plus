@@ -33,10 +33,16 @@ export function useSkillLifecycle({
   const { t } = useTranslation()
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [pendingIgnoreId, setPendingIgnoreId] = useState<string | null>(null)
 
   const pendingDeleteSkill = useMemo(
     () => managedSkills.find((skill) => skill.id === pendingDeleteId) ?? null,
     [managedSkills, pendingDeleteId],
+  )
+
+  const pendingIgnoreSkill = useMemo(
+    () => managedSkills.find((skill) => skill.id === pendingIgnoreId) ?? null,
+    [managedSkills, pendingIgnoreId],
   )
 
   const handleDeletePrompt = useCallback((skillId: string) => {
@@ -45,6 +51,14 @@ export function useSkillLifecycle({
 
   const handleCloseDelete = useCallback(() => {
     if (!loading) setPendingDeleteId(null)
+  }, [loading])
+
+  const handleIgnorePrompt = useCallback((skillId: string) => {
+    setPendingIgnoreId(skillId)
+  }, [])
+
+  const handleCloseIgnore = useCallback(() => {
+    if (!loading) setPendingIgnoreId(null)
   }, [loading])
 
   const handleDeleteManaged = useCallback(
@@ -104,6 +118,7 @@ export function useSkillLifecycle({
         await loadManagedSkills()
         await loadTags()
         setPendingDeleteId(null)
+        setPendingIgnoreId(null)
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       } finally {
@@ -222,6 +237,11 @@ export function useSkillLifecycle({
     pendingDeleteSkill,
     handleDeletePrompt,
     handleCloseDelete,
+    pendingIgnoreId,
+    setPendingIgnoreId,
+    pendingIgnoreSkill,
+    handleIgnorePrompt,
+    handleCloseIgnore,
     handleDeleteManaged,
     handleIgnoreManaged,
     handleToggleSkillEnabled,

@@ -24,6 +24,7 @@ type SkillsListProps = {
   onOpenScanSettings: () => void
   onUpdateSkill: (skill: ManagedSkill) => void
   onDeleteSkill: (skillId: string) => void
+  onIgnoreSkill?: (skillId: string) => void
   onToggleSkillEnabled: (skill: ManagedSkill) => void
   onToggleTool: (skill: ManagedSkill, toolId: string) => void
   onSyncToolWithMode?: (skill: ManagedSkill, toolId: string, mode: 'copy' | 'junction') => void
@@ -55,6 +56,7 @@ const SkillsList = ({
   onOpenScanSettings,
   onUpdateSkill,
   onDeleteSkill,
+  onIgnoreSkill,
   onToggleSkillEnabled,
   onToggleTool,
   onSyncToolWithMode,
@@ -138,6 +140,7 @@ const SkillsList = ({
               formatRelative={formatRelative}
               onUpdate={onUpdateSkill}
               onDelete={onDeleteSkill}
+              onIgnore={onIgnoreSkill}
               onToggleEnabled={onToggleSkillEnabled}
               onToggleTool={onToggleTool}
               onSyncToolWithMode={onSyncToolWithMode}

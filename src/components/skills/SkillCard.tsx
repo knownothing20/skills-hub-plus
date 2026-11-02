@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Copy, RefreshCw, Tag, Trash2, Link2, Box } from 'lucide-react'
+import { Copy, RefreshCw, Tag, Trash2, Link2, Box, ShieldOff } from 'lucide-react'
 import { openPath } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
@@ -25,6 +25,7 @@ type SkillCardProps = {
   formatRelative: (ms: number | null | undefined) => string
   onUpdate: (skill: ManagedSkill) => void
   onDelete: (skillId: string) => void
+  onIgnore?: (skillId: string) => void
   onToggleEnabled: (skill: ManagedSkill) => void
   onToggleTool: (skill: ManagedSkill, toolId: string) => void
   onSyncToolWithMode?: (skill: ManagedSkill, toolId: string, mode: 'copy' | 'junction') => void
@@ -52,6 +53,7 @@ const SkillCard = ({
   formatRelative,
   onUpdate,
   onDelete,
+  onIgnore,
   onToggleEnabled,
   onToggleTool,
   onSyncToolWithMode,
@@ -291,7 +293,7 @@ const SkillCard = ({
       </div>
 
         <div className="skill-actions-col">
-          <button type="button" onClick={() => onEditTags(skill)} disabled={loading} aria-label={t('editTags')}><Tag size={16} /></button>
+          <button type="button" onClick={() => onEditTags(skill)} disabled={loading} aria-label={t('editTags')} title={t('editTags')}><Tag size={16} /></button>
           <button
             type="button"
             onClick={() => onUpdate(skill)}
@@ -299,12 +301,23 @@ const SkillCard = ({
             aria-label={updateable ? t('update') : t('updateSourceUnavailable')}
             title={updateable ? t('update') : t('updateSourceUnavailable')}
           ><RefreshCw size={16} /></button>
+          {onIgnore && (
+            <button
+              type="button"
+              onClick={() => onIgnore(skill.id)}
+              disabled={loading}
+              aria-label={t('ignoreSkill', { defaultValue: '屏蔽' })}
+              title={t('ignoreSkillTooltip', { defaultValue: '屏蔽（解除托管并保留软件副本）' })}
+            >
+              <ShieldOff size={16} />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onDelete(skill.id)}
             disabled={loading}
-            aria-label={t('removeOrIgnore', { defaultValue: '移到垃圾篓或屏蔽' })}
-            title={t('removeOrIgnore', { defaultValue: '移到垃圾篓或屏蔽' })}
+            aria-label={t('remove')}
+            title={t('remove')}
           >
             <Trash2 size={16} />
           </button>

@@ -8,6 +8,7 @@ type BulkDeleteModalProps = {
   skillNames: string[]
   onRequestClose: () => void
   onConfirm: () => void
+  onIgnore?: () => void
   t: TFunction
 }
 
@@ -17,6 +18,7 @@ const BulkDeleteModal = ({
   skillNames,
   onRequestClose,
   onConfirm,
+  onIgnore,
   t,
 }: BulkDeleteModalProps) => {
   if (!open) return null
@@ -58,13 +60,29 @@ const BulkDeleteModal = ({
           >
             {t('cancel')}
           </button>
-          <button
-            className="btn btn-danger-solid"
-            onClick={onConfirm}
-            disabled={loading}
-          >
-            {t('bulk.deleteConfirm', { count: skillNames.length })}
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {onIgnore && (
+              <button
+                className="btn btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+                onClick={onIgnore}
+                disabled={loading}
+              >
+                <span>{t('bulk.ignore', { defaultValue: '批量屏蔽' })}</span>
+              </button>
+            )}
+            <button
+              className="btn btn-danger-solid"
+              onClick={onConfirm}
+              disabled={loading}
+            >
+              {t('bulk.deleteConfirm', { count: skillNames.length })}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -44,6 +44,8 @@ export interface UseBulkOperationsReturn {
   setShowBulkSyncModal: React.Dispatch<React.SetStateAction<boolean>>
   showBulkDeleteModal: boolean
   setShowBulkDeleteModal: React.Dispatch<React.SetStateAction<boolean>>
+  showBulkIgnoreModal: boolean
+  setShowBulkIgnoreModal: React.Dispatch<React.SetStateAction<boolean>>
   showBulkTagsModal: boolean
   setShowBulkTagsModal: React.Dispatch<React.SetStateAction<boolean>>
   bulkSyncToolIds: string[]
@@ -58,6 +60,9 @@ export interface UseBulkOperationsReturn {
   handleOpenBulkDelete: () => void
   handleCloseBulkDelete: () => void
   handleConfirmBulkDelete: () => Promise<void>
+  handleOpenBulkIgnore: () => void
+  handleCloseBulkIgnore: () => void
+  handleConfirmBulkIgnore: () => Promise<void>
   handleOpenBulkTags: () => void
   handleCloseBulkTags: () => void
   handleConfirmBulkTags: (addTagIds: number[], removeTagIds: number[]) => Promise<void>
@@ -93,6 +98,7 @@ export function useBulkOperations({
   const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([])
   const [showBulkSyncModal, setShowBulkSyncModal] = useState(false)
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [showBulkIgnoreModal, setShowBulkIgnoreModal] = useState(false)
   const [showBulkTagsModal, setShowBulkTagsModal] = useState(false)
   const [bulkSyncToolIds, setBulkSyncToolIds] = useState<string[]>([])
 
@@ -139,6 +145,7 @@ export function useBulkOperations({
     setBulkSelectedIds([])
     setShowBulkSyncModal(false)
     setShowBulkDeleteModal(false)
+    setShowBulkIgnoreModal(false)
     setShowBulkTagsModal(false)
     setBulkSyncToolIds([])
   }, [])
@@ -150,6 +157,7 @@ export function useBulkOperations({
         setBulkSelectedIds([])
         setShowBulkSyncModal(false)
         setShowBulkDeleteModal(false)
+        setShowBulkIgnoreModal(false)
         setShowBulkTagsModal(false)
       }
       return next
@@ -228,6 +236,15 @@ export function useBulkOperations({
 
   const handleCloseBulkDelete = useCallback(() => {
     if (!loading) setShowBulkDeleteModal(false)
+  }, [loading])
+
+  const handleOpenBulkIgnore = useCallback(() => {
+    if (bulkSelectedIds.length === 0) return
+    setShowBulkIgnoreModal(true)
+  }, [bulkSelectedIds.length])
+
+  const handleCloseBulkIgnore = useCallback(() => {
+    if (!loading) setShowBulkIgnoreModal(false)
   }, [loading])
 
   const handleOpenBulkTags = useCallback(() => {
@@ -664,6 +681,69 @@ export function useBulkOperations({
     t,
   ])
 
+  const handleConfirmBulkIgnore = useCallback(async () => {
+    if (bulkSelectedSkills.length === 0) return
+
+    const errors: { title: string; message: string }[] = []
+    setLoading(true)
+    setLoadingStartAt(Date.now())
+    setError(null)
+    try {
+      for (let index = 0; index < bulkSelectedSkills.length; index++) {
+        const skill = bulkSelectedSkills[index]
+        setActionMessage(
+          t('bulk.ignoreProgress', {
+            current: index + 1,
+            total: bulkSelectedSkills.length,
+            name: skill.name,
+            defaultValue: `正在屏蔽 (${index + 1}/${bulkSelectedSkills.length})：${skill.name}...`,
+          }),
+        )
+        try {
+          await invokeTauri('ignore_managed_skill', { skillId: skill.id })
+        } catch (err) {
+          errors.push({
+            title: skill.name,
+            message: err instanceof Error ? err.message : String(err),
+          })
+        }
+      }
+      await loadManagedSkills()
+      await loadTags()
+      setShowBulkDeleteModal(false)
+      setShowBulkIgnoreModal(false)
+      if (errors.length > 0) {
+        showActionErrors(errors)
+      } else {
+        setBulkSelectedIds([])
+        setBulkMode(false)
+        setSuccessToastMessage(
+          t('bulk.ignoreSuccess', {
+            count: bulkSelectedSkills.length,
+            defaultValue: `成功屏蔽 ${bulkSelectedSkills.length} 个技能（已保留本地副本并加入屏蔽列表）`,
+          }),
+        )
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
+      setLoadingStartAt(null)
+      setActionMessage(null)
+    }
+  }, [
+    bulkSelectedSkills,
+    loadManagedSkills,
+    loadTags,
+    setActionMessage,
+    setError,
+    setLoading,
+    setLoadingStartAt,
+    setSuccessToastMessage,
+    showActionErrors,
+    t,
+  ])
+
   return {
     bulkMode,
     setBulkMode,
@@ -679,6 +759,8 @@ export function useBulkOperations({
     setShowBulkSyncModal,
     showBulkDeleteModal,
     setShowBulkDeleteModal,
+    showBulkIgnoreModal,
+    setShowBulkIgnoreModal,
     showBulkTagsModal,
     setShowBulkTagsModal,
     bulkSyncToolIds,
@@ -693,6 +775,9 @@ export function useBulkOperations({
     handleOpenBulkDelete,
     handleCloseBulkDelete,
     handleConfirmBulkDelete,
+    handleOpenBulkIgnore,
+    handleCloseBulkIgnore,
+    handleConfirmBulkIgnore,
     handleOpenBulkTags,
     handleCloseBulkTags,
     handleConfirmBulkTags,
