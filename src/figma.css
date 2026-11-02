@@ -859,11 +859,11 @@
 .list-view .skill-card {
   min-height: 54px;
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(120px, auto) minmax(240px, 2.4fr) 42px 116px;
+  grid-template-columns: minmax(220px, 1.8fr) minmax(130px, auto) minmax(190px, auto) 42px 116px;
   grid-template-areas: 'identity meta tools toggle actions';
   align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
+  gap: 16px;
+  padding: 8px 16px;
   border-radius: 10px;
   position: relative;
 }
@@ -873,11 +873,11 @@
 .list-view .skill-identity {
   grid-area: identity;
   min-width: 0;
-  max-width: 240px;
+  max-width: none;
   overflow: hidden;
 }
 .list-view .skill-description {
-  max-width: 210px;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
