@@ -22,7 +22,8 @@ import { useAppSettings } from './hooks/useAppSettings'
 import ExplorePage from './components/skills/ExplorePage'
 import FilterBar from './components/skills/FilterBar'
 import SkillDetailView from './components/skills/SkillDetailView'
-import Header from './components/skills/Header'
+import TitleBar from './components/skills/TitleBar'
+import Sidebar from './components/skills/Sidebar'
 import LoadingOverlay from './components/skills/LoadingOverlay'
 import SkillsList from './components/skills/SkillsList'
 import TagsPage from './components/skills/TagsPage'
@@ -969,25 +970,27 @@ function App() {
         onCancel={handleCancelLoading}
         t={t}
       />
-
-      <Header
-        activeView={activeView}
-        managementTab={managementTab}
-        skillCount={managedSkills.length}
-        tagCount={tags.length}
-        toolCount={toolStatus?.tools.length ?? 0}
-        updateCount={pendingUpdateCount}
-        appVersion={appVersion}
-        collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
-        onOpenSettings={handleOpenSettings}
-        onViewChange={handleViewChange}
-        onManagementTabChange={handleManagementTabChange}
-        t={t}
-      />
       <WindowResizeHandles enabled={isTauri} />
 
-      <main className="skills-main">
+      <TitleBar appVersion={appVersion} t={t} />
+
+      <div className="skills-body">
+        <Sidebar
+          activeView={activeView}
+          managementTab={managementTab}
+          skillCount={managedSkills.length}
+          tagCount={tags.length}
+          toolCount={toolStatus?.tools.length ?? 0}
+          updateCount={pendingUpdateCount}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          onOpenSettings={handleOpenSettings}
+          onViewChange={handleViewChange}
+          onManagementTabChange={handleManagementTabChange}
+          t={t}
+        />
+
+        <main className="skills-main">
         {activeView === 'detail' && detailSkill ? (
           <SkillDetailView
             skill={detailSkill}
@@ -1315,6 +1318,7 @@ function App() {
           />
         )}
       </main>
+      </div>
 
       <AddSkillModal
         open={showAddModal}
