@@ -52,6 +52,27 @@ pub struct SkillTargetComparisonDto {
     pub diff_description: String,
 }
 
+/// Resolve the authoritative source directory for a Skill.
+///
+/// A `local` Skill whose `source_ref` points at an existing directory is
+/// authoritative in that folder — the software that created it keeps the
+/// original, and the central copy is only a mirror. Everything else falls
+/// back to the managed central copy.
+pub fn resolve_skill_source(skill: &SkillRecord) -> std::path::PathBuf {
+    if skill.source_type == "local" {
+        if let Some(raw) = skill.source_ref.as_deref() {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                let candidate = std::path::PathBuf::from(trimmed);
+                if candidate.is_dir() {
+                    return candidate;
+                }
+            }
+        }
+    }
+    std::path::PathBuf::from(&skill.central_path)
+}
+
 pub fn sync_mode_name(mode: SyncMode) -> &'static str {
     match mode {
         SyncMode::Auto => "auto",
@@ -133,7 +154,7 @@ pub fn auto_reconcile_skill_targets(
                 continue;
             }
         }
-        let central_path = std::path::PathBuf::from(&skill.central_path);
+        let central_path = resolve_skill_source(skill);
         if !central_path.is_dir() {
             continue;
         }
@@ -230,13 +251,19 @@ pub fn sync_skill_to_tool_impl(
         anyhow::bail!("UNSAFE_PATH|Requested Skill name does not match managed record");
     }
     ensure_central_repo(central_root)?;
-    let managed_source = std::path::PathBuf::from(&skill.central_path);
-    validate_direct_skill_path(central_root, &managed_source)?;
-    let expected_source = direct_skill_child(central_root, &skill.name)?;
-    if !paths_have_same_identity(&managed_source, &expected_source)?
-        || !paths_have_same_identity(std::path::Path::new(source_path), &managed_source)?
+    let central_source = std::path::PathBuf::from(&skill.central_path);
+    let managed_source = resolve_skill_source(&skill);
+    if paths_have_same_identity(&managed_source, &central_source)? {
+        validate_direct_skill_path(central_root, &managed_source)?;
+        let expected_source = direct_skill_child(central_root, &skill.name)?;
+        if !paths_have_same_identity(&managed_source, &expected_source)? {
+            anyhow::bail!("UNSAFE_PATH|Managed central Skill path does not match its record");
+        }
+    }
+    if !paths_have_same_identity(std::path::Path::new(source_path), &managed_source)?
+        && !paths_have_same_identity(std::path::Path::new(source_path), &central_source)?
     {
-        anyhow::bail!("UNSAFE_PATH|sourcePath must exactly match the managed central Skill path");
+        anyhow::bail!("UNSAFE_PATH|sourcePath must match the Skill source or its central copy");
     }
 
     let runtime_tool = runtime_tool_by_key(store, tool)?;
@@ -654,16 +681,19 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
 ) -> anyhow::Result<(Vec<SkillTargetRecord>, Vec<EnableTargetPlan>)> {
     validate_skill_name(&skill.name)?;
     let central_root = resolve_central_repo_path(app, store)?;
-    let managed_source = std::path::PathBuf::from(&skill.central_path);
-    validate_direct_skill_path(&central_root, &managed_source)?;
-    let expected_source = direct_skill_child(&central_root, &skill.name)?;
-    let metadata = std::fs::symlink_metadata(&managed_source)
-        .with_context(|| format!("stat managed central Skill {:?}", managed_source))?;
-    if metadata.file_type().is_symlink() || !metadata.is_dir() {
-        anyhow::bail!("UNSAFE_PATH|Managed central Skill must be a real directory");
+    let central_source = std::path::PathBuf::from(&skill.central_path);
+    let managed_source = resolve_skill_source(skill);
+    if paths_have_same_identity(&managed_source, &central_source)? {
+        validate_direct_skill_path(&central_root, &managed_source)?;
+        let expected_source = direct_skill_child(&central_root, &skill.name)?;
+        if !paths_have_same_identity(&managed_source, &expected_source)? {
+            anyhow::bail!("UNSAFE_PATH|Managed central Skill path does not match its record");
+        }
     }
-    if !paths_have_same_identity(&managed_source, &expected_source)? {
-        anyhow::bail!("UNSAFE_PATH|Managed central Skill path does not match its record");
+    let metadata = std::fs::symlink_metadata(&managed_source)
+        .with_context(|| format!("stat Skill source {:?}", managed_source))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        anyhow::bail!("UNSAFE_PATH|Skill source must be a real directory");
     }
 
     let original_targets = store.list_skill_targets(&skill.id)?;
@@ -953,7 +983,7 @@ where
     }
 
     let (original_targets, plans) = preflight_enable_targets(app, store, &skill)?;
-    let managed_source = std::path::PathBuf::from(&skill.central_path);
+    let managed_source = resolve_skill_source(&skill);
     let mut restored_journal = Vec::new();
     let mut mode_by_path = std::collections::BTreeMap::new();
 
@@ -1259,7 +1289,7 @@ pub async fn get_skill_target_comparisons(
         let skill = store
             .get_skill_by_id(&skillId)?
             .ok_or_else(|| anyhow::anyhow!("skill not found"))?;
-        let central_path = std::path::PathBuf::from(&skill.central_path);
+        let central_path = resolve_skill_source(&skill);
         let (central_mtime, central_files) = scan_dir_latest_mtime(&central_path);
 
         let targets = store.list_skill_targets(&skillId)?;
