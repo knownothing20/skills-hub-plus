@@ -339,6 +339,12 @@ export default {
   maintenance: '维护',
   skillsStoragePath: 'Skills 存储路径',
   skillsStorageHint: '母库固定在本应用目录旁，可随应用整体迁移；各工具目录只作为同步目标。',
+  centralBadgeLocal: '本地母版',
+  centralBadgeLocalHint: '本地母版（点击在文件资源管理器中打开）\n路径: {{path}}',
+  centralBadgeMirror: '母库（镜像）',
+  centralBadgeMirrorHint:
+    '该技能的母库是镜像副本（点击在文件资源管理器中打开）\n原件: {{origin}}\n母库: {{path}}',
+  openMasterFolderFailed: '无法打开母版目录',
   backupSectionTitle: '数据备份与恢复',
   backupSectionDesc: '自动镜像备份全部技能文件、关系标签及数据库配置，支持随时一键快速恢复。',
   backupAutoEnable: '启用自动备份',

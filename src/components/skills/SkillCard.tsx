@@ -76,6 +76,17 @@ const SkillCard = ({
   const projectCount = getSkillProjects(skill).length
   const enabled = skill.enabled !== false
   const updateable = isSkillUpdateable(skill)
+  const hasOwner =
+    skill.source_type === 'local' && Boolean(skill.source_ref?.trim())
+  const centralBadgeLabel = hasOwner
+    ? t('centralBadgeMirror')
+    : t('centralBadgeLocal')
+  const centralBadgeTitle = hasOwner
+    ? t('centralBadgeMirrorHint', {
+        origin: skill.source_ref?.trim() ?? '',
+        path: skill.central_path ?? '',
+      })
+    : t('centralBadgeLocalHint', { path: skill.central_path ?? '' })
   const handleCopySource = async () => {
     if (!copyValue) return
     try {
@@ -177,18 +188,18 @@ const SkillCard = ({
         <button
           className="skill-central-badge"
           type="button"
-          aria-label="本地母版"
-          title={`本地母版（点击在文件资源管理器中打开）\n路径: ${skill.central_path || 'D:\\GitHub\\skill-hub\\skills'}`}
+          aria-label={centralBadgeLabel}
+          title={centralBadgeTitle}
           onClick={(e) => {
             e.stopPropagation()
             if (skill.central_path) {
               openPath(skill.central_path).catch(() => {
-                toast.error('无法打开母版目录')
+                toast.error(t('openMasterFolderFailed'))
               })
             }
           }}
         >
-          <img src={logoMark} alt="本地母版" className="central-badge-logo" />
+          <img src={logoMark} alt={centralBadgeLabel} className="central-badge-logo" />
         </button>
 
         <div className="skill-updated">{formatRelative(skill.updated_at)}</div>

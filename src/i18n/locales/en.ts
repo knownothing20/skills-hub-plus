@@ -343,6 +343,12 @@ export default {
   skillsStoragePath: 'Skills Storage Path',
   skillsStorageHint:
     'The master library lives next to the app and travels with it; tool folders are sync targets only.',
+  centralBadgeLocal: 'Local master',
+  centralBadgeLocalHint: 'Local master (click to open in file manager)\nPath: {{path}}',
+  centralBadgeMirror: 'Master (mirror)',
+  centralBadgeMirrorHint:
+    'This Skill keeps its original in a tool folder; the central copy is a mirror (click to open in file manager)\nOrigin: {{origin}}\nMirror: {{path}}',
+  openMasterFolderFailed: 'Cannot open the master folder',
   backupSectionTitle: 'Data Backup & Restore',
   backupSectionDesc: 'Automatically mirror all skill files, relationship tags, and database configs, with 1-click restoration.',
   backupAutoEnable: 'Enable Automatic Backup',

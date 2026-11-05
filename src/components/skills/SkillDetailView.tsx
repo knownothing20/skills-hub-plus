@@ -570,6 +570,17 @@ const SkillDetailView = ({
   }, [])
 
   const isGitSource = skill.source_type.toLowerCase().includes('git')
+  const hasOwner =
+    skill.source_type === 'local' && Boolean(skill.source_ref?.trim())
+  const centralBadgeLabel = hasOwner
+    ? t('centralBadgeMirror')
+    : t('centralBadgeLocal')
+  const centralBadgeTitle = hasOwner
+    ? t('centralBadgeMirrorHint', {
+        origin: skill.source_ref?.trim() ?? '',
+        path: skill.central_path ?? '',
+      })
+    : t('centralBadgeLocalHint', { path: skill.central_path ?? '' })
   const sourceValue = skill.source_ref?.trim() || skill.central_path
   const sourceLabel = isGitSource
     ? sourceValue.replace(/^https?:\/\/(www\.)?github\.com\//, '')
@@ -691,17 +702,17 @@ const SkillDetailView = ({
             <button
               className="detail-central-badge"
               type="button"
-              title={`中心母版: ${skill.central_path || 'D:\\GitHub\\skill-hub\\skills'}\n点击在文件资源管理器中打开`}
+              title={centralBadgeTitle}
               onClick={() => {
                 if (skill.central_path) {
                   openPath(skill.central_path).catch(() => {
-                    toast.error('无法打开母版目录')
+                    toast.error(t('openMasterFolderFailed'))
                   })
                 }
               }}
             >
               <img src={logoMark} alt="" className="central-badge-logo" />
-              <span>本地母版</span>
+              <span>{centralBadgeLabel}</span>
               <ExternalLink size={10} className="open-icon" />
             </button>
 
