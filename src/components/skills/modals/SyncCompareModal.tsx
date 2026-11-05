@@ -65,7 +65,7 @@ export const SyncCompareModal = memo(({
   }, [open, loadData])
 
   const handlePromoteToCentral = async (tool: string, toolLabel: string) => {
-    if (!window.confirm(`确定要将【${toolLabel}】中的修改反向更新为【全局母版】吗？\n\n这将会用该软件的最新代码更新 ~/.agents/skills 官方母版。`)) {
+    if (!window.confirm(`确定要将【${toolLabel}】中的修改反向更新为【全局母版】吗？\n\n这将会用该软件的最新代码更新中央母版。`)) {
       return
     }
     setOperatingTool(tool)

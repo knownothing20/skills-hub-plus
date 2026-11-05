@@ -338,7 +338,7 @@ export default {
   confirmRemove: '确认移除',
   maintenance: '维护',
   skillsStoragePath: 'Skills 存储路径',
-  skillsStorageHint: '安全策略固定：~/.agents/skills 是唯一可写事实源。',
+  skillsStorageHint: '母库固定在本应用目录旁，可随应用整体迁移；各工具目录只作为同步目标。',
   backupSectionTitle: '数据备份与恢复',
   backupSectionDesc: '自动镜像备份全部技能文件、关系标签及数据库配置，支持随时一键快速恢复。',
   backupAutoEnable: '启用自动备份',

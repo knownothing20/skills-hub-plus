@@ -342,7 +342,7 @@ export default {
   maintenance: 'Maintenance',
   skillsStoragePath: 'Skills Storage Path',
   skillsStorageHint:
-    'Fixed safety policy: ~/.agents/skills is the only writable source of truth.',
+    'The master library lives next to the app and travels with it; tool folders are sync targets only.',
   backupSectionTitle: 'Data Backup & Restore',
   backupSectionDesc: 'Automatically mirror all skill files, relationship tags, and database configs, with 1-click restoration.',
   backupAutoEnable: 'Enable Automatic Backup',
