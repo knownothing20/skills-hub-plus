@@ -281,6 +281,54 @@ pub fn is_tool_ignored(store: &SkillStore, tool_key: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Tools that can only receive physical copies because their own skill index
+/// skips reparse points, so a junctioned Skill never shows up in their UI.
+/// This is only the *default*: the user can flip any tool back to links in the
+/// tools page, and that choice is persisted in `COPY_ONLY_TOOLS_SETTING`.
+pub const DEFAULT_COPY_ONLY_TOOLS: &[&str] = &["antigravity"];
+
+/// Explicit per-tool "physical copy only" list. Stored as a JSON string array.
+/// Absent means "use DEFAULT_COPY_ONLY_TOOLS"; an explicit `[]` means the user
+/// turned the restriction off for every tool.
+pub const COPY_ONLY_TOOLS_SETTING: &str = "copy_only_tools_v1";
+
+pub fn load_copy_only_tools(store: &SkillStore) -> Result<Vec<String>> {
+    let raw = store.get_setting(COPY_ONLY_TOOLS_SETTING)?;
+    match raw {
+        Some(value) => Ok(serde_json::from_str::<Vec<String>>(&value).unwrap_or_default()),
+        None => Ok(DEFAULT_COPY_ONLY_TOOLS
+            .iter()
+            .map(|key| (*key).to_string())
+            .collect()),
+    }
+}
+
+pub fn save_copy_only_tools(store: &SkillStore, tools: Vec<String>) -> Result<Vec<String>> {
+    let mut seen = HashSet::new();
+    let mut normalized = Vec::new();
+    for tool in tools {
+        let trimmed = tool.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let lower = trimmed.to_lowercase();
+        if seen.insert(lower.clone()) {
+            normalized.push(lower);
+        }
+    }
+    store.set_setting(
+        COPY_ONLY_TOOLS_SETTING,
+        &serde_json::to_string(&normalized)?,
+    )?;
+    Ok(normalized)
+}
+
+pub fn is_copy_only_tool(store: &SkillStore, tool_key: &str) -> bool {
+    load_copy_only_tools(store)
+        .map(|tools| tools.iter().any(|tool| tool.eq_ignore_ascii_case(tool_key)))
+        .unwrap_or_else(|_| crate::core::tool_adapters::default_requires_physical_copy(tool_key))
+}
+
 /// Per-Skill exceptions to a blocked tool. Entries use the form
 /// `"tool_key/skill_name"`, so blocking a software still lets a single Skill
 /// inside it stay managed. Empty by default.

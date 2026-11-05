@@ -375,6 +375,11 @@ export default {
     linkAndCopy: '软链接 · 复制',
     copyOnly: '仅复制',
     linkUnsupportedHint: '该软件的技能索引不跟随目录联接，同步只能用物理副本。',
+    toggleToCopyOnlyHint: '点击切换为「仅复制」：该工具自带技能索引，可能不显示目录联接。',
+    toggleToLinkHint:
+      '点击改为「软链接 · 复制」。注意：若该软件的技能索引不跟随目录联接，技能可能不会出现在它的界面里。',
+    copyOnlySaved: '已设为仅复制，该工具后续同步使用物理副本。',
+    linkEnabledSaved: '已允许软链接，该工具后续同步可创建链接。',
     pageHint: '独立管理内置工具和自定义工具目标，不再挤在应用偏好设置里。',
     builtinSection: '已配置工具',
     builtinHint: '启用的工具会出现在安装、导入、同步和 Skill 详情流程中。',

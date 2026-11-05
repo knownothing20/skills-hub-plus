@@ -1330,19 +1330,13 @@ pub fn is_builtin_tool_enabled(config: &ToolConfig, key: &str) -> bool {
         .any(|disabled| disabled == key)
 }
 
-/// Tools whose own skill scanner ignores directory junctions, so their managed
-/// targets must be physical copies. Antigravity builds a separate skill index
-/// that skips reparse points entirely: a junctioned Skill never shows up in its
-/// UI even though the files are perfectly readable on disk.
-pub fn requires_physical_copy(tool_key: &str) -> bool {
-    matches!(tool_key, "antigravity")
-}
-
-/// 该工具是否支持以目录联接（软链接）的方式同步技能。
-/// 大多数工具直接遍历目录，联接对它们透明；少数工具自带技能索引，
-/// 扫描时跳过重解析点，只能接收物理副本。
-pub fn supports_junction(tool_key: &str) -> bool {
-    !requires_physical_copy(tool_key)
+/// 默认只能用物理副本的内置工具：这些软件自带技能索引，扫描时跳过重解析点，
+/// 目录联接在它的界面里不可见。这里只是「默认值」，用户可在工具管理里按工具
+/// 关闭该限制，实际生效的设置见 `onboarding::load_copy_only_tools`。
+pub fn default_requires_physical_copy(tool_key: &str) -> bool {
+    crate::core::onboarding::DEFAULT_COPY_ONLY_TOOLS
+        .iter()
+        .any(|key| key.eq_ignore_ascii_case(tool_key))
 }
 
 pub fn is_valid_custom_tool_key(key: &str) -> bool {

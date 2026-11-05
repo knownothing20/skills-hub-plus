@@ -844,6 +844,18 @@ function App() {
 
 
 
+  // 工具属性（如「仅复制」）改动后，重新拉取一次状态，让列表、右键菜单和
+  // 导入流程立刻看到新能力，而不用等下次启动。
+  const reloadToolStatus = useCallback(async () => {
+    if (!isTauri) return
+    try {
+      const status = await invokeTauri<ToolStatusDto>('get_tool_status')
+      setToolStatus(status)
+    } catch (err) {
+      console.warn(err)
+    }
+  }, [])
+
   useEffect(() => {
     const load = async () => {
       if (!isTauri) return
@@ -1269,6 +1281,7 @@ function App() {
                   toolStatus={toolStatus}
                   toolConfig={toolConfig}
                   onToolConfigChange={handleToolConfigChange}
+                  onToolStatusRefresh={reloadToolStatus}
                   t={t}
                 />
               ) : (

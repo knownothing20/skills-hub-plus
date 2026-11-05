@@ -366,8 +366,8 @@ pub fn sync_skill_to_tool_impl(
         _ => None,
     };
     // 有些工具的技能扫描器不跟随目录联接（如 Antigravity），只能给物理副本，
-    // 否则同步过去它在自己的列表里也看不到。
-    if crate::core::tool_adapters::requires_physical_copy(&runtime_tool.key) {
+    // 否则同步过去它在自己的列表里也看不到。该限制可在工具管理里按工具关闭。
+    if crate::core::onboarding::is_copy_only_tool(store, &runtime_tool.key) {
         requested_mode = Some(crate::core::sync_engine::SyncMode::Copy);
     }
 
@@ -730,6 +730,14 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
     let mut plans_by_path =
         std::collections::BTreeMap::<std::path::PathBuf, EnableTargetPlan>::new();
 
+    // 不跟随目录联接的工具（如 Antigravity）始终用物理副本；限制可按工具配置
+    let copy_only_tools = crate::core::onboarding::load_copy_only_tools(store)?;
+    let is_copy_only = |tool_key: &str| {
+        copy_only_tools
+            .iter()
+            .any(|key| key.eq_ignore_ascii_case(tool_key))
+    };
+
     // Validate every saved row before creating even the first target.
     for target in &original_targets {
         if crate::core::onboarding::is_tool_ignored(store, &target.tool)
@@ -757,7 +765,7 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
             anyhow::bail!("TARGET_EXISTS|{}", path.to_string_lossy());
         }
         // 不跟随目录联接的工具（如 Antigravity）始终用物理副本
-        let mode = if crate::core::tool_adapters::requires_physical_copy(&target.tool) {
+        let mode = if is_copy_only(&target.tool) {
             crate::core::sync_engine::SyncMode::Copy
         } else {
             saved_sync_mode(&target.mode)?

@@ -78,6 +78,40 @@ pub async fn set_ignored_tools(
 }
 
 #[tauri::command]
+pub async fn get_copy_only_tools(store: State<'_, SkillStore>) -> Result<Vec<String>, String> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::core::onboarding::load_copy_only_tools(&store)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map_err(format_anyhow_error)
+}
+
+#[tauri::command]
+#[allow(non_snake_case)]
+pub async fn set_tool_copy_only(
+    store: State<'_, SkillStore>,
+    toolKey: String,
+    copyOnly: bool,
+) -> Result<Vec<String>, String> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut tools = crate::core::onboarding::load_copy_only_tools(&store)?;
+        let exists = tools.iter().any(|key| key.eq_ignore_ascii_case(&toolKey));
+        if copyOnly && !exists {
+            tools.push(toolKey);
+        } else if !copyOnly {
+            tools.retain(|key| !key.eq_ignore_ascii_case(&toolKey));
+        }
+        crate::core::onboarding::save_copy_only_tools(&store, tools)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map_err(format_anyhow_error)
+}
+
+#[tauri::command]
 pub async fn get_tool_skill_whitelist(store: State<'_, SkillStore>) -> Result<Vec<String>, String> {
     let store = store.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {

@@ -3822,6 +3822,39 @@
   background: color-mix(in srgb, var(--status-warning, #854f0b) 12%, transparent);
 }
 
+.tool-management-mode.is-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: inherit;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.tool-management-mode.is-toggle:hover {
+  background: var(--accent-soft-bg);
+  color: var(--accent-primary);
+}
+
+.tool-management-mode.is-toggle.copy-only:hover {
+  background: color-mix(in srgb, var(--status-warning, #854f0b) 20%, transparent);
+}
+
+.tool-management-mode.is-toggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.tool-management-mode.is-toggle:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
 .tool-management-path {
   color: var(--text-tertiary);
   font-size: 12px;

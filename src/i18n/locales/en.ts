@@ -379,6 +379,12 @@ export default {
     copyOnly: 'Copy only',
     linkUnsupportedHint:
       'This tool indexes skills itself and skips directory links, so only physical copies work.',
+    toggleToCopyOnlyHint:
+      'Switch to “Copy only”: this tool indexes skills itself and may not show directory links.',
+    toggleToLinkHint:
+      'Switch to “Link · Copy”. Note: if this tool’s skill index skips directory links, the skill may not appear in its UI.',
+    copyOnlySaved: 'Set to copy only. Future syncs for this tool use physical copies.',
+    linkEnabledSaved: 'Links are now allowed. Future syncs for this tool can create links.',
     hint:
       'Choose which tools can receive skills. Custom tools can point to any skills directory.',
     pageHint:
