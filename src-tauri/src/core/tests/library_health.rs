@@ -68,7 +68,7 @@ fn classify_target_accepts_real_directory() {
         "ok",
     );
 
-    assert_eq!(classify_target(&central, &record), None);
+    assert_eq!(classify_target(&central, None, &record), None);
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn classify_target_reports_missing_path() {
     );
 
     assert_eq!(
-        classify_target(&central, &record),
+        classify_target(&central, None, &record),
         Some(BrokenTarget {
             tool: "cursor".to_string(),
             path: dir
@@ -113,7 +113,7 @@ fn classify_target_ignores_disabled_targets_at_caller_level() {
         "disabled",
     );
     assert_eq!(
-        classify_target(&central, &record).unwrap().reason,
+        classify_target(&central, None, &record).unwrap().reason,
         "missing"
     );
 }
@@ -121,8 +121,6 @@ fn classify_target_ignores_disabled_targets_at_caller_level() {
 #[cfg(windows)]
 #[test]
 fn classify_target_accepts_link_pointing_at_owner_folder() {
-    use crate::core::library_health::classify_target_with_owner;
-
     let dir = tempfile::tempdir().expect("tempdir");
     let central = dir.path().join("central");
     let owner = dir.path().join("owner").join("skill-a");
@@ -144,21 +142,18 @@ fn classify_target_accepts_link_pointing_at_owner_folder() {
 
     // Without an owning folder the link resolves outside the central repo.
     assert_eq!(
-        classify_target(&central, &record).unwrap().reason,
+        classify_target(&central, None, &record).unwrap().reason,
         "broken_link"
     );
 
     // With the owning folder declared, the same link is healthy.
-    assert_eq!(
-        classify_target_with_owner(&central, Some(&owner), &record),
-        None
-    );
+    assert_eq!(classify_target(&central, Some(&owner), &record), None);
 
     // An unrelated owner must not launder the link into a healthy one.
     let other = dir.path().join("owner").join("other");
     std::fs::create_dir_all(&other).unwrap();
     assert_eq!(
-        classify_target_with_owner(&central, Some(&other), &record)
+        classify_target(&central, Some(&other), &record)
             .unwrap()
             .reason,
         "broken_link"

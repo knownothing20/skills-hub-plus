@@ -79,7 +79,7 @@ pub fn build_library_health_report(
         let mut synced_tool_count: u64 = 0;
         let mut broken = Vec::new();
         for target in targets.iter().filter(|target| target.status != "disabled") {
-            match classify_target_with_owner(central_root, owner_root, target) {
+            match classify_target(central_root, owner_root, target) {
                 Some(broken_target) => broken.push(broken_target),
                 None => synced_tool_count += 1,
             }
@@ -119,15 +119,11 @@ pub fn build_library_health_report(
 
 /// Classify one sync target. `None` means the target is valid; `Some` carries
 /// the reason it is broken ("missing" or "broken_link").
-pub fn classify_target(central_root: &Path, target: &SkillTargetRecord) -> Option<BrokenTarget> {
-    classify_target_with_owner(central_root, None, target)
-}
-
-/// Same as [`classify_target`], but additional roots are accepted as valid link
-/// destinations. Used for Skills that record an owning software folder
-/// (`source_ref`): their links legitimately point at that folder instead of the
-/// central repository, which is a mirror in that case.
-pub fn classify_target_with_owner(
+///
+/// `owner_root` is the Skill's owning software folder when one is recorded;
+/// links pointing there are healthy too, because the central copy is a mirror
+/// in that case. Pass `None` for Skills without an owner.
+pub fn classify_target(
     central_root: &Path,
     owner_root: Option<&Path>,
     target: &SkillTargetRecord,
