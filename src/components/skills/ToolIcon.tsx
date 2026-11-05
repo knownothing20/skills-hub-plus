@@ -99,6 +99,7 @@ const logoByToolKey: Record<string, string> = {
   pochi: pochiLogo,
   qoder: qoderLogo,
   qoderwork: qoderLogo,
+  qoder_cn: qoderLogo,
   qwen_code: qwenLogo,
   roo_code: rooCodeLogo,
   trae: traeLogo,

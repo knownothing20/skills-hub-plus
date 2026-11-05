@@ -735,7 +735,7 @@ fn adapter_by_key_finds_known_tool() {
 
 #[test]
 fn builtin_tool_count_matches_documentation() {
-    assert_eq!(default_tool_adapters().len(), 52);
+    assert_eq!(default_tool_adapters().len(), 54);
 }
 
 #[test]

@@ -70,6 +70,8 @@ pub enum ToolId {
     ZCode,
     AutoClaw,
     DoubaoWork,
+    Doubao,
+    QoderCn,
 }
 
 impl ToolId {
@@ -127,6 +129,8 @@ impl ToolId {
             ToolId::ZCode => "zcode",
             ToolId::AutoClaw => "autoclaw",
             ToolId::DoubaoWork => "doubao_work",
+            ToolId::Doubao => "doubao",
+            ToolId::QoderCn => "qoder_cn",
         }
     }
 }
@@ -1776,6 +1780,21 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             relative_skills_dir: "DoubaoWork/skills",
             relative_detect_dir: "DoubaoWork",
         },
+        ToolAdapter {
+            id: ToolId::Doubao,
+            display_name: "Doubao",
+            // Doubao desktop keeps Agent Skills under its Chromium profile:
+            // %LOCALAPPDATA%\Doubao\User Data\Default\.doubao\agent_mode\workspace\.user_skills
+            relative_skills_dir: ".doubao/skills",
+            relative_detect_dir: ".doubao",
+        },
+        ToolAdapter {
+            id: ToolId::QoderCn,
+            display_name: "Qoder CN",
+            // add-skill global path: ~/.qoder-cn/skills/
+            relative_skills_dir: ".qoder-cn/skills",
+            relative_detect_dir: ".qoder-cn",
+        },
     ]
 }
 
@@ -1831,6 +1850,27 @@ pub fn resolve_default_path_in_home(adapter: &ToolAdapter, home: &Path) -> Resul
         let alt_detect = home.join(".doubao");
         if alt_detect.exists() {
             return Ok(alt_detect.join("skills"));
+        }
+    }
+    if adapter.id == ToolId::Doubao {
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(local_app_data) = dirs::data_local_dir() {
+                let app_data = local_app_data.join("Doubao");
+                if app_data.exists() {
+                    return Ok(app_data
+                        .join("User Data")
+                        .join("Default")
+                        .join(".doubao")
+                        .join("agent_mode")
+                        .join("workspace")
+                        .join(".user_skills"));
+                }
+            }
+        }
+        let primary_detect = home.join(adapter.relative_detect_dir);
+        if primary_detect.exists() {
+            return Ok(home.join(adapter.relative_skills_dir));
         }
     }
     Ok(home.join(adapter.relative_skills_dir))
@@ -1894,6 +1934,8 @@ pub fn project_relative_skills_dir(adapter: &ToolAdapter) -> &'static str {
         ToolId::ZCode => ".zcode/skills",
         ToolId::AutoClaw => "skills",
         ToolId::DoubaoWork => ".doubao/skills",
+        ToolId::Doubao => ".doubao/skills",
+        ToolId::QoderCn => ".qoder-cn/skills",
         ToolId::Copaw
         | ToolId::OpenClaude
         | ToolId::QoderWork
@@ -1926,6 +1968,21 @@ pub fn resolve_detect_path_in_home(adapter: &ToolAdapter, home: &Path) -> Result
         let alt = home.join(".doubao");
         if alt.exists() {
             return Ok(alt);
+        }
+    }
+    if adapter.id == ToolId::Doubao {
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(local_app_data) = dirs::data_local_dir() {
+                let app_data = local_app_data.join("Doubao");
+                if app_data.exists() {
+                    return Ok(app_data);
+                }
+            }
+        }
+        let primary = home.join(adapter.relative_detect_dir);
+        if primary.exists() {
+            return Ok(primary);
         }
     }
     Ok(home.join(adapter.relative_detect_dir))

@@ -816,5 +816,7 @@ export default {
     zcode: 'ZCode',
     autoclaw: 'AutoClaw',
     doubao_work: '豆包工作',
+    doubao: '豆包',
+    qoder_cn: 'Qoder CN',
   },
 } as const

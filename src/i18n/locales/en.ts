@@ -838,5 +838,7 @@ export default {
     zcode: 'ZCode',
     autoclaw: 'AutoClaw',
     doubao_work: 'Doubao Work',
+    doubao: 'Doubao',
+    qoder_cn: 'Qoder CN',
   },
 } as const
