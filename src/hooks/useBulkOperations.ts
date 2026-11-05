@@ -500,7 +500,9 @@ export function useBulkOperations({
           if (seenRemoveKeys.has(key)) continue
           seenRemoveKeys.add(key)
           completed += 1
-          const toolLabel = toolLabelById[target.tool] ?? target.tool
+          const toolLabel =
+            toolLabelById[target.tool] ??
+            t(`tools.${target.tool}`, { defaultValue: target.tool })
           setActionMessage(
             t('bulk.unsyncProgress', {
               current: Math.min(completed, total),
@@ -531,7 +533,8 @@ export function useBulkOperations({
           activeInstalledToolIds.includes(id),
         )) {
           completed += 1
-          const toolLabel = toolLabelById[toolId] ?? toolId
+          const toolLabel =
+            toolLabelById[toolId] ?? t(`tools.${toolId}`, { defaultValue: toolId })
           setActionMessage(
             t('bulk.syncProgress', {
               current: Math.min(completed, total),

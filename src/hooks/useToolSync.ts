@@ -74,7 +74,9 @@ export function useToolSync({
         toast.error(t('bulk.enableBeforeSync'))
         return
       }
-      const toolLabel = tools.find((tool) => tool.id === toolId)?.label ?? toolId
+      const toolLabel =
+        tools.find((tool) => tool.id === toolId)?.label ??
+        t(`tools.${toolId}`, { defaultValue: toolId })
       const skillScope = getSkillScope(skill)
       const projects = getSkillProjects(skill)
       if (skillScope === 'project') {
@@ -358,10 +360,15 @@ export function useToolSync({
       pendingSharedToggle.affectedToolIds ?? sharedToolIdsByToolId[toolId] ?? []
     const others = shared.filter((id) => id !== toolId)
     return {
-      toolLabel: toolLabelById[toolId] ?? toolId,
-      otherLabels: others.map((id) => toolLabelById[id] ?? id).join(', '),
+      toolLabel:
+        toolLabelById[toolId] ?? t(`tools.${toolId}`, { defaultValue: toolId }),
+      otherLabels: others
+        .map(
+          (id) => toolLabelById[id] ?? t(`tools.${id}`, { defaultValue: id }),
+        )
+        .join(', '),
     }
-  }, [pendingSharedToggle, sharedToolIdsByToolId, toolLabelById])
+  }, [pendingSharedToggle, sharedToolIdsByToolId, toolLabelById, t])
 
   return {
     pendingSharedToggle,

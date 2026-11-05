@@ -221,7 +221,7 @@ function App() {
       `${skill.name}: ${skill.broken
         .map(
           (broken) =>
-            `${toolLabelById[broken.tool] ?? broken.tool} · ${t(
+            `${toolLabelById[broken.tool] ?? t(`tools.${broken.tool}`, { defaultValue: broken.tool })} · ${t(
               `health.reason.${broken.reason}`,
               { defaultValue: broken.reason },
             )}`,
@@ -1444,7 +1444,10 @@ function App() {
         skillName={pendingToolToggle?.skill.name ?? ''}
         toolLabel={
           pendingToolToggle
-            ? (toolLabelById[pendingToolToggle.toolId] ?? pendingToolToggle.toolId)
+            ? (toolLabelById[pendingToolToggle.toolId] ??
+              t(`tools.${pendingToolToggle.toolId}`, {
+                defaultValue: pendingToolToggle.toolId,
+              }))
             : ''
         }
         action={pendingToolToggle?.action ?? 'sync'}
