@@ -3,8 +3,8 @@ import { findOwnerTool, normalizePathKey, roleOfTarget, summarizeRoles } from '.
 
 describe('normalizePathKey', () => {
   it('treats separators and case as equivalent', () => {
-    expect(normalizePathKey('C:\\Users\\Leon\\.codex\\skills\\a')).toBe(
-      'c:/users/leon/.codex/skills/a',
+    expect(normalizePathKey('C:\\Users\\Example\\.codex\\skills\\a')).toBe(
+      'c:/users/example/.codex/skills/a',
     )
   })
 
@@ -24,10 +24,13 @@ describe('findOwnerTool', () => {
   it('returns the tool whose target path equals source_ref', () => {
     const owner = findOwnerTool({
       source_type: 'local',
-      source_ref: 'C:\\Users\\leon\\.workbuddy\\skills\\腾讯文档',
+      source_ref: 'C:\\Users\\example\\.workbuddy\\skills\\腾讯文档',
       targets: [
-        { tool: 'workbuddy', target_path: 'C:/Users/leon/.workbuddy/skills/腾讯文档' },
-        { tool: 'codex', target_path: 'C:\\Users\\leon\\.codex\\skills\\腾讯文档' },
+        {
+          tool: 'workbuddy',
+          target_path: 'C:/Users/Example/.workbuddy/skills/腾讯文档',
+        },
+        { tool: 'codex', target_path: 'C:\\Users\\example\\.codex\\skills\\腾讯文档' },
       ],
     })
     expect(owner).toBe('workbuddy')

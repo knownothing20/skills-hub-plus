@@ -73,6 +73,7 @@ Improvements this fork ships on top of the upstream `v0.9.1` baseline:
 | 12 | **Deep Doubao support (both clients)** | Calibrated deep user skill workspaces for Doubao Work (`%LOCALAPPDATA%\DoubaoWork\...\.doubaowork\...`) and the Doubao desktop client (`%LOCALAPPDATA%\Doubao\...\.doubao\...`), plus Qoder CN (`~/.qoder-cn/skills`); redesigned new-tool detection to prevent unwanted bulk skill pushes. |
 | 13 | **Software-level shield with per-skill exceptions** | Block an entire tool from discovery, sync and reconciliation, then whitelist individual Skills inside it (entries shaped `tool/skill`) so those keep syncing. Files on disk are never touched, so unblocking restores the exact previous state; shared skill folders only stop being scanned once every tool that owns them is blocked. |
 | 14 | **Source of truth follows the owning software** | When a Skill records an external owner (`source_ref`), tool sync, auto-reconcile and target comparison all read from that folder, and the central copy becomes a mirror written only by "update". Falls back to the central library when no owner is recorded, so managed Skills behave exactly as before. |
+| 15 | **Per-tool sync mode** | Every built-in tool stores its own choice of `link · copy` (default: try a link, fall back to a copy), `link only` (fail loudly instead of silently copying; directory junctions on Windows) or `copy only`. Antigravity and Cursor still default to copies because their own skill indexes skip reparse points. The choice is sticky and applies to sync, enable and auto-reconcile. |
 
 ## Upstream features worth adopting
 
@@ -101,7 +102,7 @@ From our [competitor research](docs/research-competitors-2026-10.md) (skills-man
 ## Features
 
 - **Central master library** — every skill lives once in the `skills/` folder next to the app.
-- **Multi-tool sync** — junction/symlink first, physical copy fallback (e.g. Cursor); Claude Code, Codex, Cursor, OpenCode, WorkBuddy, ZCode and 50+ adapters.
+- **Multi-tool sync, with a mode per tool** — pick *link · copy* (default), *link only* or *copy only* for each software. Links come first and copies are the fallback, except where the tool's own skill index skips reparse points (Antigravity, Cursor), which default to copies. Claude Code, Codex, Cursor, OpenCode, WorkBuddy, ZCode and 50+ adapters.
 - **Edit anywhere, synced everywhere** — under junction mode, editing inside any AI tool edits the master directly; when a Skill has an owning tool, that tool's folder is the source and the central copy is its mirror.
 - **Shield a skill, or a whole tool** — ignore a single Skill during scanning, or freeze an entire software (scan + sync + reconcile) while whitelisting named exceptions inside it. Nothing is deleted either way.
 - **Version compare & promote to master**, **backup & restore**, **scheduled auto-updates**, **cloud builds** — see the sections above.

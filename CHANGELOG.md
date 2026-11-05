@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Per-tool sync mode**: every built-in tool now stores its own `link · copy`, `link only` or `copy only` choice instead of a single "copy-only" flag. `link only` creates a link and fails loudly rather than quietly falling back to a copy (directory junction on Windows); `auto` keeps the historical link-first behaviour. Antigravity and Cursor keep copy as their default because their skill indexes skip reparse points. The mode is applied by manual sync, enable/restore and auto-reconcile, and the hardcoded Cursor rule now lives in that default table.
+
+### Fixed
+
+- **Custom tools keep their per-target mode**: the new per-tool setting applies to built-in tools only. Custom tools continue to replay each target's saved mode, so enabling a custom tool no longer overrides a previously recorded symlink with the tool-level setting.
+
 ## [1.0.0] - 2026-11-05
 
 First release under this fork's own version line. Upstream baseline was `v0.9.1`;
