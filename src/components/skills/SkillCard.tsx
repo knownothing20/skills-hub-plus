@@ -242,6 +242,11 @@ const SkillCard = ({
                     {ownerToolLabel}
                   </span>
                 )}
+                {roleSummary.links > 0 && (
+                  <span className="skill-role-chip role-link">
+                    {t('roleLink')} {roleSummary.links}
+                  </span>
+                )}
                 {roleSummary.copies > 0 && (
                   <span className="skill-role-chip role-copy">
                     {t('roleCopy')} {roleSummary.copies}
@@ -263,7 +268,8 @@ const SkillCard = ({
                   (t.scope ?? 'global') === scope &&
                   isActiveSkillTarget(t),
               )
-              const role = roleOfTarget(target)
+              // 没有 target 表示该工具尚未安装这个技能，不应算作异常角色
+              const role = target ? roleOfTarget(target) : null
               const isCopy = role === 'copy'
               const roleLabel =
                 role === 'owner'
@@ -272,7 +278,9 @@ const SkillCard = ({
                     ? t('roleCopy')
                     : role === 'missing' || role === 'link_other'
                       ? t('roleBroken')
-                      : t('roleLink')
+                      : role === 'link_to_owner' || role === 'link_to_central'
+                        ? t('roleLink')
+                        : ''
               const modeLabel = isCopy
                 ? '实体副本 (Copy)'
                 : target?.mode === 'junction'
@@ -298,10 +306,10 @@ const SkillCard = ({
               return (
                 <button
                   key={tool.id}
-                  className={`tool-sync-btn ${finalClass} role-${role}`}
+                  className={`tool-sync-btn ${finalClass}${role ? ` role-${role}` : ''}`}
                   type="button"
-                  title={`${tool.label} · ${roleLabel} · ${stateLabel} (右键更多操作)`}
-                  aria-label={`${tool.label} · ${roleLabel} · ${stateLabel}`}
+                  title={`${tool.label}${roleLabel ? ` · ${roleLabel}` : ''} · ${stateLabel} (右键更多操作)`}
+                  aria-label={`${tool.label}${roleLabel ? ` · ${roleLabel}` : ''} · ${stateLabel}`}
                   aria-pressed={synced}
                   onClick={() => enabled && onToggleTool(skill, tool.id)}
                   onContextMenu={(e) => {

@@ -843,6 +843,11 @@
   color: #b45309;
   border-color: rgba(245, 158, 11, 0.3);
 }
+.skill-role-chip.role-link {
+  background: #e5f7ed;
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.28);
+}
 .skill-role-chip.role-broken {
   background: #fcebeb;
   color: #a32d2d;
