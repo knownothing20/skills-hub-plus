@@ -598,9 +598,25 @@ const SkillDetailView = ({
     }
   }, [isGitSource, sourceValue, t])
 
+  const ownerToolId = useMemo(
+    () =>
+      skill.targets.find((target) => roleOfTarget(target) === 'owner')?.tool ??
+      null,
+    [skill.targets],
+  )
+
   const syncedTools = useMemo(() => {
-    return getFullySyncedTools(skill, tools, scope).filter((t) => t.id !== 'agents')
-  }, [scope, skill, tools])
+    const list = getFullySyncedTools(skill, tools, scope).filter(
+      (t) => t.id !== 'agents',
+    )
+    if (!ownerToolId) return list
+    // 原件排第一，否则容易被 +N 折叠掉，反而看不到最重要的一条
+    return [...list].sort((left, right) => {
+      if (left.id === ownerToolId) return -1
+      if (right.id === ownerToolId) return 1
+      return 0
+    })
+  }, [ownerToolId, scope, skill, tools])
 
   const visibleTools = syncedTools.slice(0, 3)
   const hiddenToolCount = syncedTools.length - visibleTools.length
