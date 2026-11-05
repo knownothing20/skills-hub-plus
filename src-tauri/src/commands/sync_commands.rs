@@ -365,11 +365,13 @@ pub fn sync_skill_to_tool_impl(
         "symlink" => Some(crate::core::sync_engine::SyncMode::Symlink),
         _ => None,
     };
-    // 每个工具的同步方式由设置决定：auto 保持默认链接优先，link 只建链接，
-    // copy 只写物理副本。限制可在工具管理里按工具修改。
-    match runtime_tool.sync_mode {
-        crate::core::sync_engine::SyncMode::Auto => {}
-        forced => requested_mode = Some(forced),
+    // 内置工具的同步方式由工具设置决定：auto 保持默认（链接优先），link 只建
+    // 链接，copy 只写副本。自定义工具沿用它自己配置里的 sync_mode。
+    if !runtime_tool.is_custom {
+        match runtime_tool.sync_mode {
+            crate::core::sync_engine::SyncMode::Auto => {}
+            forced => requested_mode = Some(forced),
+        }
     }
 
     if let Some(existing) =
@@ -433,6 +435,13 @@ pub fn sync_skill_to_tool_impl(
             || requested_mode.is_some();
         let sync_res = if let Some(m) = requested_mode {
             sync_dir_with_mode_with_overwrite(m, &managed_source, &target, overwrite)
+        } else if runtime_tool.is_custom {
+            sync_dir_with_mode_with_overwrite(
+                runtime_tool.sync_mode,
+                &managed_source,
+                &target,
+                overwrite,
+            )
         } else {
             // auto：先尝试链接，失败再回退为物理副本
             sync_dir_hybrid_with_overwrite(&managed_source, &target, overwrite)
@@ -751,10 +760,15 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
         if path_entry_exists(&path)? {
             anyhow::bail!("TARGET_EXISTS|{}", path.to_string_lossy());
         }
-        // auto 沿用已保存的记录；link / copy 是用户为该工具指定的强制方式
-        let mode = match runtime_tool.sync_mode {
-            crate::core::sync_engine::SyncMode::Auto => saved_sync_mode(&target.mode)?,
-            forced => forced,
+        // auto 沿用已保存的记录；内置工具的 link / copy 是用户指定的强制方式。
+        // 自定义工具保持既有行为：按每条 target 记录的模式恢复。
+        let mode = if runtime_tool.is_custom {
+            saved_sync_mode(&target.mode)?
+        } else {
+            match runtime_tool.sync_mode {
+                crate::core::sync_engine::SyncMode::Auto => saved_sync_mode(&target.mode)?,
+                forced => forced,
+            }
         };
 
         if let Some(existing) = plans_by_path.get_mut(&path) {
