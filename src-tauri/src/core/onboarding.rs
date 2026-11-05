@@ -126,10 +126,15 @@ pub fn get_discovery_scan_settings(store: &SkillStore) -> Result<DiscoveryScanSe
         dirs::home_dir().ok_or_else(|| anyhow::anyhow!("failed to resolve home directory"))?;
     let claude_config_dir = resolve_claude_config_dir(&home);
     let config = load_discovery_scan_config(store)?;
+    let ignored_tools: HashSet<String> = load_ignored_tools(store)?
+        .into_iter()
+        .map(|tool| tool.to_lowercase())
+        .collect();
     Ok(get_discovery_scan_settings_in_home(
         &home,
         &claude_config_dir,
         config,
+        &ignored_tools,
     ))
 }
 
@@ -137,11 +142,16 @@ fn get_discovery_scan_settings_in_home(
     home: &Path,
     claude_config_dir: &Path,
     config: DiscoveryScanConfig,
+    ignored_tools: &HashSet<String>,
 ) -> DiscoveryScanSettings {
     let disabled_source_keys = config.disabled_source_keys;
     let disabled = disabled_source_keys.iter().cloned().collect::<HashSet<_>>();
     let mut sources = Vec::<DiscoveryScanSource>::new();
     let mut source_indexes = HashMap::<String, usize>::new();
+    // A shared folder (for example .agents/skills) must only be skipped when
+    // every tool that owns it is blocked; blocking one of several must not
+    // affect the rest.
+    let mut source_tools = HashMap::<String, Vec<String>>::new();
 
     for adapter in default_tool_adapters() {
         let detect_path = resolve_detect_path_in_home(&adapter, home)
@@ -154,17 +164,38 @@ fn get_discovery_scan_settings_in_home(
             let source = &mut sources[index];
             source.label.push_str(" / ");
             source.label.push_str(adapter.display_name);
+            source_tools
+                .entry(key)
+                .or_default()
+                .push(adapter.id.as_key().to_string());
             continue;
         }
         let dir = resolve_default_path_in_home(&adapter, home)
             .unwrap_or_else(|_| home.join(adapter.relative_skills_dir));
         source_indexes.insert(key.clone(), sources.len());
+        source_tools
+            .entry(key.clone())
+            .or_default()
+            .push(adapter.id.as_key().to_string());
         sources.push(DiscoveryScanSource {
-            enabled: !disabled.contains(&key),
+            enabled: true,
             key,
             label: adapter.display_name.to_string(),
             path: dir,
         });
+    }
+
+    for source in &mut sources {
+        let blocked_by_tools = source_tools
+            .get(&source.key)
+            .map(|tools| {
+                !tools.is_empty()
+                    && tools
+                        .iter()
+                        .all(|tool| ignored_tools.contains(tool.as_str()))
+            })
+            .unwrap_or(false);
+        source.enabled = !disabled.contains(&source.key) && !blocked_by_tools;
     }
 
     let claude_plugins_dir = claude_config_dir.join("plugins");
@@ -213,6 +244,42 @@ fn load_discovery_scan_config(store: &SkillStore) -> Result<DiscoveryScanConfig>
 }
 
 pub const IGNORED_SKILLS_SETTING: &str = "ignored_skills_v1";
+
+/// Tool-level block list. A key listed here is fully excluded from Skills Hub:
+/// discovery skips its skill folder, tool sync refuses new targets and the
+/// reconciler leaves its existing targets untouched. Files on disk are never
+/// modified. Empty by default, so existing installs behave exactly as before.
+pub const IGNORED_TOOLS_SETTING: &str = "ignored_tools_v1";
+
+pub fn load_ignored_tools(store: &SkillStore) -> Result<Vec<String>> {
+    let raw = store.get_setting(IGNORED_TOOLS_SETTING)?;
+    Ok(raw
+        .as_deref()
+        .and_then(|value| serde_json::from_str(value).ok())
+        .unwrap_or_default())
+}
+
+pub fn save_ignored_tools(store: &SkillStore, tools: Vec<String>) -> Result<Vec<String>> {
+    let mut seen = HashSet::new();
+    let mut normalized = Vec::new();
+    for tool in tools {
+        let trimmed = tool.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if seen.insert(trimmed.to_lowercase()) {
+            normalized.push(trimmed.to_string());
+        }
+    }
+    store.set_setting(IGNORED_TOOLS_SETTING, &serde_json::to_string(&normalized)?)?;
+    Ok(normalized)
+}
+
+pub fn is_tool_ignored(store: &SkillStore, tool_key: &str) -> bool {
+    load_ignored_tools(store)
+        .map(|tools| tools.iter().any(|tool| tool.eq_ignore_ascii_case(tool_key)))
+        .unwrap_or(false)
+}
 
 pub fn load_ignored_skills(store: &SkillStore) -> Result<Vec<String>> {
     let raw = store.get_setting(IGNORED_SKILLS_SETTING)?;

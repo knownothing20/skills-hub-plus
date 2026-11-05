@@ -395,6 +395,8 @@ pub fn run() {
             commands::get_onboarding_plan,
             commands::get_discovery_scan_settings,
             commands::set_discovery_scan_config,
+            commands::get_ignored_tools,
+            commands::set_ignored_tools,
             commands::install_local,
             commands::list_local_skills_cmd,
             commands::install_local_selection,

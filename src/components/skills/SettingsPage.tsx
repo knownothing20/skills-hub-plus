@@ -142,6 +142,36 @@ const SettingsPage = ({
     void loadExcludedScanSources()
   }, [loadExcludedScanSources])
 
+  const [ignoredTools, setIgnoredTools] = useState<string[]>([])
+  const loadIgnoredTools = useCallback(async () => {
+    if (!isTauri) return
+    try {
+      const list = await invokeTauri<string[]>('get_ignored_tools')
+      setIgnoredTools(list ?? [])
+    } catch {
+      setIgnoredTools([])
+    }
+  }, [isTauri])
+
+  useEffect(() => {
+    void loadIgnoredTools()
+  }, [loadIgnoredTools])
+
+  const handleUntool = useCallback(
+    async (tool: string) => {
+      try {
+        const current = await invokeTauri<string[]>('get_ignored_tools')
+        const next = (current ?? []).filter((item) => item !== tool)
+        await invokeTauri('set_ignored_tools', { tools: next })
+        toast.success(t('untoolSuccess'))
+        await loadIgnoredTools()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [loadIgnoredTools, t],
+  )
+
   const loadIgnoredSkills = useCallback(async () => {
     if (!isTauri) return
     try {
@@ -836,6 +866,49 @@ const SettingsPage = ({
               </div>
               <div className="settings-helper">{t('safeBuildUpdatePolicy')}</div>
             </div>
+            </section>
+            <section className="settings-card">
+              <div className="settings-card-head">
+                <span className="settings-card-icon">
+                  <ShieldCheck size={18} />
+                </span>
+                <div>
+                  <h2>{t('ignoredToolsTitle')}</h2>
+                  <p>{t('ignoredToolsDesc')}</p>
+                </div>
+              </div>
+              <div className="settings-card-body">
+                {ignoredTools.length === 0 ? (
+                  <div className="settings-helper">{t('ignoredToolsEmpty')}</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {ignoredTools.map((tool) => (
+                      <div
+                        key={tool}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                        }}
+                      >
+                        <span style={{ fontWeight: 500 }}>{tool}</span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ padding: '2px 8px', fontSize: '12px' }}
+                          onClick={() => void handleUntool(tool)}
+                        >
+                          {t('untool')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </section>
             <section className="settings-card">
               <div className="settings-card-head">

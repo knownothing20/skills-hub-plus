@@ -144,6 +144,13 @@ pub fn auto_reconcile_skill_targets(
         None => return Ok(0),
     };
     let adapters = crate::core::tool_adapters::default_tool_adapters();
+    // Tools on the block list keep their files untouched and are never
+    // re-adopted by the reconciler. Empty by default.
+    let ignored_tools: std::collections::HashSet<String> =
+        crate::core::onboarding::load_ignored_tools(store)?
+            .into_iter()
+            .map(|tool| tool.to_lowercase())
+            .collect();
     let skills = store.list_skills()?;
     let now = now_ms();
     let mut reconciled_count = 0;
@@ -163,6 +170,9 @@ pub fn auto_reconcile_skill_targets(
         let central_ignore_content = std::fs::read_to_string(&central_ignore_path).ok();
 
         for adapter in &adapters {
+            if ignored_tools.contains(adapter.id.as_key()) {
+                continue;
+            }
             // 快速短路检查：如果数据库中已经记录该目标且状态为 ok，直接 0 耗时跳过！
             let existing =
                 store.get_skill_target(&skill.id, adapter.id.as_key(), "global", None)?;
@@ -267,6 +277,9 @@ pub fn sync_skill_to_tool_impl(
     }
 
     let runtime_tool = runtime_tool_by_key(store, tool)?;
+    if crate::core::onboarding::is_tool_ignored(store, &runtime_tool.key) {
+        anyhow::bail!("TOOL_IGNORED|{}", runtime_tool.key);
+    }
     let scope = normalize_scope(scope)?;
     if scope == "project" && !runtime_tool.supports_project_scope {
         anyhow::bail!("PROJECT_SCOPE_UNSUPPORTED|{}", runtime_tool.key);
@@ -702,6 +715,9 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
 
     // Validate every saved row before creating even the first target.
     for target in &original_targets {
+        if crate::core::onboarding::is_tool_ignored(store, &target.tool) {
+            anyhow::bail!("TOOL_IGNORED|{}", target.tool);
+        }
         if target.status != "disabled" {
             anyhow::bail!(
                 "INCONSISTENT_TARGET_STATE|Saved target {} is not disabled",

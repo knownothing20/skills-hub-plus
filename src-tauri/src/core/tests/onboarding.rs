@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 
 use super::build_onboarding_plan_in_home;
@@ -161,6 +162,7 @@ fn scan_settings_deduplicate_shared_dirs_and_include_claude_plugins() {
         super::DiscoveryScanConfig {
             disabled_source_keys: vec![shared_key.clone()],
         },
+        &HashSet::<String>::new(),
     );
 
     let shared = settings
