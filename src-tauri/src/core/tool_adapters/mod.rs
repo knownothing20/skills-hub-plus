@@ -1330,6 +1330,14 @@ pub fn is_builtin_tool_enabled(config: &ToolConfig, key: &str) -> bool {
         .any(|disabled| disabled == key)
 }
 
+/// Tools whose own skill scanner ignores directory junctions, so their managed
+/// targets must be physical copies. Antigravity builds a separate skill index
+/// that skips reparse points entirely: a junctioned Skill never shows up in its
+/// UI even though the files are perfectly readable on disk.
+pub fn requires_physical_copy(tool_key: &str) -> bool {
+    matches!(tool_key, "antigravity")
+}
+
 pub fn is_valid_custom_tool_key(key: &str) -> bool {
     let mut chars = key.chars();
     matches!(chars.next(), Some(c) if c.is_ascii_lowercase())

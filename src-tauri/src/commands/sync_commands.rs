@@ -359,12 +359,17 @@ pub fn sync_skill_to_tool_impl(
         .flatten()
         .unwrap_or_else(|| "copy".to_string());
     let effective_mode_str = sync_mode.unwrap_or(&default_mode);
-    let requested_mode = match effective_mode_str {
+    let mut requested_mode = match effective_mode_str {
         "copy" => Some(crate::core::sync_engine::SyncMode::Copy),
         "junction" => Some(crate::core::sync_engine::SyncMode::Junction),
         "symlink" => Some(crate::core::sync_engine::SyncMode::Symlink),
         _ => None,
     };
+    // 有些工具的技能扫描器不跟随目录联接（如 Antigravity），只能给物理副本，
+    // 否则同步过去它在自己的列表里也看不到。
+    if crate::core::tool_adapters::requires_physical_copy(&runtime_tool.key) {
+        requested_mode = Some(crate::core::sync_engine::SyncMode::Copy);
+    }
 
     if let Some(existing) =
         store.get_skill_target(skill_id, tool, scope, project_path_for_record.as_deref())?
@@ -751,7 +756,12 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
         if path_entry_exists(&path)? {
             anyhow::bail!("TARGET_EXISTS|{}", path.to_string_lossy());
         }
-        let mode = saved_sync_mode(&target.mode)?;
+        // 不跟随目录联接的工具（如 Antigravity）始终用物理副本
+        let mode = if crate::core::tool_adapters::requires_physical_copy(&target.tool) {
+            crate::core::sync_engine::SyncMode::Copy
+        } else {
+            saved_sync_mode(&target.mode)?
+        };
 
         if let Some(existing) = plans_by_path.get_mut(&path) {
             if existing.root != root || existing.mode != mode {

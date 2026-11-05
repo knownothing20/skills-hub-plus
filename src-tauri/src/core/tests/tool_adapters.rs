@@ -5,8 +5,8 @@ use crate::core::skill_store::{SkillRecord, SkillStore, SkillTargetRecord};
 use crate::core::sync_engine::SyncMode;
 use crate::core::tool_adapters::{
     adapter_by_key, adapters_sharing_project_skills_dir, adapters_sharing_skills_dir,
-    default_tool_adapters, load_tool_config, project_relative_skills_dir, resolve_project_path,
-    save_tool_config, scan_tool_dir, set_test_custom_tool_migration_failure,
+    default_tool_adapters, load_tool_config, project_relative_skills_dir, requires_physical_copy,
+    resolve_project_path, save_tool_config, scan_tool_dir, set_test_custom_tool_migration_failure,
     set_test_custom_tool_post_apply_replacement, set_test_custom_tool_publish_race,
     supports_project_scope, CustomToolConfig, ToolAdapter, ToolConfig, ToolId,
 };
@@ -1006,4 +1006,14 @@ fn scan_tool_dir_skips_codex_plugin_cache_symlink() {
 
     let out = scan_tool_dir(&tool, &scan_root).unwrap();
     assert!(out.is_empty());
+}
+
+#[test]
+fn antigravity_requires_physical_copy() {
+    // Antigravity indexes skills itself and skips directory junctions, so its
+    // targets must be physical copies or the Skill never appears in its UI.
+    assert!(requires_physical_copy("antigravity"));
+    assert!(!requires_physical_copy("codex"));
+    assert!(!requires_physical_copy("workbuddy_ai"));
+    assert!(!requires_physical_copy("doubao_work"));
 }
