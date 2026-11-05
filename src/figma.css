@@ -1980,7 +1980,16 @@
   background: var(--bg-element-hover);
 }
 
+.tool-context-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.tool-context-item:disabled:hover {
+  background: transparent;
+}
+
 .tool-context-item.danger {
+
   color: #dc2626;
 }
 

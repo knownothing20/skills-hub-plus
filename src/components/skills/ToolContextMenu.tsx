@@ -31,6 +31,7 @@ export default function ToolContextMenu({
 }: ToolContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const { tool, skill, synced, isCopy, targetPath, x, y } = state
+  const linkSupported = tool.supports_junction !== false
 
   useEffect(() => {
     const handlePointerDown = (e: MouseEvent) => {
@@ -112,7 +113,10 @@ export default function ToolContextMenu({
           <button
             type="button"
             className="tool-context-item"
+            disabled={!linkSupported}
+            title={linkSupported ? undefined : '该软件只支持实体副本'}
             onClick={() => {
+              if (!linkSupported) return
               onClose()
               onSyncWithMode(skill, tool.id, 'junction')
             }}
@@ -120,7 +124,11 @@ export default function ToolContextMenu({
             <Link2 size={14} className="icon-junction" />
             <div className="item-text">
               <span>同步为 软链接 (Junction)</span>
-              <small>轻量快捷，随母版实时更新</small>
+              <small>
+                {linkSupported
+                  ? '轻量快捷，随母版实时更新'
+                  : '该软件的技能索引不跟随链接，只能复制'}
+              </small>
             </div>
           </button>
           <button

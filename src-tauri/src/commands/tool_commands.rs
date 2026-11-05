@@ -48,6 +48,8 @@ pub async fn get_tool_status(store: State<'_, SkillStore>) -> Result<ToolStatusD
                 skills_dir: tool.skills_dir.to_string_lossy().to_string(),
                 project_skills_dir: tool.project_skills_dir,
                 supports_project_scope: tool.supports_project_scope,
+                supports_junction: crate::core::tool_adapters::supports_junction(&tool.key),
+                supports_copy: true,
                 sync_mode: tool.sync_mode,
             });
             if tool.installed {

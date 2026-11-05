@@ -1338,6 +1338,13 @@ pub fn requires_physical_copy(tool_key: &str) -> bool {
     matches!(tool_key, "antigravity")
 }
 
+/// 该工具是否支持以目录联接（软链接）的方式同步技能。
+/// 大多数工具直接遍历目录，联接对它们透明；少数工具自带技能索引，
+/// 扫描时跳过重解析点，只能接收物理副本。
+pub fn supports_junction(tool_key: &str) -> bool {
+    !requires_physical_copy(tool_key)
+}
+
 pub fn is_valid_custom_tool_key(key: &str) -> bool {
     let mut chars = key.chars();
     matches!(chars.next(), Some(c) if c.is_ascii_lowercase())

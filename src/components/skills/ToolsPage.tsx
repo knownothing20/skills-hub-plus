@@ -303,6 +303,18 @@ const ToolsPage = ({
               {t('toolManagement.custom')}
             </span>
           ) : null}
+          <span
+            className={`tool-management-mode${tool.supports_junction === false ? ' copy-only' : ''}`}
+            title={
+              tool.supports_junction === false
+                ? t('toolManagement.linkUnsupportedHint')
+                : undefined
+            }
+          >
+            {tool.supports_junction === false
+              ? t('toolManagement.copyOnly')
+              : t('toolManagement.linkAndCopy')}
+          </span>
           {tool.is_custom ? (
             <span className="tool-management-mode">
               {t(`toolManagement.syncModes.${tool.sync_mode ?? 'auto'}`)}

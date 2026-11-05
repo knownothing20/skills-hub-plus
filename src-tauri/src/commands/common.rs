@@ -124,6 +124,10 @@ pub struct ToolInfoDto {
     pub skills_dir: String,
     pub project_skills_dir: String,
     pub supports_project_scope: bool,
+    /// 该工具的技能扫描器是否跟随目录联接。false 表示只能物理复制，
+    /// 否则技能同步过去也不会出现在它的技能列表里（如 Antigravity）。
+    pub supports_junction: bool,
+    pub supports_copy: bool,
     pub sync_mode: SyncMode,
 }
 

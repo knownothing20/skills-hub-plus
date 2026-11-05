@@ -3817,6 +3817,11 @@
   background: var(--bg-muted);
 }
 
+.tool-management-mode.copy-only {
+  color: var(--status-warning, #854f0b);
+  background: color-mix(in srgb, var(--status-warning, #854f0b) 12%, transparent);
+}
+
 .tool-management-path {
   color: var(--text-tertiary);
   font-size: 12px;

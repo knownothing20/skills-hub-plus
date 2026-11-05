@@ -372,6 +372,9 @@ export default {
   toolManagement: {
     title: '工具管理',
     hint: '选择哪些工具可以接收 Skills。自定义工具可指向任意 skills 目录。',
+    linkAndCopy: '软链接 · 复制',
+    copyOnly: '仅复制',
+    linkUnsupportedHint: '该软件的技能索引不跟随目录联接，同步只能用物理副本。',
     pageHint: '独立管理内置工具和自定义工具目标，不再挤在应用偏好设置里。',
     builtinSection: '已配置工具',
     builtinHint: '启用的工具会出现在安装、导入、同步和 Skill 详情流程中。',

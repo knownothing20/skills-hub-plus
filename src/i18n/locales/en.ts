@@ -375,6 +375,10 @@ export default {
   restoreFailed: 'Restore failed: {{error}}',
   toolManagement: {
     title: 'Tool Management',
+    linkAndCopy: 'Link · Copy',
+    copyOnly: 'Copy only',
+    linkUnsupportedHint:
+      'This tool indexes skills itself and skips directory links, so only physical copies work.',
     hint:
       'Choose which tools can receive skills. Custom tools can point to any skills directory.',
     pageHint:

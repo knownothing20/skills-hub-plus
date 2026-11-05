@@ -27,6 +27,9 @@ export type ToolOption = {
   label: string
   avatar?: string | null
   supports_project_scope?: boolean
+  /** false 表示该工具的技能扫描器不跟随目录联接，只能物理复制 */
+  supports_junction?: boolean
+  supports_copy?: boolean
 }
 
 export type SyncMode = 'auto' | 'symlink' | 'junction' | 'copy'
@@ -102,6 +105,9 @@ export type ToolInfoDto = {
   skills_dir: string
   project_skills_dir: string
   supports_project_scope: boolean
+  /** false 表示该工具只接受物理复制（技能索引不跟随目录联接） */
+  supports_junction?: boolean
+  supports_copy?: boolean
   sync_mode: SyncMode
 }
 

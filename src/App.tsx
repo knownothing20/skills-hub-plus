@@ -185,6 +185,8 @@ function App() {
       label: t(`tools.${info.key}`, { defaultValue: info.label }),
       avatar: info.avatar,
       supports_project_scope: info.supports_project_scope,
+      supports_junction: info.supports_junction ?? true,
+      supports_copy: info.supports_copy ?? true,
     }))
   }, [t, enabledToolInfos])
 
