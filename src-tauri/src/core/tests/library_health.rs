@@ -118,6 +118,53 @@ fn classify_target_ignores_disabled_targets_at_caller_level() {
     );
 }
 
+#[cfg(windows)]
+#[test]
+fn classify_target_accepts_link_pointing_at_owner_folder() {
+    use crate::core::library_health::classify_target_with_owner;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let central = dir.path().join("central");
+    let owner = dir.path().join("owner").join("skill-a");
+    std::fs::create_dir_all(&central).unwrap();
+    std::fs::create_dir_all(&owner).unwrap();
+    std::fs::write(owner.join("SKILL.md"), b"# skill").unwrap();
+
+    let target_dir = dir.path().join("tool").join("skill-a");
+    std::fs::create_dir_all(target_dir.parent().unwrap()).unwrap();
+    junction::create(&owner, &target_dir).expect("junction");
+
+    let record = make_target(
+        "t1",
+        "s1",
+        "doubao",
+        target_dir.to_string_lossy().as_ref(),
+        "ok",
+    );
+
+    // Without an owning folder the link resolves outside the central repo.
+    assert_eq!(
+        classify_target(&central, &record).unwrap().reason,
+        "broken_link"
+    );
+
+    // With the owning folder declared, the same link is healthy.
+    assert_eq!(
+        classify_target_with_owner(&central, Some(&owner), &record),
+        None
+    );
+
+    // An unrelated owner must not launder the link into a healthy one.
+    let other = dir.path().join("owner").join("other");
+    std::fs::create_dir_all(&other).unwrap();
+    assert_eq!(
+        classify_target_with_owner(&central, Some(&other), &record)
+            .unwrap()
+            .reason,
+        "broken_link"
+    );
+}
+
 #[test]
 fn idle_requires_no_valid_targets_and_stale_mtime() {
     let now = 10_000_000;

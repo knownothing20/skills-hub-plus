@@ -67,10 +67,19 @@ pub fn build_library_health_report(
 
     for skill in skills {
         let targets = store.list_skill_targets(&skill.id)?;
+        let owner_root = if skill.source_type == "local" {
+            skill
+                .source_ref
+                .as_deref()
+                .filter(|path| !path.is_empty())
+                .map(Path::new)
+        } else {
+            None
+        };
         let mut synced_tool_count: u64 = 0;
         let mut broken = Vec::new();
         for target in targets.iter().filter(|target| target.status != "disabled") {
-            match classify_target(central_root, target) {
+            match classify_target_with_owner(central_root, owner_root, target) {
                 Some(broken_target) => broken.push(broken_target),
                 None => synced_tool_count += 1,
             }
@@ -111,6 +120,18 @@ pub fn build_library_health_report(
 /// Classify one sync target. `None` means the target is valid; `Some` carries
 /// the reason it is broken ("missing" or "broken_link").
 pub fn classify_target(central_root: &Path, target: &SkillTargetRecord) -> Option<BrokenTarget> {
+    classify_target_with_owner(central_root, None, target)
+}
+
+/// Same as [`classify_target`], but additional roots are accepted as valid link
+/// destinations. Used for Skills that record an owning software folder
+/// (`source_ref`): their links legitimately point at that folder instead of the
+/// central repository, which is a mirror in that case.
+pub fn classify_target_with_owner(
+    central_root: &Path,
+    owner_root: Option<&Path>,
+    target: &SkillTargetRecord,
+) -> Option<BrokenTarget> {
     let path = Path::new(&target.target_path);
     let broken = |reason: &str| {
         Some(BrokenTarget {
@@ -135,7 +156,8 @@ pub fn classify_target(central_root: &Path, target: &SkillTargetRecord) -> Optio
         };
     }
 
-    // Link targets must still resolve back into the central repo.
+    // Link targets must still resolve back into the central repo, or into the
+    // owning software folder when the Skill records one.
     let Some(raw_link_target) = link_target else {
         return broken("broken_link");
     };
@@ -154,10 +176,16 @@ pub fn classify_target(central_root: &Path, target: &SkillTargetRecord) -> Optio
     let central_canonical =
         resolve_existing_path(central_root).unwrap_or_else(|| central_root.to_path_buf());
     if resolved.starts_with(&central_canonical) {
-        None
-    } else {
-        broken("broken_link")
+        return None;
     }
+    if let Some(owner) = owner_root {
+        if let Some(owner_canonical) = resolve_existing_path(owner) {
+            if resolved.starts_with(&owner_canonical) {
+                return None;
+            }
+        }
+    }
+    broken("broken_link")
 }
 
 pub fn is_idle(synced_tool_count: u64, last_modified_secs: u64, now_secs: u64) -> bool {
