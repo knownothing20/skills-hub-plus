@@ -24,6 +24,7 @@ import LockDiffModal from './modals/LockDiffModal'
 import type {
   BackupConfigDto,
   BackupManifestDto,
+  DiscoveryScanSettingsDto,
   ExportLockResultDto,
   GithubProxyConfigDto,
   LockDiffReportDto,
@@ -114,6 +115,33 @@ const SettingsPage = ({
   const [isRestoring, setIsRestoring] = useState(false)
 
   const [ignoredSkills, setIgnoredSkills] = useState<string[]>([])
+  const [excludedScanSources, setExcludedScanSources] = useState<
+    { key: string; label: string }[]
+  >([])
+  const loadExcludedScanSources = useCallback(async () => {
+    if (!isTauri) return
+    try {
+      const settings = await invokeTauri<DiscoveryScanSettingsDto>(
+        'get_discovery_scan_settings',
+      )
+      const visible = new Set(settings.sources.map((source) => source.key))
+      const disabled = new Set(settings.disabled_source_keys)
+      const excluded = settings.sources
+        .filter((source) => !source.enabled || disabled.has(source.key))
+        .map((source) => ({ key: source.key, label: source.label }))
+      for (const key of settings.disabled_source_keys) {
+        if (!visible.has(key)) excluded.push({ key, label: key })
+      }
+      setExcludedScanSources(excluded)
+    } catch {
+      setExcludedScanSources([])
+    }
+  }, [isTauri])
+
+  useEffect(() => {
+    void loadExcludedScanSources()
+  }, [loadExcludedScanSources])
+
   const loadIgnoredSkills = useCallback(async () => {
     if (!isTauri) return
     try {
@@ -808,6 +836,52 @@ const SettingsPage = ({
               </div>
               <div className="settings-helper">{t('safeBuildUpdatePolicy')}</div>
             </div>
+            </section>
+            <section className="settings-card">
+              <div className="settings-card-head">
+                <span className="settings-card-icon">
+                  <Radar size={18} />
+                </span>
+                <div>
+                  <h2>{t('scanExcludedTitle')}</h2>
+                  <p>{t('scanExcludedDesc')}</p>
+                </div>
+              </div>
+              <div className="settings-card-body">
+                {excludedScanSources.length === 0 ? (
+                  <div className="settings-helper">{t('scanExcludedEmpty')}</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {excludedScanSources.map((source) => (
+                      <div
+                        key={source.key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                        }}
+                      >
+                        <span style={{ fontWeight: 500 }}>{source.label}</span>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
+                          {t('scanExcludedBadge')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: '10px' }}
+                  onClick={onOpenDiscoveryScanSettings}
+                >
+                  {t('scanExcludedManage')}
+                </button>
+              </div>
             </section>
             <section className="settings-card">
               <div className="settings-card-head">
