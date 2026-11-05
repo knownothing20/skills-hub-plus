@@ -72,6 +72,81 @@ pub struct SkillTargetDto {
     pub last_error: Option<String>,
     pub target_path: String,
     pub synced_at: Option<i64>,
+    /// Where this target actually points, resolved from the filesystem rather
+    /// than from the recorded mode: "owner" | "link_to_owner" | "link_to_central"
+    /// | "link_other" | "copy" | "missing".
+    pub role: String,
+}
+
+fn paths_match(left: &std::path::Path, right: &std::path::Path) -> bool {
+    match (
+        crate::core::library_health::resolve_existing_path(left),
+        crate::core::library_health::resolve_existing_path(right),
+    ) {
+        (Some(a), Some(b)) => a == b,
+        _ => false,
+    }
+}
+
+fn is_under(candidate: &std::path::Path, root: &std::path::Path) -> bool {
+    match (
+        crate::core::library_health::resolve_existing_path(candidate),
+        crate::core::library_health::resolve_existing_path(root),
+    ) {
+        (Some(a), Some(b)) => a.starts_with(&b),
+        _ => false,
+    }
+}
+
+/// Resolve what a target really is on disk. The recorded `mode` only says how
+/// it was created; the filesystem says whether it still holds.
+fn classify_target_role(
+    central_path: &std::path::Path,
+    owner_path: Option<&std::path::Path>,
+    target_path: &str,
+) -> String {
+    let path = std::path::Path::new(target_path);
+    let metadata = match std::fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(_) => return "missing".to_string(),
+    };
+
+    let (is_link, link_target) = crate::core::tool_adapters::detect_link(path);
+    if !is_link {
+        if !metadata.is_dir() {
+            return "missing".to_string();
+        }
+        if let Some(owner) = owner_path {
+            if paths_match(path, owner) {
+                return "owner".to_string();
+            }
+        }
+        return "copy".to_string();
+    }
+
+    let Some(raw) = link_target else {
+        return "missing".to_string();
+    };
+    let candidate = if raw.is_absolute() {
+        raw
+    } else {
+        match path.parent() {
+            Some(parent) => parent.join(&raw),
+            None => return "missing".to_string(),
+        }
+    };
+    let Some(resolved) = crate::core::library_health::resolve_existing_path(&candidate) else {
+        return "missing".to_string();
+    };
+    if let Some(owner) = owner_path {
+        if is_under(&resolved, owner) {
+            return "link_to_owner".to_string();
+        }
+    }
+    if is_under(&resolved, central_path) {
+        return "link_to_central".to_string();
+    }
+    "link_other".to_string()
 }
 
 #[derive(Debug, Serialize)]
@@ -145,19 +220,38 @@ pub fn get_managed_skills_impl_with_icon_budget(
             );
             let update_capability = managed_skill_update_capability(&skill);
             let status = managed_skill_status(&skill, &update_capability);
+            let central_for_role = std::path::PathBuf::from(&skill.central_path);
+            let owner_for_role = if skill.source_type == "local" {
+                skill
+                    .source_ref
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(std::path::PathBuf::from)
+            } else {
+                None
+            };
             let targets = store
                 .list_skill_targets(&skill.id)
                 .unwrap_or_default()
                 .into_iter()
-                .map(|target| SkillTargetDto {
-                    tool: target.tool,
-                    scope: target.scope,
-                    project_path: target.project_path,
-                    mode: target.mode,
-                    status: target.status,
-                    last_error: target.last_error,
-                    target_path: target.target_path,
-                    synced_at: target.synced_at,
+                .map(|target| {
+                    let role = classify_target_role(
+                        &central_for_role,
+                        owner_for_role.as_deref(),
+                        &target.target_path,
+                    );
+                    SkillTargetDto {
+                        tool: target.tool,
+                        scope: target.scope,
+                        project_path: target.project_path,
+                        mode: target.mode,
+                        status: target.status,
+                        last_error: target.last_error,
+                        target_path: target.target_path,
+                        synced_at: target.synced_at,
+                        role,
+                    }
                 })
                 .collect();
             let tags = store

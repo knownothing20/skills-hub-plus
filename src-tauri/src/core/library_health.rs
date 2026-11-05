@@ -230,7 +230,7 @@ fn unix_now_secs() -> u64 {
 
 /// Canonicalize a path that must exist; falls back to stripping the Windows
 /// verbatim prefix (`\\?\` / `\??\`) that `read_link` may return for junctions.
-fn resolve_existing_path(path: &Path) -> Option<PathBuf> {
+pub(crate) fn resolve_existing_path(path: &Path) -> Option<PathBuf> {
     if let Ok(canonical) = std::fs::canonicalize(path) {
         return Some(canonical);
     }

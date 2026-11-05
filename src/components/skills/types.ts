@@ -67,6 +67,7 @@ export type ManagedSkill = {
     last_error?: string | null
     target_path: string
     synced_at?: number | null
+    role?: string
   }[]
 }
 

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { openPath } from '@tauri-apps/plugin-opener'
 import { isActiveSkillTarget } from './skillSyncStatus'
+import { roleOfTarget } from './skillOwner'
 import SkillIgnoreModal from './modals/SkillIgnoreModal'
 import { SyncCompareModal } from './modals/SyncCompareModal'
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism-light'
@@ -727,8 +728,20 @@ const SkillDetailView = ({
                         (t.scope ?? 'global') === scope &&
                         isActiveSkillTarget(t),
                     )
-                    const isCopy = target?.mode === 'copy'
-                    const modeText = isCopy ? '实体副本' : '软链接'
+                    const role = roleOfTarget(target)
+                    const isCopy = role === 'copy'
+                    const modeText =
+                      role === 'owner'
+                        ? t('roleOwner')
+                        : isCopy
+                          ? t('roleCopy')
+                          : t('roleLink')
+                    const modeClass =
+                      role === 'owner'
+                        ? 'mode-owner'
+                        : isCopy
+                          ? 'mode-copy'
+                          : 'mode-symlink'
                     const pathInfo = target?.target_path ? ` · 路径: ${target.target_path}` : ''
 
                     return (
@@ -743,7 +756,7 @@ const SkillDetailView = ({
                           avatar={tool.avatar}
                         />
                         <span>{tool.label}</span>
-                        <span className={`detail-sync-mode-pill ${isCopy ? 'mode-copy' : 'mode-symlink'}`}>
+                        <span className={`detail-sync-mode-pill ${modeClass}`}>
                           {isCopy ? <Box size={10} /> : <Link2 size={10} />}
                           <span>{modeText}</span>
                         </span>

@@ -4,6 +4,7 @@ import { openPath } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 import { getToolSyncState, isActiveSkillTarget } from './skillSyncStatus'
+import { roleOfTarget, summarizeRoles } from './skillOwner'
 import { isSkillUpdateable } from './skillUpdateability'
 import type { ManagedSkill, SkillHealthDto, ToolOption } from './types'
 import logoMark from '../../assets/logo-mark.svg'
@@ -76,6 +77,13 @@ const SkillCard = ({
   const projectCount = getSkillProjects(skill).length
   const enabled = skill.enabled !== false
   const updateable = isSkillUpdateable(skill)
+  const scopeTargets = skill.targets.filter(
+    (target) => (target.scope ?? 'global') === scope,
+  )
+  const roleSummary = summarizeRoles(scopeTargets)
+  const ownerToolId = scopeTargets.find(
+    (target) => roleOfTarget(target) === 'owner',
+  )?.tool
   const hasOwner =
     skill.source_type === 'local' && Boolean(skill.source_ref?.trim())
   const centralBadgeLabel = hasOwner
@@ -215,6 +223,10 @@ const SkillCard = ({
               // 如果软件在全库中一个 skill 都没有，默认隐藏该工具的占位图标
               return (toolCounts?.[t.id] ?? 0) > 0
             })
+            const ownerToolLabel = ownerToolId
+              ? (externalTools.find((tool) => tool.id === ownerToolId)?.label ??
+                ownerToolId)
+              : null
             return (
               <>
                 <span>
@@ -222,6 +234,24 @@ const SkillCard = ({
                     externalTools.filter((t) => getToolSyncState(skill, t.id, scope) === 'synced').length
                   } 个`}
                 </span>
+                {ownerToolLabel && (
+                  <span
+                    className="skill-role-chip role-owner"
+                    title={t('roleOwnerAt', { tool: ownerToolLabel })}
+                  >
+                    {ownerToolLabel}
+                  </span>
+                )}
+                {roleSummary.copies > 0 && (
+                  <span className="skill-role-chip role-copy">
+                    {t('roleCopy')} {roleSummary.copies}
+                  </span>
+                )}
+                {roleSummary.broken > 0 && (
+                  <span className="skill-role-chip role-broken">
+                    {t('roleBroken')} {roleSummary.broken}
+                  </span>
+                )}
                 <div className="skill-tool-avatars">
                   {externalTools.map((tool) => {
                     const syncState = getToolSyncState(skill, tool.id, scope)
@@ -233,7 +263,16 @@ const SkillCard = ({
                   (t.scope ?? 'global') === scope &&
                   isActiveSkillTarget(t),
               )
-              const isCopy = target?.mode === 'copy'
+              const role = roleOfTarget(target)
+              const isCopy = role === 'copy'
+              const roleLabel =
+                role === 'owner'
+                  ? t('roleOwner')
+                  : role === 'copy'
+                    ? t('roleCopy')
+                    : role === 'missing' || role === 'link_other'
+                      ? t('roleBroken')
+                      : t('roleLink')
               const modeLabel = isCopy
                 ? '实体副本 (Copy)'
                 : target?.mode === 'junction'
@@ -259,10 +298,10 @@ const SkillCard = ({
               return (
                 <button
                   key={tool.id}
-                  className={`tool-sync-btn ${finalClass}`}
+                  className={`tool-sync-btn ${finalClass} role-${role}`}
                   type="button"
-                  title={`${tool.label} · ${stateLabel} (右键更多操作)`}
-                  aria-label={`${tool.label} · ${stateLabel}`}
+                  title={`${tool.label} · ${roleLabel} · ${stateLabel} (右键更多操作)`}
+                  aria-label={`${tool.label} · ${roleLabel} · ${stateLabel}`}
                   aria-pressed={synced}
                   onClick={() => enabled && onToggleTool(skill, tool.id)}
                   onContextMenu={(e) => {
@@ -286,7 +325,7 @@ const SkillCard = ({
                     label={tool.label}
                     avatar={tool.avatar}
                   />
-                  {synced && (
+                  {synced && role !== 'owner' && (
                     <span
                       className={`sync-mode-badge ${isCopy ? 'badge-copy' : 'badge-symlink'}`}
                       aria-hidden="true"

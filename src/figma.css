@@ -788,6 +788,70 @@
   background: #3b2a14;
   border-color: #d97706;
 }
+
+/* 入口角色：原件最醒目，链接按指向分色，副本保持琥珀色 */
+.skill-tool-avatars button.role-owner {
+  background: #FAEEDA;
+  border-color: #854F0B;
+  border-width: 2px;
+}
+.skill-tool-avatars button.role-link_to_owner {
+  background: #e5f7ed;
+  border-color: #10b981;
+}
+.skill-tool-avatars button.role-link_to_central {
+  background: #e6f1fb;
+  border-color: #378ADD;
+}
+.skill-tool-avatars button.role-copy {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+.skill-tool-avatars button.role-missing,
+.skill-tool-avatars button.role-link_other {
+  background: #fcebeb;
+  border-color: #e24b4a;
+}
+:root[data-theme='dark'] .skill-tool-avatars button.role-owner {
+  background: #412402;
+  border-color: #BA7517;
+}
+:root[data-theme='dark'] .skill-tool-avatars button.role-link_to_central {
+  background: #042C53;
+  border-color: #85B7EB;
+}
+
+.skill-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.skill-role-chip.role-owner {
+  background: #FAEEDA;
+  color: #854F0B;
+  border-color: rgba(133, 79, 11, 0.25);
+}
+.skill-role-chip.role-copy {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+.skill-role-chip.role-broken {
+  background: #fcebeb;
+  color: #a32d2d;
+  border-color: rgba(226, 75, 74, 0.3);
+}
+:root[data-theme='dark'] .skill-role-chip.role-owner {
+  background: #412402;
+  color: #FAC775;
+}
 :root[data-theme='dark'] .skill-tool-avatars .sync-mode-badge {
   border-color: #1e293b;
 }
@@ -812,6 +876,16 @@
   background: rgba(245, 158, 11, 0.12);
   color: #d97706;
   border: 1px solid rgba(245, 158, 11, 0.25);
+}
+.detail-sync-mode-pill.mode-owner {
+  background: #FAEEDA;
+  color: #854F0B;
+  border: 1px solid rgba(133, 79, 11, 0.3);
+}
+:root[data-theme='dark'] .detail-sync-mode-pill.mode-owner {
+  background: #412402;
+  color: #FAC775;
+  border-color: rgba(186, 117, 23, 0.5);
 }
 :root[data-theme='dark'] .detail-sync-mode-pill.mode-symlink {
   background: rgba(16, 185, 129, 0.2);
