@@ -4,7 +4,7 @@ import { openPath } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 import { getToolSyncState, isActiveSkillTarget } from './skillSyncStatus'
-import { roleOfTarget, summarizeRoles } from './skillOwner'
+import { roleOfTarget } from './skillOwner'
 import { isSkillUpdateable } from './skillUpdateability'
 import type { ManagedSkill, SkillHealthDto, ToolOption } from './types'
 import logoMark from '../../assets/logo-mark.svg'
@@ -80,7 +80,6 @@ const SkillCard = ({
   const scopeTargets = skill.targets.filter(
     (target) => (target.scope ?? 'global') === scope,
   )
-  const roleSummary = summarizeRoles(scopeTargets)
   const ownerToolId = scopeTargets.find(
     (target) => roleOfTarget(target) === 'owner',
   )?.tool
@@ -229,21 +228,6 @@ const SkillCard = ({
               : null
             return (
               <>
-                {roleSummary.links > 0 && (
-                  <span className="skill-role-chip role-link">
-                    {t('roleLink')} {roleSummary.links}
-                  </span>
-                )}
-                {roleSummary.copies > 0 && (
-                  <span className="skill-role-chip role-copy">
-                    {t('roleCopy')} {roleSummary.copies}
-                  </span>
-                )}
-                {roleSummary.broken > 0 && (
-                  <span className="skill-role-chip role-broken">
-                    {t('roleBroken')} {roleSummary.broken}
-                  </span>
-                )}
                 <div className="skill-tool-avatars">
                   {externalTools.map((tool) => {
                     const syncState = getToolSyncState(skill, tool.id, scope)

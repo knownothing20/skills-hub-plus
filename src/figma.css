@@ -694,7 +694,7 @@
   background: rgba(96, 165, 250, 0.22);
   color: #bfdbfe;
 }
-.skill-updated { flex: 0 0 auto; margin-left: auto; color: var(--text-tertiary); font-size: 11px; white-space: nowrap; }
+.skill-updated { flex: 0 0 auto; margin-left: auto; color: var(--text-tertiary); font-size: 11px; white-space: nowrap; min-width: 76px; text-align: right; }
 .skill-card-footer { min-width: 0; min-height: 38px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .skill-tools-block { min-width: 0; display: flex; align-items: center; gap: 8px; }
 .skill-tools-block > span { flex: 0 0 auto; color: var(--text-tertiary); font-size: 10px; }
@@ -1056,7 +1056,7 @@
 .list-view .skill-card-footer { min-height: 0; margin: 0; padding: 0; border: 0; }
 .list-view .bulk-skill-check { top: 50%; left: 12px; transform: translateY(-50%); }
 .list-view .skill-icon { width: 32px; height: 32px; flex-basis: 32px; }
-.list-view .skill-updated { margin-left: 0; font-size: 11px; }
+.list-view .skill-updated { margin-left: 0; font-size: 11px; min-width: 76px; text-align: right; }
 .list-view .skill-tag-pill { max-width: 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .bulk-action-bar {
