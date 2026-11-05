@@ -86,7 +86,6 @@ function App() {
     setThemePreference,
     defaultSyncMode,
     handleDefaultSyncModeChange,
-    appVersion,
     skillViewMode,
     setSkillViewMode,
     sidebarCollapsed,
@@ -972,7 +971,7 @@ function App() {
       />
       <WindowResizeHandles enabled={isTauri} />
 
-      <TitleBar appVersion={appVersion} t={t} />
+      <TitleBar t={t} />
 
       <div className="skills-body">
         <Sidebar

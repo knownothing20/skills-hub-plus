@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import {
   Archive,
   ArrowLeft,
@@ -29,6 +29,7 @@ import type {
   GithubProxyConfigDto,
   LockDiffReportDto,
 } from './types'
+import { APP_BUILD_LABEL, APP_VERSION_LABEL } from '../../buildInfo'
 
 const PROJECT_REPOSITORY_URL = 'https://github.com/mcncarl/skills-hub'
 
@@ -79,31 +80,6 @@ const SettingsPage = ({
   useEffect(() => {
     setLocalGithubProxyPort(String(githubProxyConfig.port))
   }, [githubProxyConfig.port])
-
-  const [appVersion, setAppVersion] = useState<string | null>(null)
-  const versionText = useMemo(() => {
-    if (!isTauri) return t('notAvailable')
-    if (!appVersion) return t('unknown')
-    return `v${appVersion}`
-  }, [appVersion, isTauri, t])
-
-  const loadAppVersion = useCallback(async () => {
-    if (!isTauri) {
-      setAppVersion(null)
-      return
-    }
-    try {
-      const { getVersion } = await import('@tauri-apps/api/app')
-      const v = await getVersion()
-      setAppVersion(v)
-    } catch {
-      setAppVersion(null)
-    }
-  }, [isTauri])
-
-  useEffect(() => {
-    void loadAppVersion()
-  }, [loadAppVersion])
 
   const [backupConfig, setBackupConfig] = useState<BackupConfigDto>({
     enabled: true,
@@ -441,7 +417,7 @@ const SettingsPage = ({
             </div>
             <div className="settings-summary-item">
               <span>{t('appVersion')}</span>
-              <strong>{versionText}</strong>
+              <strong>{APP_VERSION_LABEL}</strong>
             </div>
           </div>
         </div>
@@ -890,7 +866,7 @@ const SettingsPage = ({
               <div className="settings-version-row">
                 <div>
                   <span className="settings-version-label">{t('appVersion')}</span>
-                  <span className="settings-version-text">{versionText}</span>
+                  <span className="settings-version-text">{APP_BUILD_LABEL}</span>
                 </div>
               </div>
               <div className="settings-helper">{t('safeBuildUpdatePolicy')}</div>

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-05
+
+First release under this fork's own version line. Upstream baseline was `v0.9.1`;
+the feature set below has long outgrown it, so the app no longer reports an
+upstream version it does not match.
+
 ### Fork changes
 
 - Use `~/.agents/skills` as the fixed source of truth and keep tool directories as validated sync targets.

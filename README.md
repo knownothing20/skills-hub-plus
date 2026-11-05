@@ -4,6 +4,8 @@
 
 # Skills Hub Plus
 
+**v1.0.0** · 2026-11-05 · see [CHANGELOG](CHANGELOG.md)
+
 A cross-platform desktop app (Tauri + React) that keeps all your **Agent Skills in one central master library** and syncs them to every AI coding tool on your machine — *"install once, sync everywhere"*.
 
 > **📍 Based on an open-source project** — This project derives from **[qufei1993/skills-hub](https://github.com/qufei1993/skills-hub)** (MIT, baseline `v0.9.1`, via [mcncarl/skills-hub](https://github.com/mcncarl/skills-hub)) and evolves independently as **Skills Hub Plus**. Full credit to the upstream author — see [Acknowledgments](#acknowledgments--license). Upstream is actively developed (v1.0.1 as of 2026-10); differences are documented in [What's different](#whats-different-from-upstream) and [Worth adopting](#upstream-features-worth-adopting).

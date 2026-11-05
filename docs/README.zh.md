@@ -4,6 +4,8 @@
 
 # Skills Hub Plus
 
+**v1.0.0** · 2026-11-05 · 见 [CHANGELOG](../CHANGELOG.md)
+
 跨平台桌面应用(Tauri + React):把所有 **Agent Skill 集中在一个母版库**里管理,并同步到本机每一个 AI 编程工具——*"装一次,处处同步"*。
 
 > **📍 本项目基于开源项目衍生** — 衍生自 **[qufei1993/skills-hub](https://github.com/qufei1993/skills-hub)**(MIT 协议,基线 `v0.9.1`,经 [mcncarl/skills-hub](https://github.com/mcncarl/skills-hub) 中转),现以 **Skills Hub Plus** 名义独立演进。核心同步架构、工具适配器与界面基础均来自上游,感谢上游作者的出色工作 👏——完整致谢见[文末](#致谢与许可)。上游仍在活跃开发(2026-10 已到 v1.0.1),差异见[《与上游的差异》](#与上游的差异),上游领先的部分见[《值得借鉴的上游功能》](#值得借鉴的上游功能)。

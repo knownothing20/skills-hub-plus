@@ -12,7 +12,6 @@ type HeaderProps = {
   tagCount: number
   toolCount: number
   updateCount: number
-  appVersion: string
   collapsed: boolean
   onToggleCollapsed: () => void
   onOpenSettings: () => void
@@ -28,7 +27,6 @@ const Header = ({
   tagCount,
   toolCount,
   updateCount,
-  appVersion,
   collapsed,
   onToggleCollapsed,
   onOpenSettings,
@@ -37,7 +35,7 @@ const Header = ({
   t,
 }: HeaderProps) => (
   <>
-    <TitleBar appVersion={appVersion} t={t} />
+    <TitleBar t={t} />
     <Sidebar
       activeView={activeView}
       managementTab={managementTab}

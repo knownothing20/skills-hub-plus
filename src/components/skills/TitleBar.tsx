@@ -1,9 +1,9 @@
 import { memo, type PointerEvent } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { TFunction } from 'i18next'
+import { APP_BUILD_LABEL, APP_VERSION_LABEL } from '../../buildInfo'
 
 type TitleBarProps = {
-  appVersion: string
   t: TFunction
 }
 
@@ -15,7 +15,7 @@ const startWindowDrag = (event: PointerEvent<HTMLElement>) => {
   void getCurrentWindow().startDragging().catch(() => undefined)
 }
 
-const TitleBar = ({ appVersion, t }: TitleBarProps) => (
+const TitleBar = ({ t }: TitleBarProps) => (
   <header
     className="window-titlebar"
     data-tauri-drag-region
@@ -29,11 +29,13 @@ const TitleBar = ({ appVersion, t }: TitleBarProps) => (
     <strong className="titlebar-heading" data-tauri-drag-region>
       {t('appName')}
     </strong>
-    {appVersion ? (
-      <div className="titlebar-version-status" data-tauri-drag-region>
-        <span data-tauri-drag-region>v{appVersion}</span>
-      </div>
-    ) : null}
+    <div
+      className="titlebar-version-status"
+      data-tauri-drag-region
+      title={APP_BUILD_LABEL}
+    >
+      <span data-tauri-drag-region>{APP_VERSION_LABEL}</span>
+    </div>
   </header>
 )
 
