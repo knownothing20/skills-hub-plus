@@ -68,7 +68,9 @@ Improvements this fork ships on top of the upstream `v0.9.1` baseline:
 | 9 | **Architecture 2.0** | Frontend decomposed into 16 domain hooks (`App.tsx` −60%), backend IPC split into 8 modules, 110 unit tests. |
 | 10 | **Trash-only deletion** | Deletions always go through the OS Trash / Recycle Bin; skill-owned icon metadata. |
 | 11 | **Skill Shielding & Silent Filter** | Unmanage a skill without breaking tool copies (auto-dereferencing junction links into standalone physical folders); permanently ignore during background scans & onboarding; manage & unignore in Settings. |
-| 12 | **Deep Doubao Work Support** | Calibrated deep user skill workspace (`%LOCALAPPDATA%\DoubaoWork\...\.user_skills`); redesigned new-tool detection to prevent unwanted bulk skill pushes. |
+| 12 | **Deep Doubao support (both clients)** | Calibrated deep user skill workspaces for Doubao Work (`%LOCALAPPDATA%\DoubaoWork\...\.doubaowork\...`) and the Doubao desktop client (`%LOCALAPPDATA%\Doubao\...\.doubao\...`), plus Qoder CN (`~/.qoder-cn/skills`); redesigned new-tool detection to prevent unwanted bulk skill pushes. |
+| 13 | **Software-level shield with per-skill exceptions** | Block an entire tool from discovery, sync and reconciliation, then whitelist individual Skills inside it (entries shaped `tool/skill`) so those keep syncing. Files on disk are never touched, so unblocking restores the exact previous state; shared skill folders only stop being scanned once every tool that owns them is blocked. |
+| 14 | **Source of truth follows the owning software** | When a Skill records an external owner (`source_ref`), tool sync, auto-reconcile and target comparison all read from that folder, and the central copy becomes a mirror written only by "update". Falls back to the central library when no owner is recorded, so managed Skills behave exactly as before. |
 
 ## Upstream features worth adopting
 
@@ -98,7 +100,8 @@ From our [competitor research](docs/research-competitors-2026-10.md) (skills-man
 
 - **Central master library** — every skill lives once in the `skills/` folder next to the app.
 - **Multi-tool sync** — junction/symlink first, physical copy fallback (e.g. Cursor); Claude Code, Codex, Cursor, OpenCode, WorkBuddy, ZCode and 50+ adapters.
-- **Edit anywhere, synced everywhere** — under junction mode, editing inside any AI tool edits the master directly.
+- **Edit anywhere, synced everywhere** — under junction mode, editing inside any AI tool edits the master directly; when a Skill has an owning tool, that tool's folder is the source and the central copy is its mirror.
+- **Shield a skill, or a whole tool** — ignore a single Skill during scanning, or freeze an entire software (scan + sync + reconcile) while whitelisting named exceptions inside it. Nothing is deleted either way.
 - **Version compare & promote to master**, **backup & restore**, **scheduled auto-updates**, **cloud builds** — see the sections above.
 
 ## Portable layout & migrating to another PC
