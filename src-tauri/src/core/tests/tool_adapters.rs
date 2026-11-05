@@ -5,11 +5,10 @@ use crate::core::skill_store::{SkillRecord, SkillStore, SkillTargetRecord};
 use crate::core::sync_engine::SyncMode;
 use crate::core::tool_adapters::{
     adapter_by_key, adapters_sharing_project_skills_dir, adapters_sharing_skills_dir,
-    default_requires_physical_copy, default_tool_adapters, load_tool_config,
-    project_relative_skills_dir, resolve_project_path, save_tool_config, scan_tool_dir,
-    set_test_custom_tool_migration_failure, set_test_custom_tool_post_apply_replacement,
-    set_test_custom_tool_publish_race, supports_project_scope, CustomToolConfig, ToolAdapter,
-    ToolConfig, ToolId,
+    default_tool_adapters, load_tool_config, project_relative_skills_dir, resolve_project_path,
+    save_tool_config, scan_tool_dir, set_test_custom_tool_migration_failure,
+    set_test_custom_tool_post_apply_replacement, set_test_custom_tool_publish_race,
+    supports_project_scope, CustomToolConfig, ToolAdapter, ToolConfig, ToolId,
 };
 
 fn make_custom_tool(key: &str, label: &str, skills_dir: &str) -> CustomToolConfig {
@@ -1010,51 +1009,53 @@ fn scan_tool_dir_skips_codex_plugin_cache_symlink() {
 }
 
 #[test]
-fn antigravity_requires_physical_copy() {
-    // Antigravity indexes skills itself and skips directory junctions, so its
-    // targets default to physical copies or the Skill never appears in its UI.
-    // The user can still override this per tool in the tools page.
-    assert!(default_requires_physical_copy("antigravity"));
-    assert!(!default_requires_physical_copy("codex"));
-    assert!(!default_requires_physical_copy("workbuddy_ai"));
-    assert!(!default_requires_physical_copy("doubao_work"));
-}
+fn tool_sync_mode_defaults_and_overrides() {
+    use crate::core::onboarding::{
+        load_tool_sync_modes, resolve_tool_sync_mode, save_tool_sync_mode,
+    };
 
-#[test]
-fn copy_only_tools_setting_overrides_defaults() {
     let dir = tempfile::tempdir().unwrap();
     let store = SkillStore::new(dir.path().join("test.db"));
     store.ensure_schema().unwrap();
 
-    // No stored value: built-in default applies.
-    let defaults = crate::core::onboarding::load_copy_only_tools(&store).unwrap();
-    assert!(defaults.iter().any(|key| key == "antigravity"));
-    assert!(crate::core::onboarding::is_copy_only_tool(
-        &store,
-        "antigravity"
-    ));
-    assert!(!crate::core::onboarding::is_copy_only_tool(&store, "codex"));
+    // No stored value: tools that skip reparse points default to copies,
+    // everything else keeps the historical link-then-copy behaviour.
+    let modes = load_tool_sync_modes(&store).unwrap();
+    assert_eq!(
+        resolve_tool_sync_mode(&modes, "antigravity", SyncMode::Auto),
+        SyncMode::Copy
+    );
+    assert_eq!(
+        resolve_tool_sync_mode(&modes, "cursor", SyncMode::Auto),
+        SyncMode::Copy
+    );
+    assert_eq!(
+        resolve_tool_sync_mode(&modes, "codex", SyncMode::Auto),
+        SyncMode::Auto
+    );
 
-    // Turning it off must survive even though it is the built-in default.
-    crate::core::onboarding::save_copy_only_tools(&store, Vec::new()).unwrap();
-    assert!(!crate::core::onboarding::is_copy_only_tool(
-        &store,
-        "antigravity"
-    ));
-    assert!(crate::core::onboarding::load_copy_only_tools(&store)
-        .unwrap()
-        .is_empty());
+    // Explicit choices win, including turning the default copy back to auto,
+    // and a forced link mode is a link mode, never a copy.
+    save_tool_sync_mode(&store, "Antigravity", "auto").unwrap();
+    let modes = load_tool_sync_modes(&store).unwrap();
+    assert_eq!(
+        resolve_tool_sync_mode(&modes, "antigravity", SyncMode::Auto),
+        SyncMode::Auto
+    );
 
-    // Turning it back on, plus another tool, persists case-insensitively.
-    let saved = crate::core::onboarding::save_copy_only_tools(
-        &store,
-        vec![
-            "Antigravity".to_string(),
-            "codex".to_string(),
-            "codex".to_string(),
-        ],
-    )
-    .unwrap();
-    assert_eq!(saved, vec!["antigravity".to_string(), "codex".to_string()]);
-    assert!(crate::core::onboarding::is_copy_only_tool(&store, "CODEX"));
+    save_tool_sync_mode(&store, "codex", "copy").unwrap();
+    save_tool_sync_mode(&store, "workbuddy_ai", "link").unwrap();
+    let modes = load_tool_sync_modes(&store).unwrap();
+    assert_eq!(
+        resolve_tool_sync_mode(&modes, "CODEX", SyncMode::Auto),
+        SyncMode::Copy
+    );
+    let link_mode = crate::core::onboarding::platform_link_mode();
+    assert_eq!(
+        resolve_tool_sync_mode(&modes, "workbuddy_ai", SyncMode::Auto),
+        link_mode
+    );
+
+    // Unknown values are rejected instead of being silently stored.
+    assert!(save_tool_sync_mode(&store, "codex", "bogus").is_err());
 }

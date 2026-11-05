@@ -375,16 +375,18 @@ export default {
   restoreFailed: 'Restore failed: {{error}}',
   toolManagement: {
     title: 'Tool Management',
-    linkAndCopy: 'Link · Copy',
-    copyOnly: 'Copy only',
-    linkUnsupportedHint:
-      'This tool indexes skills itself and skips directory links, so only physical copies work.',
-    toggleToCopyOnlyHint:
-      'Switch to “Copy only”: this tool indexes skills itself and may not show directory links.',
-    toggleToLinkHint:
-      'Switch to “Link · Copy”. Note: if this tool’s skill index skips directory links, the skill may not appear in its UI.',
-    copyOnlySaved: 'Set to copy only. Future syncs for this tool use physical copies.',
-    linkEnabledSaved: 'Links are now allowed. Future syncs for this tool can create links.',
+    toolModeLabel: 'Sync mode',
+    toolModes: {
+      auto: 'Link · Copy',
+      link: 'Link only',
+      copy: 'Copy only',
+    },
+    toolModeHints: {
+      auto: 'Try a link first and fall back to a physical copy when that fails.',
+      link: 'Only create a link. Sync fails instead of falling back to a copy.',
+      copy: 'Only write physical copies, never create links.',
+    },
+    toolModeSaved: 'Sync mode updated. Future syncs use the new mode.',
     hint:
       'Choose which tools can receive skills. Custom tools can point to any skills directory.',
     pageHint:

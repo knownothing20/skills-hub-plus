@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use super::central_repo::resolve_central_repo_path;
 use super::content_hash::hash_dir;
 use super::skill_store::SkillStore;
+use super::sync_engine::SyncMode;
 use super::tool_adapters::{
     default_tool_adapters, resolve_default_path_in_home, resolve_detect_path_in_home,
     scan_tool_dir, DetectedSkill,
@@ -281,52 +282,119 @@ pub fn is_tool_ignored(store: &SkillStore, tool_key: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Tools that can only receive physical copies because their own skill index
-/// skips reparse points, so a junctioned Skill never shows up in their UI.
-/// This is only the *default*: the user can flip any tool back to links in the
-/// tools page, and that choice is persisted in `COPY_ONLY_TOOLS_SETTING`.
-pub const DEFAULT_COPY_ONLY_TOOLS: &[&str] = &["antigravity"];
+/// Tools whose own skill index skips reparse points, so a linked Skill never
+/// shows up in their UI. They default to physical copies; the user can still
+/// change any tool in the tools page.
+pub const DEFAULT_COPY_ONLY_TOOLS: &[&str] = &["antigravity", "cursor"];
 
-/// Explicit per-tool "physical copy only" list. Stored as a JSON string array.
-/// Absent means "use DEFAULT_COPY_ONLY_TOOLS"; an explicit `[]` means the user
-/// turned the restriction off for every tool.
-pub const COPY_ONLY_TOOLS_SETTING: &str = "copy_only_tools_v1";
+/// Per-tool sync mode, stored as a JSON object `{"tool_key": "auto|link|copy"}`.
+/// - `auto`: try a link first, fall back to a physical copy (historical default)
+/// - `link`: only ever create a link, fail loudly when the OS refuses
+/// - `copy`: only ever write physical copies
+///
+/// Absent keys fall back to `auto`, except the tools in
+/// `DEFAULT_COPY_ONLY_TOOLS`, which fall back to `copy`.
+pub const TOOL_SYNC_MODE_SETTING: &str = "tool_sync_mode_v1";
 
-pub fn load_copy_only_tools(store: &SkillStore) -> Result<Vec<String>> {
-    let raw = store.get_setting(COPY_ONLY_TOOLS_SETTING)?;
-    match raw {
-        Some(value) => Ok(serde_json::from_str::<Vec<String>>(&value).unwrap_or_default()),
-        None => Ok(DEFAULT_COPY_ONLY_TOOLS
-            .iter()
-            .map(|key| (*key).to_string())
-            .collect()),
+/// Previous two-state setting (`["tool_key", ...]`). Read once so an existing
+/// choice survives the upgrade, then never written again.
+const LEGACY_COPY_ONLY_TOOLS_SETTING: &str = "copy_only_tools_v1";
+
+pub type ToolSyncModes = HashMap<String, String>;
+
+fn normalize_tool_sync_modes(input: ToolSyncModes) -> ToolSyncModes {
+    input
+        .into_iter()
+        .filter_map(|(key, mode)| {
+            let key = key.trim().to_lowercase();
+            let mode = mode.trim().to_lowercase();
+            if key.is_empty() || !is_valid_sync_mode(&mode) {
+                return None;
+            }
+            Some((key, mode))
+        })
+        .collect()
+}
+
+fn is_valid_sync_mode(mode: &str) -> bool {
+    matches!(mode, "auto" | "link" | "copy")
+}
+
+pub fn default_tool_sync_modes() -> ToolSyncModes {
+    DEFAULT_COPY_ONLY_TOOLS
+        .iter()
+        .map(|key| ((*key).to_string(), "copy".to_string()))
+        .collect()
+}
+
+pub fn load_tool_sync_modes(store: &SkillStore) -> Result<ToolSyncModes> {
+    if let Some(raw) = store.get_setting(TOOL_SYNC_MODE_SETTING)? {
+        // 存储损坏时退回默认值，而不是把所有工具悄悄改成 auto
+        let parsed: ToolSyncModes =
+            serde_json::from_str(&raw).unwrap_or_else(|_| default_tool_sync_modes());
+        return Ok(normalize_tool_sync_modes(parsed));
+    }
+
+    let mut modes = default_tool_sync_modes();
+    // A user who already picked something under the old setting keeps it.
+    if let Some(raw) = store.get_setting(LEGACY_COPY_ONLY_TOOLS_SETTING)? {
+        let legacy: Vec<String> = serde_json::from_str(&raw).unwrap_or_default();
+        modes.retain(|key, _| DEFAULT_COPY_ONLY_TOOLS.contains(&key.as_str()));
+        for key in legacy {
+            let key = key.trim().to_lowercase();
+            if !key.is_empty() {
+                modes.insert(key, "copy".to_string());
+            }
+        }
+    }
+    Ok(modes)
+}
+
+pub fn save_tool_sync_mode(
+    store: &SkillStore,
+    tool_key: &str,
+    mode: &str,
+) -> Result<ToolSyncModes> {
+    let key = tool_key.trim().to_lowercase();
+    let mode = mode.trim().to_lowercase();
+    if key.is_empty() {
+        anyhow::bail!("INVALID_TOOL_KEY");
+    }
+    if !is_valid_sync_mode(&mode) {
+        anyhow::bail!("INVALID_SYNC_MODE|{}", mode);
+    }
+    let mut modes = load_tool_sync_modes(store)?;
+    modes.insert(key, mode);
+    store.set_setting(TOOL_SYNC_MODE_SETTING, &serde_json::to_string(&modes)?)?;
+    Ok(modes)
+}
+
+/// Link flavour that works on the current platform. Windows directory
+/// junctions need no special privilege, so they are the safer default there.
+pub fn platform_link_mode() -> SyncMode {
+    #[cfg(windows)]
+    {
+        SyncMode::Junction
+    }
+    #[cfg(not(windows))]
+    {
+        SyncMode::Symlink
     }
 }
 
-pub fn save_copy_only_tools(store: &SkillStore, tools: Vec<String>) -> Result<Vec<String>> {
-    let mut seen = HashSet::new();
-    let mut normalized = Vec::new();
-    for tool in tools {
-        let trimmed = tool.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        let lower = trimmed.to_lowercase();
-        if seen.insert(lower.clone()) {
-            normalized.push(lower);
-        }
+pub fn resolve_tool_sync_mode(
+    modes: &ToolSyncModes,
+    tool_key: &str,
+    default: SyncMode,
+) -> SyncMode {
+    match modes
+        .get(&tool_key.trim().to_lowercase())
+        .map(String::as_str)
+    {
+        Some("copy") => SyncMode::Copy,
+        Some("link") => platform_link_mode(),
+        _ => default,
     }
-    store.set_setting(
-        COPY_ONLY_TOOLS_SETTING,
-        &serde_json::to_string(&normalized)?,
-    )?;
-    Ok(normalized)
-}
-
-pub fn is_copy_only_tool(store: &SkillStore, tool_key: &str) -> bool {
-    load_copy_only_tools(store)
-        .map(|tools| tools.iter().any(|tool| tool.eq_ignore_ascii_case(tool_key)))
-        .unwrap_or_else(|_| crate::core::tool_adapters::default_requires_physical_copy(tool_key))
 }
 
 /// Per-Skill exceptions to a blocked tool. Entries use the form

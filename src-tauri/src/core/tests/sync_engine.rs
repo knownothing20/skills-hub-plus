@@ -1,8 +1,8 @@
 use std::fs;
 
 use crate::core::sync_engine::{
-    copy_dir_recursive, sync_dir_for_tool_with_overwrite, sync_dir_hybrid,
-    sync_dir_hybrid_with_overwrite, sync_dir_with_mode_with_overwrite, SyncMode,
+    copy_dir_recursive, sync_dir_hybrid, sync_dir_hybrid_with_overwrite,
+    sync_dir_with_mode_with_overwrite, SyncMode,
 };
 
 #[test]
@@ -88,21 +88,6 @@ fn failed_link_mode_overwrite_restores_previous_target() {
         .unwrap_err();
     assert!(err.to_string().contains("junction not supported"));
     assert_eq!(fs::read(target.join("version")).unwrap(), b"old");
-}
-
-#[test]
-fn cursor_sync_forces_copy() {
-    let src_dir = tempfile::tempdir().unwrap();
-    fs::create_dir_all(src_dir.path().join("s")).unwrap();
-    fs::write(src_dir.path().join("s/a.txt"), b"ok").unwrap();
-
-    let dst_dir = tempfile::tempdir().unwrap();
-    let target = dst_dir.path().join("t");
-
-    let out = sync_dir_for_tool_with_overwrite("cursor", src_dir.path(), &target, false).unwrap();
-    assert!(matches!(out.mode_used, SyncMode::Copy));
-    assert!(target.join("s/a.txt").exists());
-    assert_eq!(fs::read(target.join("s/a.txt")).unwrap(), b"ok");
 }
 
 #[test]

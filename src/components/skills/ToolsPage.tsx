@@ -1,7 +1,6 @@
-import { memo, useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { memo, useRef, useState, type ChangeEvent } from 'react'
 import {
   ArrowLeft,
-  ArrowLeftRight,
   ChevronDown,
   ImagePlus,
   Pencil,
@@ -12,17 +11,21 @@ import {
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
-import { invokeTauri, isTauri } from '../../hooks/useTauriInvoke'
+import { invokeTauri } from '../../hooks/useTauriInvoke'
 import type {
   CustomToolConfigDto,
   SyncMode,
   ToolConfigDto,
+  ToolInfoDto,
   ToolStatusDto,
 } from './types'
 import ToolIcon from './ToolIcon'
 
 const AVATAR_INPUT_MAX_BYTES = 2 * 1024 * 1024
 const AVATAR_SIZE = 128
+
+/** 三档同步方式：自动（链接失败回退复制）/ 仅链接 / 仅复制 */
+type ToolMode = 'auto' | 'link' | 'copy'
 
 const createAvatarDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -94,7 +97,6 @@ const ToolsPage = ({
   const [savingCustomTool, setSavingCustomTool] = useState(false)
   const [avatarError, setAvatarError] = useState('')
   const [showMissingTools, setShowMissingTools] = useState(false)
-  const [copyOnlyTools, setCopyOnlyTools] = useState<string[] | null>(null)
   const [savingModeToolKey, setSavingModeToolKey] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const customToolFormRef = useRef<HTMLElement>(null)
@@ -108,42 +110,24 @@ const ToolsPage = ({
     effectiveToolConfig.custom_tools.map((tool) => [tool.key, tool]),
   )
 
-  // 「仅复制」是可配置的工具属性：后端默认只给少数工具（如 Antigravity），
-  // 这里读一次真实设置，切换后以返回值为准。
-  useEffect(() => {
-    if (!isTauri) return
-    let cancelled = false
-    void invokeTauri<string[]>('get_copy_only_tools')
-      .then((list) => {
-        if (!cancelled) setCopyOnlyTools(list)
-      })
-      .catch(() => {
-        /* 后端不可用时退回 tool.supports_junction */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  // 每个工具的同步方式：auto（先链接后复制）/ link（只链接）/ copy（只复制）。
+  // 后端把 junction、symlink 两种平台实现都归到 link 一档来展示。
+  const toolModeOf = (tool: ToolInfoDto): ToolMode => {
+    if (tool.sync_mode === 'copy') return 'copy'
+    if (tool.sync_mode === 'auto') return 'auto'
+    return 'link'
+  }
 
-  const isCopyOnly = (tool: { key: string; supports_junction?: boolean }) =>
-    copyOnlyTools
-      ? copyOnlyTools.some((key) => key.toLowerCase() === tool.key.toLowerCase())
-      : tool.supports_junction === false
-
-  const toggleCopyOnly = async (tool: { key: string; supports_junction?: boolean }) => {
+  const changeToolMode = async (tool: ToolInfoDto, mode: ToolMode) => {
     if (savingModeToolKey) return
-    const next = !isCopyOnly(tool)
+    if (mode === toolModeOf(tool)) return
     setSavingModeToolKey(tool.key)
     try {
-      const saved = await invokeTauri<string[]>('set_tool_copy_only', {
+      await invokeTauri<Record<string, string>>('set_tool_sync_mode', {
         toolKey: tool.key,
-        copyOnly: next,
+        mode,
       })
-      setCopyOnlyTools(saved)
-      toast.success(
-        next ? t('toolManagement.copyOnlySaved') : t('toolManagement.linkEnabledSaved'),
-        { duration: 3200 },
-      )
+      toast.success(t('toolManagement.toolModeSaved'), { duration: 3200 })
       await onToolStatusRefresh?.()
     } catch (err) {
       toast.error(String(err), { duration: 3200 })
@@ -355,25 +339,27 @@ const ToolsPage = ({
             </span>
           ) : null}
           {tool.is_custom ? null : (
-            <button
-              type="button"
-              className={`tool-management-mode is-toggle${
-                isCopyOnly(tool) ? ' copy-only' : ''
-              }${savingModeToolKey === tool.key ? ' saving' : ''}`}
-              title={
-                isCopyOnly(tool)
-                  ? t('toolManagement.toggleToLinkHint')
-                  : t('toolManagement.toggleToCopyOnlyHint')
-              }
-              aria-pressed={isCopyOnly(tool)}
-              disabled={savingModeToolKey === tool.key}
-              onClick={() => void toggleCopyOnly(tool)}
+            <span
+              className={`tool-mode-select-wrap mode-${toolModeOf(tool)}${
+                savingModeToolKey === tool.key ? ' saving' : ''
+              }`}
+              title={t(`toolManagement.toolModeHints.${toolModeOf(tool)}`)}
             >
-              {isCopyOnly(tool)
-                ? t('toolManagement.copyOnly')
-                : t('toolManagement.linkAndCopy')}
-              <ArrowLeftRight size={11} strokeWidth={2.2} aria-hidden="true" />
-            </button>
+              <select
+                className="tool-mode-select"
+                aria-label={t('toolManagement.toolModeLabel')}
+                value={toolModeOf(tool)}
+                disabled={savingModeToolKey === tool.key}
+                onChange={(event) =>
+                  void changeToolMode(tool, event.target.value as ToolMode)
+                }
+              >
+                <option value="auto">{t('toolManagement.toolModes.auto')}</option>
+                <option value="link">{t('toolManagement.toolModes.link')}</option>
+                <option value="copy">{t('toolManagement.toolModes.copy')}</option>
+              </select>
+              <ChevronDown size={11} className="tool-mode-select-caret" aria-hidden="true" />
+            </span>
           )}
           {tool.is_custom ? (
             <span className="tool-management-mode">

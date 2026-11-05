@@ -3822,37 +3822,67 @@
   background: color-mix(in srgb, var(--status-warning, #854f0b) 12%, transparent);
 }
 
-.tool-management-mode.is-toggle {
+/* 内置工具的同步方式选择器：外观是一枚 pill，三档共用同一宽度 */
+.tool-mode-select-wrap {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  line-height: inherit;
+  min-width: 96px;
+  height: 20px;
+  padding: 0 17px 0 8px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
   transition:
     background 0.15s ease,
     color 0.15s ease,
     opacity 0.15s ease;
 }
 
-.tool-management-mode.is-toggle:hover {
-  background: var(--accent-soft-bg);
+.tool-mode-select-wrap.mode-copy {
+  color: var(--status-warning, #854f0b);
+  background: color-mix(in srgb, var(--status-warning, #854f0b) 12%, transparent);
+}
+
+.tool-mode-select-wrap.mode-link {
   color: var(--accent-primary);
+  background: var(--accent-soft-bg);
 }
 
-.tool-management-mode.is-toggle.copy-only:hover {
-  background: color-mix(in srgb, var(--status-warning, #854f0b) 20%, transparent);
-}
-
-.tool-management-mode.is-toggle:focus-visible {
+.tool-mode-select-wrap:focus-within {
   outline: 2px solid var(--accent-primary);
   outline-offset: 1px;
 }
 
-.tool-management-mode.is-toggle:disabled {
-  cursor: progress;
+.tool-mode-select-wrap.saving {
   opacity: 0.6;
+}
+
+.tool-mode-select {
+  appearance: none;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+}
+
+.tool-mode-select:disabled {
+  cursor: progress;
+}
+
+.tool-mode-select-caret {
+  position: absolute;
+  right: 5px;
+  pointer-events: none;
+  opacity: 0.7;
 }
 
 .tool-management-path {

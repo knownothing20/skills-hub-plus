@@ -217,6 +217,10 @@ pub fn runtime_tools(
 ) -> anyhow::Result<Vec<RuntimeTool>> {
     let config = load_tool_config(store)?;
     let mut tools = Vec::new();
+    // 每个工具的同步方式由设置决定（auto / link / copy），读一次复用。
+    // 读失败时退回内置默认值，避免把对链接敏感的工具误改成 auto。
+    let sync_modes = crate::core::onboarding::load_tool_sync_modes(store)
+        .unwrap_or_else(|_| crate::core::onboarding::default_tool_sync_modes());
 
     for adapter in default_tool_adapters() {
         let enabled = is_builtin_tool_enabled(&config, adapter.id.as_key());
@@ -234,7 +238,11 @@ pub fn runtime_tools(
             skills_dir: resolve_default_path(&adapter)?,
             project_skills_dir: project_relative_skills_dir(&adapter).to_string(),
             supports_project_scope: supports_project_scope(&adapter),
-            sync_mode: SyncMode::Auto,
+            sync_mode: crate::core::onboarding::resolve_tool_sync_mode(
+                &sync_modes,
+                adapter.id.as_key(),
+                SyncMode::Auto,
+            ),
         });
     }
 

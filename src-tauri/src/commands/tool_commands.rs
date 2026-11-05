@@ -1,6 +1,7 @@
 use tauri::State;
 
 use crate::core::skill_store::SkillStore;
+use crate::core::sync_engine::SyncMode;
 use crate::core::tool_adapters::{load_tool_config, save_tool_config};
 
 use super::common::{
@@ -36,12 +37,8 @@ pub async fn get_tool_status(store: State<'_, SkillStore>) -> Result<ToolStatusD
     tauri::async_runtime::spawn_blocking(move || {
         let mut tools: Vec<ToolInfoDto> = Vec::new();
         let mut installed: Vec<String> = Vec::new();
-        let copy_only = crate::core::onboarding::load_copy_only_tools(&store)?;
 
         for tool in runtime_tools(&store, true)? {
-            let is_copy_only = copy_only
-                .iter()
-                .any(|key| key.eq_ignore_ascii_case(&tool.key));
             tools.push(ToolInfoDto {
                 key: tool.key.clone(),
                 label: tool.label,
@@ -52,7 +49,7 @@ pub async fn get_tool_status(store: State<'_, SkillStore>) -> Result<ToolStatusD
                 skills_dir: tool.skills_dir.to_string_lossy().to_string(),
                 project_skills_dir: tool.project_skills_dir,
                 supports_project_scope: tool.supports_project_scope,
-                supports_junction: !is_copy_only,
+                supports_junction: !matches!(tool.sync_mode, SyncMode::Copy),
                 supports_copy: true,
                 sync_mode: tool.sync_mode,
             });

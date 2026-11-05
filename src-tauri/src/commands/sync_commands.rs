@@ -15,7 +15,7 @@ use crate::core::safe_fs::{
 };
 use crate::core::skill_store::{SkillRecord, SkillStore, SkillTargetRecord};
 use crate::core::sync_engine::{
-    copy_dir_recursive, sync_dir_for_tool_with_overwrite, sync_dir_with_mode_with_overwrite,
+    copy_dir_recursive, sync_dir_hybrid_with_overwrite, sync_dir_with_mode_with_overwrite,
     SyncMode, SyncOutcome,
 };
 use crate::core::tool_adapters::{
@@ -365,10 +365,11 @@ pub fn sync_skill_to_tool_impl(
         "symlink" => Some(crate::core::sync_engine::SyncMode::Symlink),
         _ => None,
     };
-    // 有些工具的技能扫描器不跟随目录联接（如 Antigravity），只能给物理副本，
-    // 否则同步过去它在自己的列表里也看不到。该限制可在工具管理里按工具关闭。
-    if crate::core::onboarding::is_copy_only_tool(store, &runtime_tool.key) {
-        requested_mode = Some(crate::core::sync_engine::SyncMode::Copy);
+    // 每个工具的同步方式由设置决定：auto 保持默认链接优先，link 只建链接，
+    // copy 只写物理副本。限制可在工具管理里按工具修改。
+    match runtime_tool.sync_mode {
+        crate::core::sync_engine::SyncMode::Auto => {}
+        forced => requested_mode = Some(forced),
     }
 
     if let Some(existing) =
@@ -432,15 +433,9 @@ pub fn sync_skill_to_tool_impl(
             || requested_mode.is_some();
         let sync_res = if let Some(m) = requested_mode {
             sync_dir_with_mode_with_overwrite(m, &managed_source, &target, overwrite)
-        } else if runtime_tool.is_custom {
-            sync_dir_with_mode_with_overwrite(
-                runtime_tool.sync_mode,
-                &managed_source,
-                &target,
-                overwrite,
-            )
         } else {
-            sync_dir_for_tool_with_overwrite(tool, &managed_source, &target, overwrite)
+            // auto：先尝试链接，失败再回退为物理副本
+            sync_dir_hybrid_with_overwrite(&managed_source, &target, overwrite)
         };
         match sync_res {
             Ok(result) => result,
@@ -730,14 +725,6 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
     let mut plans_by_path =
         std::collections::BTreeMap::<std::path::PathBuf, EnableTargetPlan>::new();
 
-    // 不跟随目录联接的工具（如 Antigravity）始终用物理副本；限制可按工具配置
-    let copy_only_tools = crate::core::onboarding::load_copy_only_tools(store)?;
-    let is_copy_only = |tool_key: &str| {
-        copy_only_tools
-            .iter()
-            .any(|key| key.eq_ignore_ascii_case(tool_key))
-    };
-
     // Validate every saved row before creating even the first target.
     for target in &original_targets {
         if crate::core::onboarding::is_tool_ignored(store, &target.tool)
@@ -764,11 +751,10 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
         if path_entry_exists(&path)? {
             anyhow::bail!("TARGET_EXISTS|{}", path.to_string_lossy());
         }
-        // 不跟随目录联接的工具（如 Antigravity）始终用物理副本
-        let mode = if is_copy_only(&target.tool) {
-            crate::core::sync_engine::SyncMode::Copy
-        } else {
-            saved_sync_mode(&target.mode)?
+        // auto 沿用已保存的记录；link / copy 是用户为该工具指定的强制方式
+        let mode = match runtime_tool.sync_mode {
+            crate::core::sync_engine::SyncMode::Auto => saved_sync_mode(&target.mode)?,
+            forced => forced,
         };
 
         if let Some(existing) = plans_by_path.get_mut(&path) {

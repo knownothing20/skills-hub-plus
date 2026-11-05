@@ -372,14 +372,18 @@ export default {
   toolManagement: {
     title: '工具管理',
     hint: '选择哪些工具可以接收 Skills。自定义工具可指向任意 skills 目录。',
-    linkAndCopy: '软链接 · 复制',
-    copyOnly: '仅复制',
-    linkUnsupportedHint: '该软件的技能索引不跟随目录联接，同步只能用物理副本。',
-    toggleToCopyOnlyHint: '点击切换为「仅复制」：该工具自带技能索引，可能不显示目录联接。',
-    toggleToLinkHint:
-      '点击改为「软链接 · 复制」。注意：若该软件的技能索引不跟随目录联接，技能可能不会出现在它的界面里。',
-    copyOnlySaved: '已设为仅复制，该工具后续同步使用物理副本。',
-    linkEnabledSaved: '已允许软链接，该工具后续同步可创建链接。',
+    toolModeLabel: '同步方式',
+    toolModes: {
+      auto: '软链接 · 复制',
+      link: '仅软链接',
+      copy: '仅复制',
+    },
+    toolModeHints: {
+      auto: '先尝试软链接或目录联接，失败时自动回退为复制。',
+      link: '只创建软链接或目录联接，创建失败就报错，不会退回复制。',
+      copy: '只写物理副本，不创建任何链接。',
+    },
+    toolModeSaved: '同步方式已更新，后续同步按新方式执行。',
     pageHint: '独立管理内置工具和自定义工具目标，不再挤在应用偏好设置里。',
     builtinSection: '已配置工具',
     builtinHint: '启用的工具会出现在安装、导入、同步和 Skill 详情流程中。',
