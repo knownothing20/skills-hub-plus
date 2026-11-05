@@ -397,6 +397,8 @@ pub fn run() {
             commands::set_discovery_scan_config,
             commands::get_ignored_tools,
             commands::set_ignored_tools,
+            commands::get_tool_skill_whitelist,
+            commands::set_tool_skill_whitelist,
             commands::install_local,
             commands::list_local_skills_cmd,
             commands::install_local_selection,

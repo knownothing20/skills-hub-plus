@@ -714,6 +714,7 @@ export default {
   ignoredToolsEmpty: 'No blocked software',
   untool: 'Unblock',
   untoolSuccess: 'Software unblocked',
+  whitelistLabel: 'Exceptions',
   scanExcludedTitle: 'Software excluded from scan',
   scanExcludedDesc: 'Skills inside these software folders are hidden from local discovery. You can still add them manually from the Tools page.',
   scanExcludedEmpty: 'All software is scanned',

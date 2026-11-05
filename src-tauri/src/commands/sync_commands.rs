@@ -151,6 +151,11 @@ pub fn auto_reconcile_skill_targets(
             .into_iter()
             .map(|tool| tool.to_lowercase())
             .collect();
+    let whitelisted_skills: std::collections::HashSet<String> =
+        crate::core::onboarding::load_tool_skill_whitelist(store)?
+            .into_iter()
+            .map(|entry| entry.to_lowercase())
+            .collect();
     let skills = store.list_skills()?;
     let now = now_ms();
     let mut reconciled_count = 0;
@@ -170,7 +175,12 @@ pub fn auto_reconcile_skill_targets(
         let central_ignore_content = std::fs::read_to_string(&central_ignore_path).ok();
 
         for adapter in &adapters {
-            if ignored_tools.contains(adapter.id.as_key()) {
+            if ignored_tools.contains(adapter.id.as_key())
+                && !whitelisted_skills.contains(&crate::core::onboarding::whitelist_key(
+                    adapter.id.as_key(),
+                    &skill.name,
+                ))
+            {
                 continue;
             }
             // 快速短路检查：如果数据库中已经记录该目标且状态为 ok，直接 0 耗时跳过！
@@ -277,7 +287,9 @@ pub fn sync_skill_to_tool_impl(
     }
 
     let runtime_tool = runtime_tool_by_key(store, tool)?;
-    if crate::core::onboarding::is_tool_ignored(store, &runtime_tool.key) {
+    if crate::core::onboarding::is_tool_ignored(store, &runtime_tool.key)
+        && !crate::core::onboarding::is_skill_whitelisted(store, &runtime_tool.key, &skill.name)
+    {
         anyhow::bail!("TOOL_IGNORED|{}", runtime_tool.key);
     }
     let scope = normalize_scope(scope)?;
@@ -715,7 +727,9 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
 
     // Validate every saved row before creating even the first target.
     for target in &original_targets {
-        if crate::core::onboarding::is_tool_ignored(store, &target.tool) {
+        if crate::core::onboarding::is_tool_ignored(store, &target.tool)
+            && !crate::core::onboarding::is_skill_whitelisted(store, &target.tool, &skill.name)
+        {
             anyhow::bail!("TOOL_IGNORED|{}", target.tool);
         }
         if target.status != "disabled" {

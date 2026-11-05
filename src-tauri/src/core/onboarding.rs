@@ -281,6 +281,58 @@ pub fn is_tool_ignored(store: &SkillStore, tool_key: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Per-Skill exceptions to a blocked tool. Entries use the form
+/// `"tool_key/skill_name"`, so blocking a software still lets a single Skill
+/// inside it stay managed. Empty by default.
+pub const TOOL_SKILL_WHITELIST_SETTING: &str = "tool_skill_whitelist_v1";
+
+pub fn load_tool_skill_whitelist(store: &SkillStore) -> Result<Vec<String>> {
+    let raw = store.get_setting(TOOL_SKILL_WHITELIST_SETTING)?;
+    Ok(raw
+        .as_deref()
+        .and_then(|value| serde_json::from_str(value).ok())
+        .unwrap_or_default())
+}
+
+pub fn save_tool_skill_whitelist(store: &SkillStore, entries: Vec<String>) -> Result<Vec<String>> {
+    let mut seen = HashSet::new();
+    let mut normalized = Vec::new();
+    for entry in entries {
+        let trimmed = entry.trim();
+        if trimmed.is_empty() || !trimmed.contains('/') {
+            continue;
+        }
+        let lower = trimmed.to_lowercase();
+        if seen.insert(lower.clone()) {
+            normalized.push(lower);
+        }
+    }
+    store.set_setting(
+        TOOL_SKILL_WHITELIST_SETTING,
+        &serde_json::to_string(&normalized)?,
+    )?;
+    Ok(normalized)
+}
+
+pub fn whitelist_key(tool_key: &str, skill_name: &str) -> String {
+    format!(
+        "{}/{}",
+        tool_key.trim().to_lowercase(),
+        skill_name.trim().to_lowercase()
+    )
+}
+
+pub fn is_skill_whitelisted(store: &SkillStore, tool_key: &str, skill_name: &str) -> bool {
+    let wanted = whitelist_key(tool_key, skill_name);
+    load_tool_skill_whitelist(store)
+        .map(|entries| {
+            entries
+                .iter()
+                .any(|entry| entry.eq_ignore_ascii_case(&wanted))
+        })
+        .unwrap_or(false)
+}
+
 pub fn load_ignored_skills(store: &SkillStore) -> Result<Vec<String>> {
     let raw = store.get_setting(IGNORED_SKILLS_SETTING)?;
     Ok(raw

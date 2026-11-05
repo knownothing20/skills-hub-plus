@@ -143,6 +143,35 @@ const SettingsPage = ({
   }, [loadExcludedScanSources])
 
   const [ignoredTools, setIgnoredTools] = useState<string[]>([])
+  const [toolWhitelist, setToolWhitelist] = useState<string[]>([])
+  const loadToolWhitelist = useCallback(async () => {
+    if (!isTauri) return
+    try {
+      const list = await invokeTauri<string[]>('get_tool_skill_whitelist')
+      setToolWhitelist(list ?? [])
+    } catch {
+      setToolWhitelist([])
+    }
+  }, [isTauri])
+
+  useEffect(() => {
+    void loadToolWhitelist()
+  }, [loadToolWhitelist])
+
+  const handleRemoveWhitelist = useCallback(
+    async (entry: string) => {
+      try {
+        const current = await invokeTauri<string[]>('get_tool_skill_whitelist')
+        const next = (current ?? []).filter((item) => item !== entry)
+        await invokeTauri('set_tool_skill_whitelist', { entries: next })
+        await loadToolWhitelist()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [loadToolWhitelist],
+  )
+
   const loadIgnoredTools = useCallback(async () => {
     if (!isTauri) return
     try {
@@ -882,30 +911,68 @@ const SettingsPage = ({
                   <div className="settings-helper">{t('ignoredToolsEmpty')}</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {ignoredTools.map((tool) => (
-                      <div
-                        key={tool}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '8px 12px',
-                          borderRadius: '6px',
-                          backgroundColor: 'var(--bg-secondary)',
-                          border: '1px solid var(--border-color)',
-                        }}
-                      >
-                        <span style={{ fontWeight: 500 }}>{tool}</span>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ padding: '2px 8px', fontSize: '12px' }}
-                          onClick={() => void handleUntool(tool)}
+                    {ignoredTools.map((tool) => {
+                      const exceptions = toolWhitelist.filter((entry) =>
+                        entry.startsWith(`${tool.toLowerCase()}/`),
+                      )
+                      return (
+                        <div
+                          key={tool}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            backgroundColor: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                          }}
                         >
-                          {t('untool')}
-                        </button>
-                      </div>
-                    ))}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span style={{ fontWeight: 500 }}>{tool}</span>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '2px 8px', fontSize: '12px' }}
+                              onClick={() => void handleUntool(tool)}
+                            >
+                              {t('untool')}
+                            </button>
+                          </div>
+                          {exceptions.length > 0 && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                flexWrap: 'wrap',
+                                fontSize: '12px',
+                                color: 'var(--text-secondary)',
+                              }}
+                            >
+                              <span>{t('whitelistLabel')}</span>
+                              {exceptions.map((entry) => (
+                                <button
+                                  key={entry}
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ padding: '0 6px', fontSize: '11px' }}
+                                  onClick={() => void handleRemoveWhitelist(entry)}
+                                >
+                                  {entry.split('/')[1]} ×
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

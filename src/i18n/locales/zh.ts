@@ -692,6 +692,7 @@ export default {
   ignoredToolsEmpty: '暂无已屏蔽的软件',
   untool: '解除屏蔽',
   untoolSuccess: '已解除屏蔽',
+  whitelistLabel: '例外',
   scanExcludedTitle: '不扫描的软件',
   scanExcludedDesc: '这些软件里的技能不会被「本机发现」列出，但你仍可在工具页手动添加。',
   scanExcludedEmpty: '所有软件都参与扫描',

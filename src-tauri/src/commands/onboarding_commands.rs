@@ -78,6 +78,31 @@ pub async fn set_ignored_tools(
 }
 
 #[tauri::command]
+pub async fn get_tool_skill_whitelist(store: State<'_, SkillStore>) -> Result<Vec<String>, String> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::core::onboarding::load_tool_skill_whitelist(&store)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map_err(format_anyhow_error)
+}
+
+#[tauri::command]
+pub async fn set_tool_skill_whitelist(
+    store: State<'_, SkillStore>,
+    entries: Vec<String>,
+) -> Result<Vec<String>, String> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::core::onboarding::save_tool_skill_whitelist(&store, entries)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map_err(format_anyhow_error)
+}
+
+#[tauri::command]
 #[allow(non_snake_case)]
 pub async fn import_existing_skill(
     app: tauri::AppHandle,
