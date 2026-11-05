@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Copy, RefreshCw, Tag, Trash2, Link2, Box, ShieldOff } from 'lucide-react'
+import { Copy, RefreshCw, Tag, Trash2, Link2, Box, ShieldOff, Crown } from 'lucide-react'
 import { openPath } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
@@ -229,19 +229,6 @@ const SkillCard = ({
               : null
             return (
               <>
-                <span>
-                  {`可用 ${
-                    externalTools.filter((t) => getToolSyncState(skill, t.id, scope) === 'synced').length
-                  } 个`}
-                </span>
-                {ownerToolLabel && (
-                  <span
-                    className="skill-role-chip role-owner"
-                    title={t('roleOwnerAt', { tool: ownerToolLabel })}
-                  >
-                    {ownerToolLabel}
-                  </span>
-                )}
                 {roleSummary.links > 0 && (
                   <span className="skill-role-chip role-link">
                     {t('roleLink')} {roleSummary.links}
@@ -333,6 +320,18 @@ const SkillCard = ({
                     label={tool.label}
                     avatar={tool.avatar}
                   />
+                  {role === 'owner' && (
+                    <span
+                      className="owner-crown"
+                      title={
+                        ownerToolLabel
+                          ? t('roleOwnerAt', { tool: ownerToolLabel })
+                          : t('roleOwner')
+                      }
+                    >
+                      <Crown size={9} />
+                    </span>
+                  )}
                   {synced && role !== 'owner' && (
                     <span
                       className={`sync-mode-badge ${isCopy ? 'badge-copy' : 'badge-symlink'}`}

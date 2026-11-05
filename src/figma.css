@@ -784,6 +784,21 @@
 .skill-tool-avatars .sync-mode-badge.badge-copy {
   background: #f59e0b;
 }
+.skill-tool-avatars .owner-crown {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #854F0B;
+  color: #FAC775;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--bg-panel, #fff);
+  z-index: 3;
+  pointer-events: none;
+}
 :root[data-theme='dark'] .skill-tool-avatars button.is-copy {
   background: #3b2a14;
   border-color: #d97706;
@@ -793,7 +808,6 @@
 .skill-tool-avatars button.role-owner {
   background: #FAEEDA;
   border-color: #854F0B;
-  border-width: 2px;
 }
 .skill-tool-avatars button.role-link_to_owner {
   background: #e5f7ed;
