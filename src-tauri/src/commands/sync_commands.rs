@@ -1296,35 +1296,8 @@ pub async fn reconcile_all_skill_targets(store: State<'_, SkillStore>) -> Result
     .map_err(|err| err.to_string())?
 }
 
-pub fn scan_dir_latest_mtime(dir: &std::path::Path) -> (u64, usize) {
-    if !dir.is_dir() {
-        return (0, 0);
-    }
-    let mut max_mtime = 0u64;
-    let mut file_count = 0usize;
-    let rules = crate::core::content_hash::load_ignore_patterns(dir);
-    let walker = walkdir::WalkDir::new(dir).follow_links(false).into_iter();
-    for entry in walker
-        .filter_entry(|e| !crate::core::content_hash::is_entry_ignored(dir, e, &rules))
-        .flatten()
-    {
-        if entry.file_type().is_file() {
-            file_count += 1;
-            if let Ok(meta) = entry.metadata() {
-                if let Ok(modified) = meta.modified() {
-                    let ms = modified
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map(|d| d.as_millis() as u64)
-                        .unwrap_or(0);
-                    if ms > max_mtime {
-                        max_mtime = ms;
-                    }
-                }
-            }
-        }
-    }
-    (max_mtime, file_count)
-}
+// 比较页沿用的 mtime 扫描口径统一收在 core::stale_copies。
+pub use crate::core::stale_copies::scan_dir_latest_mtime;
 
 #[tauri::command]
 #[allow(non_snake_case)]

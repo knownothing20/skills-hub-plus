@@ -117,6 +117,22 @@ export type ToolStatusDto = {
   newly_installed: string[]
 }
 
+/** 复制副本的落后状态；verdict: behind | hand_edited | conflict */
+export type StaleCopyStatusDto = {
+  skill_id: string
+  skill_name: string
+  tool: string
+  tool_label: string
+  target_path: string
+  verdict: 'behind' | 'hand_edited' | 'conflict'
+}
+
+export type StartupStaleRefreshDto = {
+  refreshed: number
+  remaining: number
+  auto_refresh_enabled: boolean
+}
+
 export type CustomToolConfigDto = {
   key: string
   label: string

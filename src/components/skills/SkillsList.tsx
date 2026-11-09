@@ -1,7 +1,13 @@
 import { memo } from 'react'
 import { MessageCircle, SlidersHorizontal } from 'lucide-react'
 import type { TFunction } from 'i18next'
-import type { ManagedSkill, OnboardingPlan, SkillHealthDto, ToolOption } from './types'
+import type {
+  ManagedSkill,
+  OnboardingPlan,
+  SkillHealthDto,
+  StaleCopyStatusDto,
+  ToolOption,
+} from './types'
 import SkillCard from './SkillCard'
 
 type GithubInfo = {
@@ -36,6 +42,8 @@ type SkillsListProps = {
   getSkillScope: (skill: ManagedSkill) => 'global' | 'project'
   getSkillProjects: (skill: ManagedSkill) => string[]
   skillHealthByName?: Record<string, SkillHealthDto>
+  staleBySkillTool?: Map<string, StaleCopyStatusDto>
+  onRefreshStale?: (skillId: string, toolId: string) => Promise<void>
   toolCounts?: Record<string, number>
   t: TFunction
 }
@@ -68,6 +76,8 @@ const SkillsList = ({
   getSkillScope,
   getSkillProjects,
   skillHealthByName,
+  staleBySkillTool,
+  onRefreshStale,
   t,
 }: SkillsListProps) => {
   const selectedSkillSet = new Set(selectedSkillIds)
@@ -132,6 +142,8 @@ const SkillsList = ({
               installedTools={installedTools}
               toolCounts={toolCounts}
               health={skillHealthByName?.[skill.name]}
+              staleBySkillTool={staleBySkillTool}
+              onRefreshStale={onRefreshStale}
               loading={loading}
               bulkMode={bulkMode}
               bulkSelected={selectedSkillSet.has(skill.id)}

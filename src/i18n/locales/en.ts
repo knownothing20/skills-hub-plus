@@ -30,6 +30,7 @@ export default {
     synced: '{{count}} synced',
     broken: '{{count}} broken',
     idle: '{{count}} idle',
+    stale: '{{count}} stale',
     cardBroken: 'Broken {{count}}',
     cardIdle: 'Idle',
     idleHint: 'No valid sync target and unchanged for over 90 days',
@@ -373,6 +374,28 @@ export default {
   restoreConfirm: 'Are you sure you want to restore from backup? Master skill files and database relationships will be restored.',
   restoreSuccess: 'Restore successful! {{count}} skills and relationships restored.',
   restoreFailed: 'Restore failed: {{error}}',
+  stale: {
+    detailsTitle: '{{count}} stale copies',
+    behindTitle: 'Copy is behind the master Skill — click to refresh',
+    handEditedTitle: 'Copy contains your edits — click to review',
+    conflictTitle: 'Copy differs and order is unclear — click to review',
+    refreshedOne: 'Copy refreshed; the previous one is in backup\\stale-copies',
+    stateChanged: 'State changed (refreshed or edited just now) — re-checked',
+    startupRefreshed: 'Startup check: refreshed {{count}} stale copies',
+    startupRemaining: 'Startup check: {{count}} copies need your attention',
+    startupRemainingHint:
+      'Edited or ambiguous copies are never overwritten automatically. Click the red badge on a card to review.',
+    verdict: {
+      behind: 'behind, safe to refresh',
+      hand_edited: 'contains hand edits',
+      conflict: 'order unclear',
+    },
+    autoRefreshEnabledToast: 'Auto-refresh on startup enabled',
+    autoRefreshDisabledToast: 'Disabled — stale copies are marked but not refreshed',
+    autoRefreshLabel: 'Auto-refresh stale copies on startup',
+    autoRefreshHint:
+      'Only refreshes copies that are clearly behind with no extra files; edited copies are never touched. Previous snapshots live in backup\\stale-copies, one per skill.',
+  },
   toolManagement: {
     title: 'Tool Management',
     toolModeLabel: 'Sync mode',

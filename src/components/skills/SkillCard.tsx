@@ -6,7 +6,12 @@ import { toast } from 'sonner'
 import { getToolSyncState, isActiveSkillTarget } from './skillSyncStatus'
 import { roleOfTarget } from './skillOwner'
 import { isSkillUpdateable } from './skillUpdateability'
-import type { ManagedSkill, SkillHealthDto, ToolOption } from './types'
+import type {
+  ManagedSkill,
+  SkillHealthDto,
+  StaleCopyStatusDto,
+  ToolOption,
+} from './types'
 import logoMark from '../../assets/logo-mark.svg'
 import SkillIcon from './SkillIcon'
 import ToolIcon from './ToolIcon'
@@ -37,6 +42,8 @@ type SkillCardProps = {
   onToggleBulkSelection: (skillId: string) => void
   getSkillScope: (skill: ManagedSkill) => 'global' | 'project'
   getSkillProjects: (skill: ManagedSkill) => string[]
+  staleBySkillTool?: Map<string, StaleCopyStatusDto>
+  onRefreshStale?: (skillId: string, toolId: string) => Promise<void>
   toolCounts?: Record<string, number>
   t: TFunction
 }
@@ -65,6 +72,8 @@ const SkillCard = ({
   onToggleBulkSelection,
   getSkillScope,
   getSkillProjects,
+  staleBySkillTool,
+  onRefreshStale,
   t,
 }: SkillCardProps) => {
   const [contextMenu, setContextMenu] = useState<ToolContextMenuState | null>(null)
@@ -257,6 +266,9 @@ const SkillCard = ({
                 : target?.mode === 'junction'
                   ? '软链接 (Junction)'
                   : '软链接 (Symlink)'
+              const staleInfo = target
+                ? staleBySkillTool?.get(`${skill.name}/${tool.id}`)
+                : undefined
 
               let finalClass: string = syncState
               let stateLabel = ''
@@ -277,12 +289,33 @@ const SkillCard = ({
               return (
                 <button
                   key={tool.id}
-                  className={`tool-sync-btn ${finalClass}${role ? ` role-${role}` : ''}`}
+                  className={`tool-sync-btn ${finalClass}${role ? ` role-${role}` : ''}${
+                    staleInfo ? ' has-stale' : ''
+                  }`}
                   type="button"
-                  title={`${tool.label}${roleLabel ? ` · ${roleLabel}` : ''} · ${stateLabel} (右键更多操作)`}
+                  title={`${tool.label}${roleLabel ? ` · ${roleLabel}` : ''} · ${
+                    staleInfo
+                      ? staleInfo.verdict === 'behind'
+                        ? t('stale.behindTitle')
+                        : staleInfo.verdict === 'hand_edited'
+                          ? t('stale.handEditedTitle')
+                          : t('stale.conflictTitle')
+                      : stateLabel
+                  } (右键更多操作)`}
                   aria-label={`${tool.label}${roleLabel ? ` · ${roleLabel}` : ''} · ${stateLabel}`}
                   aria-pressed={synced}
-                  onClick={() => enabled && onToggleTool(skill, tool.id)}
+                  onClick={() => {
+                    if (!enabled) return
+                    if (staleInfo) {
+                      if (staleInfo.verdict === 'behind') {
+                        void onRefreshStale?.(skill.id, tool.id)
+                      } else {
+                        onOpenDetail(skill)
+                      }
+                      return
+                    }
+                    onToggleTool(skill, tool.id)
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -304,6 +337,11 @@ const SkillCard = ({
                     label={tool.label}
                     avatar={tool.avatar}
                   />
+                  {staleInfo ? (
+                    <span className="stale-badge" aria-hidden="true">
+                      !
+                    </span>
+                  ) : null}
                   {role === 'owner' && (
                     <span
                       className="owner-crown"

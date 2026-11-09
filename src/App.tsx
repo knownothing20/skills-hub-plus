@@ -59,6 +59,7 @@ import { useSkillScope } from './hooks/useSkillScope'
 import { useSkillLifecycle } from './hooks/useSkillLifecycle'
 import { useSystemSettings } from './hooks/useSystemSettings'
 import { useLibraryHealth } from './hooks/useLibraryHealth'
+import { useStaleCopies } from './hooks/useStaleCopies'
 import { useImportPlan } from './hooks/useImportPlan'
 import { useInstallScopeTargets } from './hooks/useInstallScopeTargets'
 import { useExploreSkills } from './hooks/useExploreSkills'
@@ -105,6 +106,31 @@ function App() {
   const [managementTab, setManagementTab] = useState<ManagementTab>('tags')
   const [detailSkill, setDetailSkill] = useState<ManagedSkill | null>(null)
   const { libraryHealth, refreshLibraryHealth } = useLibraryHealth()
+  const {
+    staleStatuses,
+    staleBySkillTool,
+    staleCount,
+    autoRefreshEnabled,
+    setAutoRefresh: setStaleAutoRefresh,
+    runStartupRefresh,
+    refreshOne: refreshStaleOne,
+    refreshStaleStatus,
+  } = useStaleCopies()
+
+  const handleAutoRefreshStaleChange = useCallback(
+    async (next: boolean) => {
+      try {
+        await setStaleAutoRefresh(next)
+        toast.success(
+          next ? t('stale.autoRefreshEnabledToast') : t('stale.autoRefreshDisabledToast'),
+          { duration: 3200 },
+        )
+      } catch (err) {
+        toast.error(String(err), { duration: 3200 })
+      }
+    },
+    [setStaleAutoRefresh, t],
+  )
   const {
     featuredSkills,
     featuredLoading,
@@ -243,6 +269,25 @@ function App() {
       },
     )
   }, [libraryHealth, refreshLibraryHealth, t, toolLabelById])
+
+  const handleStaleCountClick = useCallback(() => {
+    if (staleStatuses.length === 0) {
+      void refreshStaleStatus()
+      return
+    }
+    const lines = staleStatuses
+      .slice(0, 8)
+      .map(
+        (status) =>
+          `${status.skill_name}: ${status.tool_label} · ${t(`stale.verdict.${status.verdict}`)}`,
+      )
+    const more =
+      staleStatuses.length > 8 ? `\n+${staleStatuses.length - 8}` : ''
+    toast.warning(t('stale.detailsTitle', { count: staleStatuses.length }), {
+      description: `${lines.join('\n')}${more}`,
+      duration: 8000,
+    })
+  }, [staleStatuses, refreshStaleStatus, t])
 
   const sharedToolIdsByToolId = useMemo(() => {
     // toolId -> all toolIds that share the same skills_dir.
@@ -566,6 +611,60 @@ function App() {
     loadManagedSkills,
     loadTags,
   })
+
+  // 启动时的落后副本检查：后端扫描 + 自动刷新 Behind 条目，结果用 toast 汇报。
+  const handleRefreshStaleOne = useCallback(
+    async (skillId: string, toolId: string) => {
+      try {
+        await refreshStaleOne(skillId, toolId)
+        toast.success(t('stale.refreshedOne'), { duration: 3200 })
+        await loadManagedSkills()
+        void refreshLibraryHealth()
+      } catch (err) {
+        const message = String(err)
+        if (message.includes('STALE_STATE_CHANGED')) {
+          toast.info(t('stale.stateChanged'), { duration: 4000 })
+          void refreshStaleStatus()
+        } else {
+          toast.error(message, { duration: 4000 })
+        }
+      }
+    },
+    [
+      refreshStaleOne,
+      loadManagedSkills,
+      refreshLibraryHealth,
+      refreshStaleStatus,
+      t,
+    ],
+  )
+
+  useEffect(() => {
+    if (!isTauri) return
+    let cancelled = false
+    void (async () => {
+      const result = await runStartupRefresh()
+      if (cancelled || !result) return
+      if (result.refreshed > 0) {
+        toast.success(
+          t('stale.startupRefreshed', { count: result.refreshed }),
+          { duration: 4000 },
+        )
+        await loadManagedSkills()
+        void refreshLibraryHealth()
+      }
+      if (result.remaining > 0) {
+        toast.warning(t('stale.startupRemaining', { count: result.remaining }), {
+          description: t('stale.startupRemainingHint'),
+          duration: 6000,
+        })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTauri])
 
   const toolOptionsWithCounts = useMemo(() => {
     return installedTools.map((tool) => {
@@ -1084,6 +1183,25 @@ function App() {
                   {t('health.broken', { count: libraryHealth.summary.broken_targets })}
                 </span>
                 <span className="library-health-sep" aria-hidden="true">·</span>
+                <span
+                  className={`library-health-item${staleCount > 0 ? ' is-stale' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  title={staleCount > 0 ? t('stale.detailsTitle', { count: staleCount }) : undefined}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleStaleCountClick()
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation()
+                      handleStaleCountClick()
+                    }
+                  }}
+                >
+                  {t('health.stale', { count: staleCount })}
+                </span>
+                <span className="library-health-sep" aria-hidden="true">·</span>
                 <span className="library-health-item is-muted">
                   {t('health.idle', { count: libraryHealth.summary.idle_skills })}
                 </span>
@@ -1143,6 +1261,8 @@ function App() {
               getSkillScope={getSkillScope}
               getSkillProjects={getSkillProjects}
               skillHealthByName={skillHealthByName}
+              staleBySkillTool={staleBySkillTool}
+              onRefreshStale={handleRefreshStaleOne}
               t={t}
             />
             {bulkMode ? (
@@ -1303,9 +1423,11 @@ function App() {
             gitCacheTtlSecs={gitCacheTtlSecs}
             themePreference={themePreference}
             defaultSyncMode={defaultSyncMode}
+            autoRefreshStaleCopies={autoRefreshEnabled}
             onToggleLanguage={toggleLanguage}
             onThemeChange={handleThemeChange}
             onDefaultSyncModeChange={handleDefaultSyncModeChange}
+            onAutoRefreshStaleCopiesChange={handleAutoRefreshStaleChange}
             onGitCacheTtlSecsChange={handleGitCacheTtlSecsChange}
             onClearGitCacheNow={handleClearGitCacheNow}
             githubProxyConfig={githubProxyConfig}

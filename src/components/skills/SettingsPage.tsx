@@ -40,12 +40,14 @@ type SettingsPageProps = {
   gitCacheTtlSecs: number
   themePreference: 'system' | 'light' | 'dark'
   defaultSyncMode: 'junction' | 'copy'
+  autoRefreshStaleCopies: boolean
   githubProxyConfig: GithubProxyConfigDto
   discoveryScanEnabledCount: number
   discoveryScanSourceCount: number
   onToggleLanguage: () => void
   onThemeChange: (nextTheme: 'system' | 'light' | 'dark') => void
   onDefaultSyncModeChange: (nextMode: 'junction' | 'copy') => void
+  onAutoRefreshStaleCopiesChange: (next: boolean) => void
   onGitCacheTtlSecsChange: (nextSecs: number) => void
   onClearGitCacheNow: () => void
   onGithubProxyConfigChange: (enabled: boolean, port: number) => void
@@ -61,9 +63,11 @@ const SettingsPage = ({
   gitCacheTtlSecs,
   themePreference,
   defaultSyncMode,
+  autoRefreshStaleCopies,
   onToggleLanguage,
   onThemeChange,
   onDefaultSyncModeChange,
+  onAutoRefreshStaleCopiesChange,
   onGitCacheTtlSecsChange,
   onClearGitCacheNow,
   githubProxyConfig,
@@ -768,6 +772,19 @@ const SettingsPage = ({
                       : t('syncModeCopyDesc')}
                   </div>
                 </div>
+              </div>
+              <div className="settings-field">
+                <label className="settings-label">{t('stale.autoRefreshLabel')}</label>
+                <button
+                  type="button"
+                  className={`settings-toggle${autoRefreshStaleCopies ? ' checked' : ''}`}
+                  aria-pressed={autoRefreshStaleCopies}
+                  aria-label={t('stale.autoRefreshLabel')}
+                  onClick={() => onAutoRefreshStaleCopiesChange(!autoRefreshStaleCopies)}
+                >
+                  <span className="settings-toggle-knob" />
+                </button>
+                <div className="settings-helper">{t('stale.autoRefreshHint')}</div>
               </div>
             </section>
 
