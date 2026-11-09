@@ -233,7 +233,8 @@ function App() {
   useEffect(() => {
     if (!isTauri) return
     void refreshLibraryHealth()
-  }, [isTauri, managedSkills, refreshLibraryHealth])
+    void refreshStaleStatus()
+  }, [isTauri, managedSkills, refreshLibraryHealth, refreshStaleStatus])
 
   const handleHealthBarClick = useCallback(() => {
     if (!libraryHealth) return
