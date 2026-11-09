@@ -59,13 +59,6 @@ pub fn shared_dir_containing(home: &Path, path: &Path) -> Option<SharedSkillDir>
     })
 }
 
-/// 给定路径解析其共享读取者；不是共享目录返回空。
-pub fn shared_readers_for(home: &Path, path: &Path) -> Vec<&'static str> {
-    shared_dir_containing(home, path)
-        .map(|dir| dir.readers)
-        .unwrap_or_default()
-}
-
 #[cfg(test)]
 #[path = "tests/shared_dirs.rs"]
 mod tests;

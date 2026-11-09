@@ -1,8 +1,6 @@
 use std::path::Path;
 
-use crate::core::shared_dirs::{
-    shared_dir_containing, shared_readers_for, shared_skill_dirs, SHARED_DIR_READERS,
-};
+use crate::core::shared_dirs::{shared_dir_containing, shared_skill_dirs, SHARED_DIR_READERS};
 
 fn home() -> &'static Path {
     Path::new("C:/Users/example")
@@ -23,13 +21,12 @@ fn recognizes_the_agents_skills_dir_and_its_children() {
 fn treats_a_lookalike_path_as_private() {
     let other = home().join(".agents/skills-backup/x");
     assert!(shared_dir_containing(home(), &other).is_none());
-    assert!(shared_readers_for(home(), &other).is_empty());
 }
 
 #[test]
 fn normalizes_separators_and_case() {
     let mixed = Path::new("C:\\Users\\Example\\.Agents\\Skills\\pinokio");
-    assert!(!shared_readers_for(home(), mixed).is_empty());
+    assert!(shared_dir_containing(home(), mixed).is_some());
 }
 
 #[test]
@@ -42,5 +39,5 @@ fn lists_the_agents_dir_only_once() {
 #[test]
 fn private_tool_dirs_are_not_shared() {
     let codex = home().join(".codex/skills/pinokio");
-    assert!(shared_readers_for(home(), &codex).is_empty());
+    assert!(shared_dir_containing(home(), &codex).is_none());
 }
