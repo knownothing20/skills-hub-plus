@@ -703,6 +703,12 @@
 .skill-updated { flex: 0 0 auto; margin-left: auto; color: var(--text-tertiary); font-size: 11px; white-space: nowrap; min-width: 76px; text-align: right; }
 .skill-card-footer { min-width: 0; min-height: 38px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .skill-tools-block { min-width: 0; display: flex; align-items: center; gap: 8px; }
+/* 带共享说明时改为上下排列，避免说明文字和图标挤在一行 */
+.skill-tools-block:has(.skill-shared-line) {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
 .skill-tools-block > span { flex: 0 0 auto; color: var(--text-tertiary); font-size: 10px; }
 .skill-tool-avatars {
   display: flex;
@@ -877,6 +883,16 @@
   font-size: 9px;
   font-weight: 700;
   line-height: 1;
+}
+.skill-shared-text-short { display: none; }
+.list-view .skill-shared-text { display: none; }
+.list-view .skill-shared-text-short { display: inline; white-space: nowrap; }
+.list-view .skill-tools-block:has(.skill-shared-line) {
+  overflow: visible;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
 }
 .skill-shared-line.is-warn {
   color: var(--status-error);

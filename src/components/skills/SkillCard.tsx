@@ -433,10 +433,22 @@ const SkillCard = ({
                     <span className="skill-shared-mark" aria-hidden="true">
                       S
                     </span>
-                    {t('shared.directoryLine', {
-                      path: sharedDir.path,
-                      count: sharedDir.readers.length,
-                    })}
+                    <span className="skill-shared-text">
+                      {t('shared.directoryLine', {
+                        path: sharedDir.path,
+                        count: sharedDir.readers.length,
+                      })}
+                    </span>
+                    <span className="skill-shared-text-short">
+                      {t('shared.directoryLineShort', {
+                        path: sharedDir.path
+                          .replace(/\\/g, '/')
+                          .split('/')
+                          .slice(-2)
+                          .join('/'),
+                        count: sharedDir.readers.length,
+                      })}
+                    </span>
                   </div>
                 ) : null}
             </>

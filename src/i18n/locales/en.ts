@@ -378,6 +378,7 @@ export default {
     implicitTitle: '{{tool}} can read this through the shared directory (no link needed)',
     implicitHint: '{{tool}} scans the shared directory automatically, so no link is required here',
     directoryLine: 'Also exposed in {{path}} · readable by {{count}} tools',
+    directoryLineShort: '{{path}} · {{count}} tools',
     readersTitle: 'Readers: {{readers}}',
     doubleExposed: 'Double exposure: both a direct link and the shared directory are in play — edits may come from two sources',
   },
