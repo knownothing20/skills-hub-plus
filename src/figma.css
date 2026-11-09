@@ -836,8 +836,8 @@
 }
 .skill-shared-badge {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 1px solid #5dcaa5;
   border-radius: 50%;
@@ -1007,10 +1007,10 @@
   min-height: 54px;
   display: grid;
   /* meta 列固定宽度：各行内容长短不同，auto 会让「标签/全局」起点逐行漂移 */
-  grid-template-columns: minmax(200px, 1fr) 248px minmax(180px, 1fr) 42px 116px;
+  grid-template-columns: minmax(200px, 1fr) 236px minmax(180px, 1fr) 42px 116px;
   grid-template-areas: 'identity meta tools toggle actions';
   align-items: center;
-  gap: 16px;
+  column-gap: 10px;
   padding: 8px 16px;
   border-radius: 10px;
   position: relative;
@@ -1039,7 +1039,7 @@
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   white-space: nowrap;
 }
 .list-view .skill-tools-block {
@@ -1047,7 +1047,7 @@
   min-width: 0;
   max-width: 100%;
   min-height: 32px;
-  padding-left: 10px;
+  padding-left: 6px;
   border-left: 1px solid var(--border-subtle);
   overflow: hidden;
   display: flex;
