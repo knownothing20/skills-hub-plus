@@ -379,6 +379,7 @@ export default {
     stateChanged: '状态已变化（可能刚被刷新或手改过），已重新检查',
     startupRefreshed: '启动检查：已刷新 {{count}} 个落后副本',
     startupRemaining: '启动检查：{{count}} 个副本需要你处理',
+    startupAllGood: '启动检查完成 · 技能库全部最新',
     startupRemainingHint: '含手改内容或新旧分不清的副本不会被自动覆盖，点卡片上的红色感叹号查看',
     verdict: {
       behind: '落后，可刷新',

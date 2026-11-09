@@ -653,6 +653,9 @@ function App() {
         )
         await loadManagedSkills()
         void refreshLibraryHealth()
+      } else if (result.remaining === 0) {
+        // 没有落后也要给一条轻提示，否则启动检查等于悄无声息
+        toast.success(t('stale.startupAllGood'), { duration: 3000 })
       }
       if (result.remaining > 0) {
         toast.warning(t('stale.startupRemaining', { count: result.remaining }), {

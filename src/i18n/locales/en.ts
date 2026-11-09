@@ -383,6 +383,7 @@ export default {
     stateChanged: 'State changed (refreshed or edited just now) — re-checked',
     startupRefreshed: 'Startup check: refreshed {{count}} stale copies',
     startupRemaining: 'Startup check: {{count}} copies need your attention',
+    startupAllGood: 'Startup check complete — every Skill is up to date',
     startupRemainingHint:
       'Edited or ambiguous copies are never overwritten automatically. Click the red badge on a card to review.',
     verdict: {
