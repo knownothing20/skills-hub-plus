@@ -31,7 +31,7 @@ export default function ToolContextMenu({
   onOpenFolder,
 }: ToolContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
-  const { tool, skill, synced, isCopy, targetPath, x, y } = state
+  const { tool, skill, synced, isCopy, isOwner, targetPath, x, y } = state
   const linkSupported = tool.supports_junction !== false
 
   useEffect(() => {
