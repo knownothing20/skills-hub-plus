@@ -155,11 +155,11 @@ fn extra_file_in_copy_is_hand_edited() {
     let target = dir.path().join("copy-skill");
     fs::create_dir_all(&target).unwrap();
     fs::copy(source.join("SKILL.md"), target.join("SKILL.md")).unwrap();
+    // 副本里出现主 skill 没有的文件 —— 手改铁证（先于主 skill 的更新写入）
+    fs::write(target.join("my-notes.md"), b"user created this").unwrap();
 
     std::thread::sleep(std::time::Duration::from_millis(2100));
     fs::write(source.join("SKILL.md"), b"updated").unwrap();
-    // 副本里出现主 skill 没有的文件 —— 手改铁证
-    fs::write(target.join("my-notes.md"), b"user created this").unwrap();
 
     seed_skill(&store, "s1", &source);
     seed_target(&store, "s1", "antigravity", &target, "copy");
@@ -283,9 +283,9 @@ fn startup_refresh_respects_the_setting_and_keeps_hand_edited() {
     seed_target(&store, "s1", "antigravity", &behind, "copy");
     seed_target(&store, "s1", "zcode", &hand_edited, "copy");
 
+    fs::write(hand_edited.join("user-note.md"), b"hand edit").unwrap();
     std::thread::sleep(std::time::Duration::from_millis(2100));
     fs::write(source.join("SKILL.md"), b"newer").unwrap();
-    fs::write(hand_edited.join("user-note.md"), b"hand edit").unwrap();
 
     // 开关关闭：只报数，不刷新
     set_auto_refresh_stale_copies(&store, false).unwrap();

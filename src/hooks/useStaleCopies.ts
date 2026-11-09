@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { isTauri, invokeTauri } from './useTauriInvoke'
 import type {
   StartupStaleRefreshDto,
@@ -15,7 +15,7 @@ import type {
 export function useStaleCopies() {
   const [staleStatuses, setStaleStatuses] = useState<StaleCopyStatusDto[]>([])
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
-  const [startupDoneRef] = useState({ done: false })
+  const startupDoneRef = useRef(false)
 
   const refreshStaleStatus = useCallback(async () => {
     if (!isTauri) return
@@ -29,25 +29,11 @@ export function useStaleCopies() {
     }
   }, [])
 
-  const loadAutoRefreshSetting = useCallback(async () => {
-    if (!isTauri) return
-    try {
-      const enabled = await invokeTauri<boolean>('get_auto_refresh_stale_copies')
-      setAutoRefreshEnabled(enabled)
-    } catch (err) {
-      console.warn(err)
-    }
-  }, [])
-
   const setAutoRefresh = useCallback(async (enabled: boolean) => {
-    try {
-      const next = await invokeTauri<boolean>('set_auto_refresh_stale_copies_cmd', {
-        enabled,
-      })
-      setAutoRefreshEnabled(next)
-    } catch (err) {
-      throw err
-    }
+    const next = await invokeTauri<boolean>('set_auto_refresh_stale_copies_cmd', {
+      enabled,
+    })
+    setAutoRefreshEnabled(next)
   }, [])
 
   /**
@@ -55,8 +41,8 @@ export function useStaleCopies() {
    * 返回结果给调用方决定 toast 文案；结束后刷新列表状态。
    */
   const runStartupRefresh = useCallback(async (): Promise<StartupStaleRefreshDto | null> => {
-    if (!isTauri || startupDoneRef.done) return null
-    startupDoneRef.done = true
+    if (!isTauri || startupDoneRef.current) return null
+    startupDoneRef.current = true
     try {
       const result = await invokeTauri<StartupStaleRefreshDto>('run_startup_stale_refresh')
       await refreshStaleStatus()
@@ -65,7 +51,7 @@ export function useStaleCopies() {
       console.warn(err)
       return null
     }
-  }, [refreshStaleStatus, startupDoneRef])
+  }, [refreshStaleStatus])
 
   /** 手动刷新一个落后副本（点卡片角标）。抛错交给调用方 toast。 */
   const refreshOne = useCallback(
@@ -77,9 +63,20 @@ export function useStaleCopies() {
   )
 
   useEffect(() => {
-    void refreshStaleStatus()
-    void loadAutoRefreshSetting()
-  }, [refreshStaleStatus, loadAutoRefreshSetting])
+    let cancelled = false
+    void (async () => {
+      const [statuses, enabled] = await Promise.all([
+        invokeTauri<StaleCopyStatusDto[]>('get_stale_copy_status').catch(() => null),
+        invokeTauri<boolean>('get_auto_refresh_stale_copies').catch(() => null),
+      ])
+      if (cancelled) return
+      if (statuses) setStaleStatuses(statuses)
+      if (enabled !== null && enabled !== undefined) setAutoRefreshEnabled(enabled)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const staleBySkillTool = useMemo(
     () =>
