@@ -386,6 +386,7 @@ const SkillCard = ({
                       skill,
                       synced,
                       isCopy,
+                      isOwner: role === 'owner',
                       targetPath: target?.target_path,
                     })
                   }}

@@ -11,6 +11,7 @@ export type ToolContextMenuState = {
   skill: ManagedSkill
   synced: boolean
   isCopy: boolean
+  isOwner?: boolean
   targetPath?: string
 }
 
@@ -149,7 +150,7 @@ export default function ToolContextMenu({
       )}
 
       {/* 已同步为软链接：提供转为实体副本、取消同步 */}
-      {synced && !isCopy && (
+      {synced && !isCopy && !isOwner && (
         <>
           <button
             type="button"
@@ -182,7 +183,7 @@ export default function ToolContextMenu({
       )}
 
       {/* 已同步为实体副本：提供转为软链接、取消同步 */}
-      {synced && isCopy && (
+      {synced && isCopy && !isOwner && (
         <>
           <button
             type="button"

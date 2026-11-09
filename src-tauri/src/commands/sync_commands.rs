@@ -1218,6 +1218,24 @@ pub async fn unsync_skill_from_tool(
 
         // Validate every stored path before mutating any path or DB record.
         let fixed_central = fixed_central_repo_path().ok();
+        // 原件（创造者软件目录）不是「同步出来的东西」，取消同步时绝不能删。
+        let normalize_path = |value: &str| {
+            value
+                .replace('\\', "/")
+                .trim_end_matches('/')
+                .to_lowercase()
+        };
+        let original_path = if skill.source_type == "local" {
+            skill
+                .source_ref
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(normalize_path)
+        } else {
+            None
+        };
+
         let mut selected_targets = Vec::new();
         let mut central_coinciding_targets = Vec::new();
         for k in &group_tool_keys {
@@ -1231,8 +1249,13 @@ pub async fn unsync_skill_from_tool(
                 } else {
                     false
                 };
+                // 目标路径就是原件所在目录：只清记录，不碰文件。
+                let is_original_target = original_path
+                    .as_deref()
+                    .map(|original| normalize_path(&target.target_path) == original)
+                    .unwrap_or(false);
 
-                if is_central_target {
+                if is_central_target || is_original_target {
                     central_coinciding_targets.push(target);
                 } else {
                     validated_managed_target(&store, &target, &skill.name)?;
