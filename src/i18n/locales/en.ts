@@ -374,6 +374,13 @@ export default {
   restoreConfirm: 'Are you sure you want to restore from backup? Master skill files and database relationships will be restored.',
   restoreSuccess: 'Restore successful! {{count}} skills and relationships restored.',
   restoreFailed: 'Restore failed: {{error}}',
+  shared: {
+    implicitTitle: '{{tool}} can read this through the shared directory (no link needed)',
+    implicitHint: '{{tool}} scans the shared directory automatically, so no link is required here',
+    directoryLine: 'Also exposed in {{path}} · readable by {{count}} tools',
+    readersTitle: 'Readers: {{readers}}',
+    doubleExposed: 'Double exposure: both a direct link and the shared directory are in play — edits may come from two sources',
+  },
   stale: {
     detailsTitle: '{{count}} stale copies',
     behindTitle: 'Copy is behind the master Skill — click to refresh',

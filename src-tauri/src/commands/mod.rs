@@ -5,6 +5,7 @@ pub mod install_commands;
 pub mod lock_commands;
 pub mod onboarding_commands;
 pub mod setting_commands;
+pub mod shared_commands;
 pub mod skill_commands;
 pub mod stale_commands;
 pub mod sync_commands;
@@ -24,6 +25,8 @@ pub use lock_commands::*;
 pub use onboarding_commands::*;
 #[allow(unused_imports)]
 pub use setting_commands::*;
+#[allow(unused_imports)]
+pub use shared_commands::*;
 #[allow(unused_imports)]
 pub use skill_commands::*;
 #[allow(unused_imports)]

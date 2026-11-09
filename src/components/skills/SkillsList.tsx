@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import type {
   ManagedSkill,
   OnboardingPlan,
+  SharedSkillDirDto,
   SkillHealthDto,
   StaleCopyStatusDto,
   ToolOption,
@@ -42,6 +43,7 @@ type SkillsListProps = {
   getSkillScope: (skill: ManagedSkill) => 'global' | 'project'
   getSkillProjects: (skill: ManagedSkill) => string[]
   skillHealthByName?: Record<string, SkillHealthDto>
+  sharedDirs?: SharedSkillDirDto[]
   staleBySkillTool?: Map<string, StaleCopyStatusDto>
   onRefreshStale?: (skillId: string, toolId: string) => Promise<void>
   toolCounts?: Record<string, number>
@@ -76,6 +78,7 @@ const SkillsList = ({
   getSkillScope,
   getSkillProjects,
   skillHealthByName,
+  sharedDirs,
   staleBySkillTool,
   onRefreshStale,
   t,
@@ -142,6 +145,7 @@ const SkillsList = ({
               installedTools={installedTools}
               toolCounts={toolCounts}
               health={skillHealthByName?.[skill.name]}
+              sharedDirs={sharedDirs}
               staleBySkillTool={staleBySkillTool}
               onRefreshStale={onRefreshStale}
               loading={loading}

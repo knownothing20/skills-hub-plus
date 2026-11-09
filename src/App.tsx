@@ -69,6 +69,7 @@ import {
 } from './components/skills/skillSyncStatus'
 import type {
   ManagedSkill,
+  SharedSkillDirDto,
   SkillHealthDto,
   ToolOption,
   ToolStatusDto,
@@ -99,6 +100,7 @@ function App() {
     null,
   )
   const [managedSkills, setManagedSkills] = useState<ManagedSkill[]>([])
+  const [sharedSkillDirs, setSharedSkillDirs] = useState<SharedSkillDirDto[]>([])
   const [loadingStartAt, setLoadingStartAt] = useState<number | null>(null)
   const [toolStatus, setToolStatus] = useState<ToolStatusDto | null>(null)
   const [showNewToolsModal, setShowNewToolsModal] = useState(false)
@@ -227,6 +229,24 @@ function App() {
     for (const skill of libraryHealth?.skills ?? []) out[skill.name] = skill
     return out
   }, [libraryHealth])
+
+  // 共享目录（~/.agents/skills 这类开放标准位置）与其读取者：用于标注
+  // “这个技能不只属于某一个工具”，以及展示无需链接即可用的工具图标。
+  useEffect(() => {
+    if (!isTauri) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const dirs = await invokeTauri<SharedSkillDirDto[]>('get_shared_skill_dirs')
+        if (!cancelled) setSharedSkillDirs(dirs)
+      } catch (err) {
+        console.warn(err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isTauri, managedSkills])
 
   // Keep health badges fresh after every managed-skills reload (sync, delete,
   // import, ... all end with loadManagedSkills).
@@ -1265,6 +1285,7 @@ function App() {
               getSkillScope={getSkillScope}
               getSkillProjects={getSkillProjects}
               skillHealthByName={skillHealthByName}
+              sharedDirs={sharedSkillDirs}
               staleBySkillTool={staleBySkillTool}
               onRefreshStale={handleRefreshStaleOne}
               t={t}

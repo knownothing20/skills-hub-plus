@@ -370,6 +370,13 @@ export default {
   restoreConfirm: '确定要从备份目录恢复吗？中心母版目录中的文件将被覆盖，并恢复数据库关联关系。',
   restoreSuccess: '恢复成功！已成功还原 {{count}} 个技能及数据库关系。',
   restoreFailed: '恢复失败：{{error}}',
+  shared: {
+    implicitTitle: '{{tool}} 通过共享目录可用(无需单独同步)',
+    implicitHint: '{{tool}} 会自动读取共享目录,这里不需要建链接',
+    directoryLine: '同时暴露在 {{path}} · {{count}} 个工具可读取',
+    readersTitle: '读取者:{{readers}}',
+    doubleExposed: '双重暴露:既有独立链接,又在共享目录里,改动来源可能不一致',
+  },
   stale: {
     detailsTitle: '{{count}} 个落后副本',
     behindTitle: '副本落后于主 skill，点击刷新',

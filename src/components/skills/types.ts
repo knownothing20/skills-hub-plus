@@ -127,6 +127,14 @@ export type StaleCopyStatusDto = {
   verdict: 'behind' | 'hand_edited' | 'conflict'
 }
 
+export type SharedSkillDirDto = {
+  path: string
+  label: string
+  readers: string[]
+  exists: boolean
+  exposed_skills: string[]
+}
+
 export type StartupStaleRefreshDto = {
   refreshed: number
   remaining: number

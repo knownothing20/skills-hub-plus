@@ -8,6 +8,7 @@ import { roleOfTarget } from './skillOwner'
 import { isSkillUpdateable } from './skillUpdateability'
 import type {
   ManagedSkill,
+  SharedSkillDirDto,
   SkillHealthDto,
   StaleCopyStatusDto,
   ToolOption,
@@ -44,6 +45,7 @@ type SkillCardProps = {
   getSkillProjects: (skill: ManagedSkill) => string[]
   staleBySkillTool?: Map<string, StaleCopyStatusDto>
   onRefreshStale?: (skillId: string, toolId: string) => Promise<void>
+  sharedDirs?: SharedSkillDirDto[]
   toolCounts?: Record<string, number>
   t: TFunction
 }
@@ -74,6 +76,7 @@ const SkillCard = ({
   getSkillProjects,
   staleBySkillTool,
   onRefreshStale,
+  sharedDirs,
   t,
 }: SkillCardProps) => {
   const [contextMenu, setContextMenu] = useState<ToolContextMenuState | null>(null)
@@ -235,6 +238,33 @@ const SkillCard = ({
               ? (externalTools.find((tool) => tool.id === ownerToolId)?.label ??
                 ownerToolId)
               : null
+
+            // 共享目录曝光：技能登记了 agents 目标 → 内容同时对所有读取者生效
+            const normalize = (value: string) =>
+              value.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+            const sharedTarget = scopeTargets.find(
+              (target) =>
+                target.tool === 'agents' && isActiveSkillTarget(target),
+            )
+            const sharedDir = sharedTarget
+              ? sharedDirs?.find((dir) =>
+                  normalize(sharedTarget.target_path).startsWith(
+                    normalize(dir.path),
+                  ),
+                )
+              : undefined
+            const sharedOnlyTools = sharedDir
+              ? installedTools.filter(
+                  (tool) =>
+                    tool.id !== 'agents' &&
+                    sharedDir.readers.includes(tool.id) &&
+                    !scopeTargets.some(
+                      (target) =>
+                        target.tool === tool.id &&
+                        isActiveSkillTarget(target),
+                    ),
+                )
+              : []
             return (
               <>
                 <div className="skill-tool-avatars">
@@ -365,7 +395,50 @@ const SkillCard = ({
                 </button>
                   )
                 })}
-              </div>
+                  {sharedOnlyTools.map((tool) => (
+                    <button
+                      key={`shared-${tool.id}`}
+                      className="tool-sync-btn is-shared"
+                      type="button"
+                      title={t('shared.implicitTitle', { tool: tool.label })}
+                      aria-label={t('shared.implicitTitle', { tool: tool.label })}
+                      onClick={() => {
+                        toast.info(t('shared.implicitHint', { tool: tool.label }), {
+                          duration: 3600,
+                        })
+                      }}
+                    >
+                      <ToolIcon
+                        toolKey={tool.id}
+                        label={tool.label}
+                        avatar={tool.avatar}
+                      />
+                      <span className="shared-mark" aria-hidden="true">
+                        S
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {sharedDir ? (
+                  <div
+                    className="skill-shared-line"
+                    title={t('shared.readersTitle', {
+                      readers: sharedDir.readers
+                        .map((key) =>
+                          t(`tools.${key}`, { defaultValue: key }),
+                        )
+                        .join('、'),
+                    })}
+                  >
+                    <span className="skill-shared-mark" aria-hidden="true">
+                      S
+                    </span>
+                    {t('shared.directoryLine', {
+                      path: sharedDir.path,
+                      count: sharedDir.readers.length,
+                    })}
+                  </div>
+                ) : null}
             </>
           )
         })()}

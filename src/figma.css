@@ -828,6 +828,62 @@
 .skill-tool-avatars button.has-stale:hover:not(:disabled) {
   border-color: #e24b4a;
 }
+/* 共享目录可达：该工具目录里没有它，但它会读取共享目录 */
+.skill-tool-avatars button.is-shared {
+  background: transparent;
+  border: 1.5px dashed #1d9e75;
+  opacity: .9;
+}
+.skill-tool-avatars button.is-shared .shared-mark {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1d9e75;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  border: 1.5px solid var(--bg-panel, #fff);
+  z-index: 3;
+  pointer-events: none;
+}
+.skill-tool-avatars button.is-shared:hover:not(:disabled) {
+  border-color: #0f6e56;
+  background: color-mix(in srgb, #1d9e75 8%, transparent);
+}
+.skill-shared-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.skill-shared-line .skill-shared-mark {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1d9e75;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+.skill-shared-line.is-warn {
+  color: var(--status-error);
+}
+.skill-shared-line.is-warn .skill-shared-mark {
+  background: var(--status-error);
+}
 :root[data-theme='dark'] .skill-tool-avatars button.is-copy {
   background: #3b2a14;
   border-color: #d97706;

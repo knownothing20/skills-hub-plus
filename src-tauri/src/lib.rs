@@ -399,6 +399,7 @@ pub fn run() {
             commands::set_ignored_tools,
             commands::get_tool_sync_modes,
             commands::set_tool_sync_mode,
+            commands::get_shared_skill_dirs,
             commands::get_stale_copy_status,
             commands::refresh_stale_copy_cmd,
             commands::run_startup_stale_refresh,
