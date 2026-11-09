@@ -270,9 +270,8 @@ const SkillCard = ({
               if (t.id === 'agents') return false
               const synced = getToolSyncState(skill, t.id, scope) === 'synced'
               if (synced) return true
-              // 共享目录可达的工具交给虚线图标渲染，这里不再出灰色占位，
-              // 否则同一工具会出现「灰占位 + 虚线」两个图标。
-              if (sharedDir && sharedDir.readers.includes(t.id)) return false
+              // 共享可达的工具也要出现在原位（虚线样式），不能挪到行尾。
+              if (sharedDir && sharedDir.readers.includes(t.id)) return true
               // 如果软件在全库中一个 skill 都没有，默认隐藏该工具的占位图标
               return (toolCounts?.[t.id] ?? 0) > 0
             })
@@ -281,25 +280,37 @@ const SkillCard = ({
                 ownerToolId)
               : null
 
-            const sharedOnlyTools = sharedDir
-              ? installedTools.filter(
-                  (tool) =>
-                    tool.id !== 'agents' &&
-                    sharedDir.readers.includes(tool.id) &&
-                    !externalTools.some((rendered) => rendered.id === tool.id) &&
-                    !scopeTargets.some(
-                      (target) =>
-                        target.tool === tool.id &&
-                        isActiveSkillTarget(target),
-                    ),
-                )
-              : []
             return (
               <>
                 <div className="skill-tool-avatars">
                   {externalTools.map((tool) => {
                     const syncState = getToolSyncState(skill, tool.id, scope)
                     const synced = syncState === 'synced'
+                    const sharedOnly =
+                      !synced && Boolean(sharedDir?.readers.includes(tool.id))
+                    if (sharedOnly) {
+                      return (
+                        <button
+                          key={`shared-${tool.id}`}
+                          className="tool-sync-btn is-shared"
+                          type="button"
+                          title={t('shared.implicitTitle', { tool: tool.label })}
+                          aria-label={t('shared.implicitTitle', { tool: tool.label })}
+                          onClick={() => {
+                            toast.info(
+                              t('shared.implicitHint', { tool: tool.label }),
+                              { duration: 3600 },
+                            )
+                          }}
+                        >
+                          <ToolIcon
+                            toolKey={tool.id}
+                            label={tool.label}
+                            avatar={tool.avatar}
+                          />
+                        </button>
+                      )
+                    }
 
               const target = skill.targets.find(
                 (t) =>
@@ -425,26 +436,6 @@ const SkillCard = ({
                 </button>
                   )
                 })}
-                  {sharedOnlyTools.map((tool) => (
-                    <button
-                      key={`shared-${tool.id}`}
-                      className="tool-sync-btn is-shared"
-                      type="button"
-                      title={t('shared.implicitTitle', { tool: tool.label })}
-                      aria-label={t('shared.implicitTitle', { tool: tool.label })}
-                      onClick={() => {
-                        toast.info(t('shared.implicitHint', { tool: tool.label }), {
-                          duration: 3600,
-                        })
-                      }}
-                    >
-                      <ToolIcon
-                        toolKey={tool.id}
-                        label={tool.label}
-                        avatar={tool.avatar}
-                      />
-                    </button>
-                  ))}
                 </div>
             </>
           )
