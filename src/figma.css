@@ -1033,6 +1033,7 @@
   color: var(--text-secondary);
   line-height: 15px;
 }
+.list-view .skill-updated { margin-left: auto; }
 .list-view .skill-card-meta {
   grid-area: meta;
   min-width: 0;
