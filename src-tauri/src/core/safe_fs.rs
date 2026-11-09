@@ -748,10 +748,21 @@ fn move_checked_to_system_trash(
             return Err(anyhow::Error::new(trash_err))
                 .context("TRASH_MOVE_FAILED|System Trash rejected the item; original restored");
         }
-        return Err(anyhow::Error::new(trash_err)).context(format!(
-            "TRASH_STATE_UNCERTAIN|System Trash reported failure after {:?} moved",
+        // 暂存目录已消失：系统回收站实际上接收了它（Windows 常见——移动完成后
+        // API 仍报告"部分操作中止"，尤其是大目录）。按成功处理，否则上层会
+        // 触发回滚并把一次成功的更新报成失败。
+        log::warn!(
+            "[safe_fs] system Trash reported {:?} but {:?} is gone; treating as deleted",
+            trash_err,
             holding
-        ));
+        );
+        return Ok(Some(TrashReceipt {
+            restore_path: path.to_path_buf(),
+            backend: TrashReceiptBackend::SystemOriginalPath {
+                path: holding,
+                restored_identity: OnceLock::new(),
+            },
+        }));
     }
     Ok(Some(TrashReceipt {
         restore_path: path.to_path_buf(),
