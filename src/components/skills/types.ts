@@ -135,8 +135,17 @@ export type SharedSkillDirDto = {
   exposed_skills: string[]
 }
 
+export type StaleMirrorDto = {
+  skill_id: string
+  name: string
+  owner_path: string
+  central_path: string
+  verdict: 'behind' | 'hand_edited'
+}
+
 export type StartupStaleRefreshDto = {
   refreshed: number
+  stale_mirrors: number
   remaining: number
   auto_refresh_enabled: boolean
 }

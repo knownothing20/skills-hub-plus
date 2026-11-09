@@ -10,6 +10,7 @@ pub mod github_download;
 pub mod github_search;
 pub mod installer;
 pub mod library_health;
+pub mod mirror_check;
 pub mod network_proxy;
 pub mod onboarding;
 pub mod safe_fs;

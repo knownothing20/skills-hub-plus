@@ -3,6 +3,7 @@ import { isTauri, invokeTauri } from './useTauriInvoke'
 import type {
   StartupStaleRefreshDto,
   StaleCopyStatusDto,
+  StaleMirrorDto,
 } from '../components/skills/types'
 
 /**
@@ -14,6 +15,7 @@ import type {
  */
 export function useStaleCopies() {
   const [staleStatuses, setStaleStatuses] = useState<StaleCopyStatusDto[]>([])
+  const [staleMirrors, setStaleMirrors] = useState<StaleMirrorDto[]>([])
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
   const startupDoneRef = useRef(false)
 
@@ -25,6 +27,16 @@ export function useStaleCopies() {
       setStaleStatuses(statuses)
     } catch (err) {
       // Non-fatal: badges are an auxiliary signal.
+      console.warn(err)
+    }
+  }, [])
+
+  const refreshStaleMirrors = useCallback(async () => {
+    if (!isTauri) return
+    try {
+      const mirrors = await invokeTauri<StaleMirrorDto[]>('get_stale_mirrors')
+      setStaleMirrors(mirrors)
+    } catch (err) {
       console.warn(err)
     }
   }, [])
@@ -45,7 +57,7 @@ export function useStaleCopies() {
     startupDoneRef.current = true
     try {
       const result = await invokeTauri<StartupStaleRefreshDto>('run_startup_stale_refresh')
-      await refreshStaleStatus()
+      await Promise.all([refreshStaleStatus(), refreshStaleMirrors()])
       return result
     } catch (err) {
       console.warn(err)
@@ -72,6 +84,10 @@ export function useStaleCopies() {
       if (cancelled) return
       if (statuses) setStaleStatuses(statuses)
       if (enabled !== null && enabled !== undefined) setAutoRefreshEnabled(enabled)
+      const mirrors = await invokeTauri<StaleMirrorDto[]>(
+        'get_stale_mirrors',
+      ).catch(() => null)
+      if (!cancelled && mirrors) setStaleMirrors(mirrors)
     })()
     return () => {
       cancelled = true
@@ -88,6 +104,9 @@ export function useStaleCopies() {
     staleStatuses,
     staleBySkillTool,
     staleCount: staleStatuses.length,
+    staleMirrors,
+    staleMirrorCount: staleMirrors.length,
+    refreshStaleMirrors,
     autoRefreshEnabled,
     setAutoRefresh,
     refreshStaleStatus,

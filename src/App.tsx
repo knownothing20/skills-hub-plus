@@ -112,6 +112,9 @@ function App() {
     staleStatuses,
     staleBySkillTool,
     staleCount,
+    staleMirrors,
+    staleMirrorCount,
+    refreshStaleMirrors,
     autoRefreshEnabled,
     setAutoRefresh: setStaleAutoRefresh,
     runStartupRefresh,
@@ -673,9 +676,15 @@ function App() {
         )
         await loadManagedSkills()
         void refreshLibraryHealth()
-      } else if (result.remaining === 0) {
-        // 没有落后也要给一条轻提示，否则启动检查等于悄无声息
+      } else if (result.remaining === 0 && result.stale_mirrors === 0) {
+        // 副本与母库都一致时才说「全部同步」
         toast.success(t('stale.startupAllGood'), { duration: 3000 })
+      }
+      if (result.stale_mirrors > 0) {
+        toast.warning(
+          t('stale.mirrorsStartup', { count: result.stale_mirrors }),
+          { description: t('stale.mirrorsHint'), duration: 6000 },
+        )
       }
       if (result.remaining > 0) {
         toast.warning(t('stale.startupRemaining', { count: result.remaining }), {
@@ -1224,6 +1233,36 @@ function App() {
                   }}
                 >
                   {t('health.stale', { count: staleCount })}
+                </span>
+                <span className="library-health-sep" aria-hidden="true">·</span>
+                <span
+                  className={`library-health-item${staleMirrorCount > 0 ? ' is-stale' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  title={
+                    staleMirrorCount > 0
+                      ? t('stale.mirrorsDetailsTitle', { count: staleMirrorCount })
+                      : undefined
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (staleMirrorCount === 0) {
+                      void refreshStaleMirrors()
+                      return
+                    }
+                    const lines = staleMirrors
+                      .slice(0, 8)
+                      .map((mirror) => mirror.name)
+                    toast.warning(
+                      t('stale.mirrorsDetailsTitle', { count: staleMirrorCount }),
+                      {
+                        description: `${lines.join('、')}\n${t('stale.mirrorsHint')}`,
+                        duration: 8000,
+                      },
+                    )
+                  }}
+                >
+                  {t('health.mirror', { count: staleMirrorCount })}
                 </span>
                 <span className="library-health-sep" aria-hidden="true">·</span>
                 <span className="library-health-item is-muted">

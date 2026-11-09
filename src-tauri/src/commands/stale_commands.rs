@@ -2,6 +2,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::core::central_repo::resolve_central_repo_path;
+use crate::core::mirror_check::{scan_stale_mirrors, StaleMirror};
 use crate::core::skill_store::SkillStore;
 use crate::core::stale_copies::{
     auto_refresh_stale_copies_enabled, refresh_stale_copy, scan_stale_copy_targets,
@@ -93,9 +94,16 @@ pub async fn refresh_stale_copy_cmd(
     .map_err(format_anyhow_error)
 }
 
+#[tauri::command]
+pub async fn get_stale_mirrors(store: State<'_, SkillStore>) -> Result<Vec<StaleMirror>, String> {
+    with_store(store, scan_stale_mirrors).await
+}
+
 #[derive(Debug, Serialize)]
 pub struct StartupStaleRefreshDto {
     pub refreshed: usize,
+    /// 母库镜像落后于主 skill 的数量（不自动更新，由用户点「更新」处理）
+    pub stale_mirrors: usize,
     /// 刷新后仍需人工处理的条目（手改 / 冲突，或自动刷新已关闭时的全部落后条目）。
     pub remaining: usize,
     pub auto_refresh_enabled: bool,
@@ -111,8 +119,10 @@ pub async fn run_startup_stale_refresh(
         let central_root = resolve_central_repo_path(&app, &store)?;
         let auto = auto_refresh_stale_copies_enabled(&store);
         let (refreshed, remaining) = startup_stale_refresh(&store, &central_root)?;
+        let stale_mirrors = scan_stale_mirrors(&store)?.len();
         Ok(StartupStaleRefreshDto {
             refreshed,
+            stale_mirrors,
             remaining,
             auto_refresh_enabled: auto,
         })
