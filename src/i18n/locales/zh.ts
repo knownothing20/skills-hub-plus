@@ -373,6 +373,7 @@ export default {
   shared: {
     implicitTitle: '{{tool}} 通过共享目录可用(无需单独同步)',
     implicitHint: '{{tool}} 会自动读取共享目录,这里不需要建链接',
+    badgeLabel: '共享目录技能(多工具自动可读)',
     directoryLine: '同时暴露在 {{path}} · {{count}} 个工具可读取',
     directoryLineShort: '{{path}} · {{count}} 个工具可读取',
     readersTitle: '读取者:{{readers}}',

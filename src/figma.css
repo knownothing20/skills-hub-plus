@@ -703,12 +703,6 @@
 .skill-updated { flex: 0 0 auto; margin-left: auto; color: var(--text-tertiary); font-size: 11px; white-space: nowrap; min-width: 76px; text-align: right; }
 .skill-card-footer { min-width: 0; min-height: 38px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .skill-tools-block { min-width: 0; display: flex; align-items: center; gap: 8px; }
-/* 带共享说明时改为上下排列，避免说明文字和图标挤在一行 */
-.skill-tools-block:has(.skill-shared-line) {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-}
 .skill-tools-block > span { flex: 0 0 auto; color: var(--text-tertiary); font-size: 10px; }
 .skill-tool-avatars {
   display: flex;
@@ -858,23 +852,12 @@
   z-index: 3;
   pointer-events: none;
 }
-.skill-tool-avatars button.is-shared:hover:not(:disabled) {
-  border-color: #0f6e56;
-  background: color-mix(in srgb, #1d9e75 8%, transparent);
-}
-.skill-shared-line {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-.skill-shared-line .skill-shared-mark {
+.skill-shared-badge {
   flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
   border-radius: 50%;
   background: #1d9e75;
   color: #fff;
@@ -883,22 +866,13 @@
   font-size: 9px;
   font-weight: 700;
   line-height: 1;
+  cursor: pointer;
+  font-family: var(--font-ui);
 }
-.skill-shared-text-short { display: none; }
-.list-view .skill-shared-text { display: none; }
-.list-view .skill-shared-text-short { display: inline; white-space: nowrap; }
-.list-view .skill-tools-block:has(.skill-shared-line) {
-  overflow: visible;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 4px;
-}
-.skill-shared-line.is-warn {
-  color: var(--status-error);
-}
-.skill-shared-line.is-warn .skill-shared-mark {
-  background: var(--status-error);
+.skill-shared-badge:hover { background: #0f6e56; }
+.skill-tool-avatars button.is-shared:hover:not(:disabled) {
+  border-color: #0f6e56;
+  background: color-mix(in srgb, #1d9e75 8%, transparent);
 }
 :root[data-theme='dark'] .skill-tool-avatars button.is-copy {
   background: #3b2a14;

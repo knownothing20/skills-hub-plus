@@ -377,6 +377,7 @@ export default {
   shared: {
     implicitTitle: '{{tool}} can read this through the shared directory (no link needed)',
     implicitHint: '{{tool}} scans the shared directory automatically, so no link is required here',
+    badgeLabel: 'Shared-directory Skill (read by several tools)',
     directoryLine: 'Also exposed in {{path}} · readable by {{count}} tools',
     directoryLineShort: '{{path}} · {{count}} tools',
     readersTitle: 'Readers: {{readers}}',

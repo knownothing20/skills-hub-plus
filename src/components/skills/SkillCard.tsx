@@ -95,6 +95,23 @@ const SkillCard = ({
   const ownerToolId = scopeTargets.find(
     (target) => roleOfTarget(target) === 'owner',
   )?.tool
+
+  // 共享目录曝光：技能登记了 agents 目标 → 内容同时对所有读取者生效
+  const normalizePath = (value: string) =>
+    value.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  const sharedTarget = scopeTargets.find(
+    (target) => target.tool === 'agents' && isActiveSkillTarget(target),
+  )
+  const sharedDir = sharedTarget
+    ? sharedDirs?.find((dir) =>
+        normalizePath(sharedTarget.target_path).startsWith(normalizePath(dir.path)),
+      )
+    : undefined
+  const sharedReadersLabel = sharedDir
+    ? sharedDir.readers
+        .map((key) => t(`tools.${key}`, { defaultValue: key }))
+        .join('、')
+    : ''
   const hasOwner =
     skill.source_type === 'local' && Boolean(skill.source_ref?.trim())
   const centralBadgeLabel = hasOwner
@@ -221,6 +238,28 @@ const SkillCard = ({
           <img src={logoMark} alt={centralBadgeLabel} className="central-badge-logo" />
         </button>
 
+        {sharedDir ? (
+          <button
+            className="skill-shared-badge"
+            type="button"
+            aria-label={t('shared.badgeLabel')}
+            title={`${t('shared.badgeLabel')}\n${sharedDir.path}\n${t('shared.readersTitle', {
+              readers: sharedReadersLabel,
+            })}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              toast.info(t('shared.badgeLabel'), {
+                description: `${sharedDir.path}\n${t('shared.readersTitle', {
+                  readers: sharedReadersLabel,
+                })}`,
+                duration: 5000,
+              })
+            }}
+          >
+            S
+          </button>
+        ) : null}
+
         <div className="skill-updated">{formatRelative(skill.updated_at)}</div>
       </div>
 
@@ -239,20 +278,6 @@ const SkillCard = ({
                 ownerToolId)
               : null
 
-            // 共享目录曝光：技能登记了 agents 目标 → 内容同时对所有读取者生效
-            const normalize = (value: string) =>
-              value.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
-            const sharedTarget = scopeTargets.find(
-              (target) =>
-                target.tool === 'agents' && isActiveSkillTarget(target),
-            )
-            const sharedDir = sharedTarget
-              ? sharedDirs?.find((dir) =>
-                  normalize(sharedTarget.target_path).startsWith(
-                    normalize(dir.path),
-                  ),
-                )
-              : undefined
             const sharedOnlyTools = sharedDir
               ? installedTools.filter(
                   (tool) =>
@@ -419,38 +444,6 @@ const SkillCard = ({
                     </button>
                   ))}
                 </div>
-                {sharedDir ? (
-                  <div
-                    className="skill-shared-line"
-                    title={t('shared.readersTitle', {
-                      readers: sharedDir.readers
-                        .map((key) =>
-                          t(`tools.${key}`, { defaultValue: key }),
-                        )
-                        .join('、'),
-                    })}
-                  >
-                    <span className="skill-shared-mark" aria-hidden="true">
-                      S
-                    </span>
-                    <span className="skill-shared-text">
-                      {t('shared.directoryLine', {
-                        path: sharedDir.path,
-                        count: sharedDir.readers.length,
-                      })}
-                    </span>
-                    <span className="skill-shared-text-short">
-                      {t('shared.directoryLineShort', {
-                        path: sharedDir.path
-                          .replace(/\\/g, '/')
-                          .split('/')
-                          .slice(-2)
-                          .join('/'),
-                        count: sharedDir.readers.length,
-                      })}
-                    </span>
-                  </div>
-                ) : null}
             </>
           )
         })()}
