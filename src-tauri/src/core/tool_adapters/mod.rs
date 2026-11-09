@@ -2162,6 +2162,7 @@ mod tests;
 /// `User Data\{Default, Profile N}` 下的独立目录里。把这里做成规则而不是
 /// 硬编码判断，其它多实例软件只要填一份规则即可复用同一套发现逻辑。
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 pub struct InstanceRule {
     /// 相对 `%LOCALAPPDATA%` 的基目录，例如 "DoubaoWork/User Data"
     pub base_relative: &'static str,
