@@ -948,6 +948,7 @@ fn scan_tool_dir_skips_codex_system_and_includes_symlink_dir() {
         display_name: "Codex",
         relative_skills_dir: "ignored",
         relative_detect_dir: "ignored",
+        instance_rule: None,
     };
 
     let out = scan_tool_dir(&tool, dir.path()).unwrap();
@@ -978,6 +979,7 @@ fn scan_tool_dir_skips_app_support_path() {
         display_name: "Cursor",
         relative_skills_dir: "ignored",
         relative_detect_dir: "ignored",
+        instance_rule: None,
     };
 
     let out = scan_tool_dir(&tool, &root).unwrap();
@@ -1002,6 +1004,7 @@ fn scan_tool_dir_skips_codex_plugin_cache_symlink() {
         display_name: "Codex",
         relative_skills_dir: "ignored",
         relative_detect_dir: "ignored",
+        instance_rule: None,
     };
 
     let out = scan_tool_dir(&tool, &scan_root).unwrap();

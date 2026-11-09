@@ -2228,6 +2228,8 @@ pub fn discover_root_instances(adapter: &ToolAdapter) -> Vec<SkillRootInstance> 
     let primary = resolve_default_path(adapter).ok();
 
     if let Some(rule) = adapter.instance_rule {
+        #[cfg(not(target_os = "windows"))]
+        let _ = rule;
         #[cfg(target_os = "windows")]
         if let Some(local_app_data) = dirs::data_local_dir() {
             let base = local_app_data.join(rule.base_relative.replace('/', "\\"));
