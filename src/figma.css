@@ -1033,7 +1033,6 @@
   color: var(--text-secondary);
   line-height: 15px;
 }
-.list-view .skill-updated { margin-left: auto; }
 .list-view .skill-card-meta {
   grid-area: meta;
   min-width: 0;
@@ -1112,7 +1111,7 @@
 .list-view .skill-card-footer { min-height: 0; margin: 0; padding: 0; border: 0; }
 .list-view .bulk-skill-check { top: 50%; left: 12px; transform: translateY(-50%); }
 .list-view .skill-icon { width: 32px; height: 32px; flex-basis: 32px; }
-.list-view .skill-updated { margin-left: 0; font-size: 11px; min-width: 76px; text-align: right; }
+.list-view .skill-updated { margin-left: auto; font-size: 11px; min-width: 76px; text-align: right; }
 .list-view .skill-tag-pill { max-width: 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .bulk-action-bar {
