@@ -270,6 +270,9 @@ const SkillCard = ({
               if (t.id === 'agents') return false
               const synced = getToolSyncState(skill, t.id, scope) === 'synced'
               if (synced) return true
+              // 共享目录可达的工具交给虚线图标渲染，这里不再出灰色占位，
+              // 否则同一工具会出现「灰占位 + 虚线」两个图标。
+              if (sharedDir && sharedDir.readers.includes(t.id)) return false
               // 如果软件在全库中一个 skill 都没有，默认隐藏该工具的占位图标
               return (toolCounts?.[t.id] ?? 0) > 0
             })
@@ -283,6 +286,7 @@ const SkillCard = ({
                   (tool) =>
                     tool.id !== 'agents' &&
                     sharedDir.readers.includes(tool.id) &&
+                    !externalTools.some((rendered) => rendered.id === tool.id) &&
                     !scopeTargets.some(
                       (target) =>
                         target.tool === tool.id &&
