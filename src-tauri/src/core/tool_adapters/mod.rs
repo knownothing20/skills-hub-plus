@@ -2175,6 +2175,9 @@ impl InstanceRule {
     /// 实例目录白名单：`Default` 或 `Profile <数字>`。
     /// Chromium 的其它同级目录（Crashpad、ShaderCache、Local Traces 等）不匹配，
     /// 避免把缓存目录当成账号。
+    ///
+    /// 目录枚举目前只在 Windows 上实现，其它平台显式放行 dead_code。
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     fn is_instance_dir(name: &str) -> bool {
         if name.eq_ignore_ascii_case("Default") {
             return true;
