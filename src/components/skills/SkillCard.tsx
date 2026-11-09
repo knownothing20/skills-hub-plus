@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Copy, RefreshCw, Tag, Trash2, Link2, Box, ShieldOff, Crown } from 'lucide-react'
+import { Copy, RefreshCw, Tag, Trash2, Link2, Box, ShieldOff, Crown, Share2 } from 'lucide-react'
 import { openPath } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
@@ -256,7 +256,7 @@ const SkillCard = ({
               })
             }}
           >
-            S
+            <Share2 size={10} />
           </button>
         ) : null}
 
@@ -438,9 +438,6 @@ const SkillCard = ({
                         label={tool.label}
                         avatar={tool.avatar}
                       />
-                      <span className="shared-mark" aria-hidden="true">
-                        S
-                      </span>
                     </button>
                   ))}
                 </div>
