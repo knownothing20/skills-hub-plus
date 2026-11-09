@@ -132,7 +132,7 @@ pub async fn set_auto_refresh_stale_copies_cmd(
     store: State<'_, SkillStore>,
     enabled: bool,
 ) -> Result<bool, String> {
-    with_store(store, |store| {
+    with_store(store, move |store| {
         set_auto_refresh_stale_copies(store, enabled)?;
         Ok(auto_refresh_stale_copies_enabled(store))
     })
