@@ -68,8 +68,14 @@ fn classify_mirror(owner: &Path, mirror: &Path) -> Option<&'static str> {
     if owner_mtime.abs_diff(mirror_mtime) <= MTIME_TOLERANCE_MS {
         return None;
     }
+    // 内容优先：mtime 不同但内容相同（例如镜像被触碰、复制未保留时间）不算落后。
+    match (hash_dir(owner), hash_dir(mirror)) {
+        (Ok(a), Ok(b)) if a == b => return None,
+        (Ok(_), Ok(_)) => {}
+        _ => return None,
+    }
+    // 内容确实不同：母库比原件还新 → 有人直接改过镜像，不自动处理。
     if mirror_mtime > owner_mtime {
-        // 母库比原件还新：有人直接改过镜像
         return Some("hand_edited");
     }
     let owner_set = relative_file_set(owner);
@@ -77,11 +83,7 @@ fn classify_mirror(owner: &Path, mirror: &Path) -> Option<&'static str> {
     if !mirror_set.is_subset(&owner_set) {
         return Some("hand_edited");
     }
-    match (hash_dir(owner), hash_dir(mirror)) {
-        (Ok(a), Ok(b)) if a == b => None,
-        (Ok(_), Ok(_)) => Some("behind"),
-        _ => None,
-    }
+    Some("behind")
 }
 
 /// 扫描全库：哪些技能的母库镜像落后于原件。

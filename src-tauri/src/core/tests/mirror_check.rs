@@ -88,6 +88,28 @@ fn mirror_with_extra_file_is_hand_edited() {
 }
 
 #[test]
+fn same_content_with_different_mtime_is_not_reported() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = store_in(dir.path());
+    let owner = dir.path().join("owner/skill");
+    let mirror = dir.path().join("central/skill");
+    fs::create_dir_all(&owner).unwrap();
+    fs::create_dir_all(&mirror).unwrap();
+    fs::write(owner.join("SKILL.md"), b"identical").unwrap();
+    fs::copy(owner.join("SKILL.md"), mirror.join("SKILL.md")).unwrap();
+
+    // 触碰镜像：内容不变但 mtime 变新
+    std::thread::sleep(std::time::Duration::from_millis(2100));
+    fs::write(mirror.join("SKILL.md"), b"identical").unwrap();
+
+    seed(&store, "s1", &owner, &mirror);
+    assert!(
+        scan_stale_mirrors(&store).unwrap().is_empty(),
+        "identical content must not be reported even if mtime differs"
+    );
+}
+
+#[test]
 fn non_local_skills_are_skipped() {
     let dir = tempfile::tempdir().unwrap();
     let store = store_in(dir.path());
