@@ -1006,7 +1006,8 @@
 .list-view .skill-card {
   min-height: 54px;
   display: grid;
-  grid-template-columns: minmax(220px, 1.8fr) minmax(130px, auto) minmax(190px, auto) 42px 116px;
+  /* meta 列固定宽度：各行内容长短不同，auto 会让「标签/全局」起点逐行漂移 */
+  grid-template-columns: minmax(200px, 1fr) 248px minmax(180px, 1fr) 42px 116px;
   grid-template-areas: 'identity meta tools toggle actions';
   align-items: center;
   gap: 16px;
