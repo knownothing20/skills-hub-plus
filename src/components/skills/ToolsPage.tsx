@@ -1,4 +1,4 @@
-import { memo, useRef, useState, type ChangeEvent } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import {
   ArrowLeft,
   ChevronDown,
@@ -18,6 +18,7 @@ import type {
   ToolConfigDto,
   ToolInfoDto,
   ToolStatusDto,
+  SkillRootInstanceDto,
 } from './types'
 import ToolIcon from './ToolIcon'
 
@@ -94,6 +95,28 @@ const ToolsPage = ({
   const [customToolProjectDir, setCustomToolProjectDir] = useState('')
   const [customToolSyncMode, setCustomToolSyncMode] = useState<SyncMode>('auto')
   const [editingCustomToolKey, setEditingCustomToolKey] = useState<string | null>(null)
+  const [rootInstances, setRootInstances] = useState<SkillRootInstanceDto[]>([])
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const rows = await invokeTauri<SkillRootInstanceDto[]>('get_tool_root_instances')
+        if (!cancelled) setRootInstances(rows)
+      } catch (err) {
+        console.warn(err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [toolStatus])
+  const instancesByTool = useMemo(() => {
+    const out: Record<string, SkillRootInstanceDto[]> = {}
+    for (const row of rootInstances) {
+      ;(out[row.tool] ??= []).push(row)
+    }
+    return out
+  }, [rootInstances])
   const [savingCustomTool, setSavingCustomTool] = useState(false)
   const [avatarError, setAvatarError] = useState('')
   const [showMissingTools, setShowMissingTools] = useState(false)
@@ -375,6 +398,31 @@ const ToolsPage = ({
             {t('toolManagement.projectDir', {
               path: tool.project_skills_dir,
             })}
+          </div>
+        ) : null}
+        {(instancesByTool[tool.key]?.length ?? 0) > 1 ? (
+          <div className="tool-card-instances">
+            <div className="tool-card-instances-head">
+              {t('toolInstances.title', {
+                count: instancesByTool[tool.key].length,
+              })}
+            </div>
+            <ul>
+              {instancesByTool[tool.key].map((instance) => (
+                <li
+                  key={`${instance.label}-${instance.path}`}
+                  className={instance.exists ? '' : 'is-missing'}
+                  title={instance.path}
+                >
+                  <span className="tool-card-instance-label">
+                    {instance.label}
+                  </span>
+                  <span className="tool-card-instance-count">
+                    {t('toolInstances.skills', { count: instance.skills.length })}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
         {tool.is_custom ? (

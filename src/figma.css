@@ -834,6 +834,19 @@
   border: 1px dashed #97c459;
   opacity: .85;
 }
+.tool-card-instances {
+  margin-top: 6px;
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.tool-card-instances-head { font-weight: 500; margin-bottom: 4px; }
+.tool-card-instances ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.tool-card-instances li { display: flex; justify-content: space-between; gap: 8px; }
+.tool-card-instances li.is-missing { opacity: .5; }
+.tool-card-instance-label { font-family: var(--font-mono, monospace); }
+.tool-card-instance-count { color: var(--text-tertiary); }
 .skill-shared-badge {
   flex: 0 0 auto;
   width: 16px;

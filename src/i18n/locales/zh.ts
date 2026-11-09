@@ -371,6 +371,11 @@ export default {
   restoreConfirm: '确定要从备份目录恢复吗？中心母版目录中的文件将被覆盖，并恢复数据库关联关系。',
   restoreSuccess: '恢复成功！已成功还原 {{count}} 个技能及数据库关系。',
   restoreFailed: '恢复失败：{{error}}',
+  toolInstances: {
+    title: '{{count}} 个账号目录',
+    skills: '{{count}} 个技能',
+    primary: '主账号',
+  },
   shared: {
     implicitTitle: '{{tool}} 通过共享目录可用(无需单独同步)',
     implicitHint: '{{tool}} 会自动读取共享目录,这里不需要建链接',

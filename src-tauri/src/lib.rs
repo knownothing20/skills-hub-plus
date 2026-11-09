@@ -400,6 +400,7 @@ pub fn run() {
             commands::get_tool_sync_modes,
             commands::set_tool_sync_mode,
             commands::get_shared_skill_dirs,
+            commands::get_tool_root_instances,
             commands::get_stale_mirrors,
             commands::get_stale_copy_status,
             commands::refresh_stale_copy_cmd,

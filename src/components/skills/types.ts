@@ -127,6 +127,16 @@ export type StaleCopyStatusDto = {
   verdict: 'behind' | 'hand_edited' | 'conflict'
 }
 
+export type SkillRootInstanceDto = {
+  tool: string
+  /** 账号目录名（Default / Profile 4），单实例工具为空 */
+  label: string
+  path: string
+  skills: string[]
+  is_primary: boolean
+  exists: boolean
+}
+
 export type SharedSkillDirDto = {
   path: string
   label: string

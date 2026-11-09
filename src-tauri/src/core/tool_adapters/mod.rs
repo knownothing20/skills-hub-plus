@@ -143,6 +143,8 @@ pub struct ToolAdapter {
     pub relative_skills_dir: &'static str,
     /// Directory used to detect whether the tool is installed (aligned with add-skill docs).
     pub relative_detect_dir: &'static str,
+    /// 多实例工具的目录规则（多账号 / 多 Profile）；单实例工具为 None。
+    pub instance_rule: Option<InstanceRule>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1424,24 +1426,28 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             display_name: "Agents",
             relative_skills_dir: ".agents/skills",
             relative_detect_dir: ".agents",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Cursor,
             display_name: "Cursor",
             relative_skills_dir: ".cursor/skills",
             relative_detect_dir: ".cursor",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::ClaudeCode,
             display_name: "Claude Code",
             relative_skills_dir: ".claude/skills",
             relative_detect_dir: ".claude",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Codex,
             display_name: "Codex",
             relative_skills_dir: ".codex/skills",
             relative_detect_dir: ".codex",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::DeepSeekHarness,
@@ -1449,6 +1455,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // DeepSeek Harness default DSH_HOME is ~/.dsh.
             relative_skills_dir: ".dsh/skills",
             relative_detect_dir: ".dsh",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::OpenCode,
@@ -1456,6 +1463,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.config/opencode/skills/
             relative_skills_dir: ".config/opencode/skills",
             relative_detect_dir: ".config/opencode",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Antigravity,
@@ -1463,6 +1471,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // Antigravity 2.0 global path: ~/.gemini/config/skills/
             relative_skills_dir: ".gemini/config/skills",
             relative_detect_dir: ".gemini/config",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Amp,
@@ -1470,6 +1479,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.config/agents/skills/
             relative_skills_dir: ".config/agents/skills",
             relative_detect_dir: ".config/agents",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::KimiCli,
@@ -1478,6 +1488,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // NOTE: Shares the same skills directory with Amp.
             relative_skills_dir: ".config/agents/skills",
             relative_detect_dir: ".config/agents",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Augment,
@@ -1485,6 +1496,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.augment/skills/
             relative_skills_dir: ".augment/skills",
             relative_detect_dir: ".augment",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::OpenClaw,
@@ -1492,6 +1504,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.openclaw/skills/
             relative_skills_dir: ".openclaw/skills",
             relative_detect_dir: ".openclaw",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Copaw,
@@ -1499,6 +1512,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.copaw/skill_pool/
             relative_skills_dir: ".copaw/skill_pool",
             relative_detect_dir: ".copaw",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Cline,
@@ -1506,6 +1520,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.cline/skills/
             relative_skills_dir: ".cline/skills",
             relative_detect_dir: ".cline",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::CodeBuddy,
@@ -1513,6 +1528,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.codebuddy/skills/
             relative_skills_dir: ".codebuddy/skills",
             relative_detect_dir: ".codebuddy",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::CodeWhale,
@@ -1520,6 +1536,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // CodeWhale default global path: ~/.codewhale/skills/
             relative_skills_dir: ".codewhale/skills",
             relative_detect_dir: ".codewhale",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::WorkBuddy,
@@ -1527,6 +1544,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.workbuddy/skills/
             relative_skills_dir: ".workbuddy/skills",
             relative_detect_dir: ".workbuddy",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::WorkBuddyAi,
@@ -1534,6 +1552,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // WorkBuddy AI (International) global path: ~/.workbuddy-ai/skills/
             relative_skills_dir: ".workbuddy-ai/skills",
             relative_detect_dir: ".workbuddy-ai",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::CommandCode,
@@ -1541,6 +1560,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.commandcode/skills/
             relative_skills_dir: ".commandcode/skills",
             relative_detect_dir: ".commandcode",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Continue,
@@ -1548,6 +1568,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.continue/skills/
             relative_skills_dir: ".continue/skills",
             relative_detect_dir: ".continue",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Crush,
@@ -1555,6 +1576,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.config/crush/skills/
             relative_skills_dir: ".config/crush/skills",
             relative_detect_dir: ".config/crush",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Junie,
@@ -1562,6 +1584,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.junie/skills/
             relative_skills_dir: ".junie/skills",
             relative_detect_dir: ".junie",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::IflowCli,
@@ -1569,6 +1592,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.iflow/skills/
             relative_skills_dir: ".iflow/skills",
             relative_detect_dir: ".iflow",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::KiroCli,
@@ -1576,6 +1600,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.kiro/skills/
             relative_skills_dir: ".kiro/skills",
             relative_detect_dir: ".kiro",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Kode,
@@ -1583,6 +1608,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.kode/skills/
             relative_skills_dir: ".kode/skills",
             relative_detect_dir: ".kode",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::McpJam,
@@ -1590,6 +1616,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.mcpjam/skills/
             relative_skills_dir: ".mcpjam/skills",
             relative_detect_dir: ".mcpjam",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::MistralVibe,
@@ -1597,6 +1624,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.vibe/skills/
             relative_skills_dir: ".vibe/skills",
             relative_detect_dir: ".vibe",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Mux,
@@ -1604,6 +1632,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.mux/skills/
             relative_skills_dir: ".mux/skills",
             relative_detect_dir: ".mux",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::OpenClaude,
@@ -1611,6 +1640,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.openclaude/skills/
             relative_skills_dir: ".openclaude/skills",
             relative_detect_dir: ".openclaude",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::OpenHands,
@@ -1618,6 +1648,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.openhands/skills/
             relative_skills_dir: ".openhands/skills",
             relative_detect_dir: ".openhands",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Pi,
@@ -1625,6 +1656,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.pi/agent/skills/
             relative_skills_dir: ".pi/agent/skills",
             relative_detect_dir: ".pi",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Qoder,
@@ -1632,6 +1664,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.qoder/skills/
             relative_skills_dir: ".qoder/skills",
             relative_detect_dir: ".qoder",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::QoderWork,
@@ -1639,6 +1672,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.qoderwork/skills/
             relative_skills_dir: ".qoderwork/skills",
             relative_detect_dir: ".qoderwork",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::QwenCode,
@@ -1646,6 +1680,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.qwen/skills/
             relative_skills_dir: ".qwen/skills",
             relative_detect_dir: ".qwen",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Trae,
@@ -1653,6 +1688,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.trae/skills/
             relative_skills_dir: ".trae/skills",
             relative_detect_dir: ".trae",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::TraeCn,
@@ -1660,6 +1696,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.trae-cn/skills/
             relative_skills_dir: ".trae-cn/skills",
             relative_detect_dir: ".trae-cn",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Zencoder,
@@ -1667,6 +1704,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.zencoder/skills/
             relative_skills_dir: ".zencoder/skills",
             relative_detect_dir: ".zencoder",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Neovate,
@@ -1674,6 +1712,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.neovate/skills/
             relative_skills_dir: ".neovate/skills",
             relative_detect_dir: ".neovate",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Pochi,
@@ -1681,6 +1720,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.pochi/skills/
             relative_skills_dir: ".pochi/skills",
             relative_detect_dir: ".pochi",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::AdaL,
@@ -1688,6 +1728,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.adal/skills/
             relative_skills_dir: ".adal/skills",
             relative_detect_dir: ".adal",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::KiloCode,
@@ -1695,6 +1736,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.kilocode/skills/
             relative_skills_dir: ".kilocode/skills",
             relative_detect_dir: ".kilocode",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::RooCode,
@@ -1702,6 +1744,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.roo/skills/
             relative_skills_dir: ".roo/skills",
             relative_detect_dir: ".roo",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Goose,
@@ -1709,6 +1752,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.config/goose/skills/
             relative_skills_dir: ".config/goose/skills",
             relative_detect_dir: ".config/goose",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::GeminiCli,
@@ -1716,6 +1760,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.gemini/skills/
             relative_skills_dir: ".gemini/skills",
             relative_detect_dir: ".gemini",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::GithubCopilot,
@@ -1723,6 +1768,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.copilot/skills/
             relative_skills_dir: ".copilot/skills",
             relative_detect_dir: ".copilot",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Clawdbot,
@@ -1730,6 +1776,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.clawdbot/skills/
             relative_skills_dir: ".clawdbot/skills",
             relative_detect_dir: ".clawdbot",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Droid,
@@ -1737,6 +1784,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.factory/skills/
             relative_skills_dir: ".factory/skills",
             relative_detect_dir: ".factory",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Windsurf,
@@ -1744,6 +1792,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.codeium/windsurf/skills/
             relative_skills_dir: ".codeium/windsurf/skills",
             relative_detect_dir: ".codeium/windsurf",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::Moltbot,
@@ -1751,6 +1800,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.moltbot/skills/
             relative_skills_dir: ".moltbot/skills",
             relative_detect_dir: ".moltbot",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::HermesAgent,
@@ -1758,6 +1808,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // Hermes stores managed skills under HERMES_HOME/skills; default HERMES_HOME is ~/.hermes.
             relative_skills_dir: ".hermes/skills",
             relative_detect_dir: ".hermes",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::ZCode,
@@ -1765,6 +1816,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // ZCode global path: ~/.zcode/skills/
             relative_skills_dir: ".zcode/skills",
             relative_detect_dir: ".zcode",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::AutoClaw,
@@ -1772,6 +1824,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // AutoClaw global path: ~/.openclaw-autoclaw/skills/
             relative_skills_dir: ".openclaw-autoclaw/skills",
             relative_detect_dir: ".openclaw-autoclaw",
+            instance_rule: None,
         },
         ToolAdapter {
             id: ToolId::DoubaoWork,
@@ -1779,6 +1832,11 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // Doubao Work default path: ~/DoubaoWork/skills (supports ~/.doubao fallback)
             relative_skills_dir: "DoubaoWork/skills",
             relative_detect_dir: "DoubaoWork",
+            instance_rule: Some(InstanceRule {
+                base_relative: "DoubaoWork/User Data",
+                skills_suffix: ".doubaowork/agent_mode/workspace/.user_skills",
+                primary_label: "Default",
+            }),
         },
         ToolAdapter {
             id: ToolId::Doubao,
@@ -1787,6 +1845,11 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // %LOCALAPPDATA%\Doubao\User Data\Default\.doubao\agent_mode\workspace\.user_skills
             relative_skills_dir: ".doubao/skills",
             relative_detect_dir: ".doubao",
+            instance_rule: Some(InstanceRule {
+                base_relative: "Doubao/User Data",
+                skills_suffix: ".doubao/agent_mode/workspace/.user_skills",
+                primary_label: "Default",
+            }),
         },
         ToolAdapter {
             id: ToolId::QoderCn,
@@ -1794,6 +1857,7 @@ pub fn default_tool_adapters() -> Vec<ToolAdapter> {
             // add-skill global path: ~/.qoder-cn/skills/
             relative_skills_dir: ".qoder-cn/skills",
             relative_detect_dir: ".qoder-cn",
+            instance_rule: None,
         },
     ]
 }
@@ -2091,3 +2155,136 @@ pub(crate) fn detect_link(path: &Path) -> (bool, Option<PathBuf>) {
 #[cfg(test)]
 #[path = "../tests/tool_adapters.rs"]
 mod tests;
+
+/// 多实例工具：一个工具可以有多个独立的技能根目录（多账号 / 多 Profile）。
+///
+/// 豆包工作、豆包这类基于 Chromium 的客户端，账号数据放在
+/// `User Data\{Default, Profile N}` 下的独立目录里。把这里做成规则而不是
+/// 硬编码判断，其它多实例软件只要填一份规则即可复用同一套发现逻辑。
+#[derive(Clone, Copy, Debug)]
+pub struct InstanceRule {
+    /// 相对 `%LOCALAPPDATA%` 的基目录，例如 "DoubaoWork/User Data"
+    pub base_relative: &'static str,
+    /// 实例目录之后的固定后缀
+    pub skills_suffix: &'static str,
+    /// 主实例目录名（历史记录沿用它）
+    pub primary_label: &'static str,
+}
+
+impl InstanceRule {
+    /// 实例目录白名单：`Default` 或 `Profile <数字>`。
+    /// Chromium 的其它同级目录（Crashpad、ShaderCache、Local Traces 等）不匹配，
+    /// 避免把缓存目录当成账号。
+    fn is_instance_dir(name: &str) -> bool {
+        if name.eq_ignore_ascii_case("Default") {
+            return true;
+        }
+        match name.strip_prefix("Profile ") {
+            Some(rest) => !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit()),
+            None => false,
+        }
+    }
+}
+
+/// 一个技能根目录实例（账号 / Profile / 单实例工具的唯一直属目录）。
+#[derive(Clone, Debug, Serialize)]
+pub struct SkillRootInstance {
+    pub tool: String,
+    /// 展示名：账号目录名（Default / Profile 4），单实例工具为空
+    pub label: String,
+    pub path: String,
+    /// 该目录下已存在的技能目录名
+    pub skills: Vec<String>,
+    pub is_primary: bool,
+    pub exists: bool,
+}
+
+fn list_skill_dirs(root: &Path) -> Vec<String> {
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return out;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        // 技能目录必须含 SKILL.md，避免把临时目录当成技能
+        if path.join("SKILL.md").is_file() {
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                out.push(name.to_string());
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
+/// 列出一个工具的全部技能根目录实例。
+/// - 无规则的工具：只有主根一个实例，label 为空
+/// - 有规则的工具：主根 + 枚举出的其它账号目录
+pub fn discover_root_instances(adapter: &ToolAdapter) -> Vec<SkillRootInstance> {
+    let mut out: Vec<SkillRootInstance> = Vec::new();
+    let primary = resolve_default_path(adapter).ok();
+
+    if let Some(rule) = adapter.instance_rule {
+        #[cfg(target_os = "windows")]
+        if let Some(local_app_data) = dirs::data_local_dir() {
+            let base = local_app_data.join(rule.base_relative.replace('/', "\\"));
+            if let Ok(entries) = std::fs::read_dir(&base) {
+                let mut labels: Vec<String> = entries
+                    .flatten()
+                    .filter(|e| e.path().is_dir())
+                    .filter_map(|e| e.file_name().to_str().map(str::to_string))
+                    .filter(|name| InstanceRule::is_instance_dir(name))
+                    .collect();
+                labels.sort_by_key(|name| {
+                    if name.eq_ignore_ascii_case("Default") {
+                        0
+                    } else {
+                        name.trim_start_matches("Profile ")
+                            .parse::<u32>()
+                            .unwrap_or(u32::MAX)
+                    }
+                });
+                for label in labels {
+                    let path = base
+                        .join(&label)
+                        .join(rule.skills_suffix.replace('/', "\\"));
+                    let exists = path.is_dir();
+                    out.push(SkillRootInstance {
+                        tool: adapter.id.as_key().to_string(),
+                        label: label.clone(),
+                        path: path.to_string_lossy().to_string(),
+                        skills: if exists {
+                            list_skill_dirs(&path)
+                        } else {
+                            Vec::new()
+                        },
+                        is_primary: label.eq_ignore_ascii_case(rule.primary_label),
+                        exists,
+                    });
+                }
+            }
+        }
+    }
+
+    if out.is_empty() {
+        out.push(SkillRootInstance {
+            tool: adapter.id.as_key().to_string(),
+            label: String::new(),
+            path: primary
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default(),
+            skills: primary
+                .as_ref()
+                .filter(|p| p.is_dir())
+                .map(|p| list_skill_dirs(p))
+                .unwrap_or_default(),
+            is_primary: true,
+            exists: primary.map(|p| p.is_dir()).unwrap_or(false),
+        });
+    }
+    out
+}

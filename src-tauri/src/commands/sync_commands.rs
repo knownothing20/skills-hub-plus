@@ -1474,3 +1474,23 @@ pub async fn promote_target_to_central(
     .map_err(|err| err.to_string())?
     .map_err(format_anyhow_error)
 }
+
+/// 列出每个工具的全部技能根目录实例（多账号 / 多 Profile）。
+///
+/// 单实例工具只返回一条；像豆包工作这种多账号客户端会返回 Default、
+/// Profile 2、Profile 4 等，前端据此提示「这个工具有几个账号目录」。
+#[tauri::command]
+pub async fn get_tool_root_instances(
+) -> Result<Vec<crate::core::tool_adapters::SkillRootInstance>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut out = Vec::new();
+        for adapter in crate::core::tool_adapters::default_tool_adapters() {
+            out.extend(crate::core::tool_adapters::discover_root_instances(
+                &adapter,
+            ));
+        }
+        out
+    })
+    .await
+    .map_err(|err| err.to_string())
+}

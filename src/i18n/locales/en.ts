@@ -375,6 +375,11 @@ export default {
   restoreConfirm: 'Are you sure you want to restore from backup? Master skill files and database relationships will be restored.',
   restoreSuccess: 'Restore successful! {{count}} skills and relationships restored.',
   restoreFailed: 'Restore failed: {{error}}',
+  toolInstances: {
+    title: '{{count}} profile folders',
+    skills: '{{count}} skills',
+    primary: 'primary',
+  },
   shared: {
     implicitTitle: '{{tool}} can read this through the shared directory (no link needed)',
     implicitHint: '{{tool}} scans the shared directory automatically, so no link is required here',
