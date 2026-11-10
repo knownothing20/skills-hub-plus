@@ -1069,8 +1069,8 @@
   display: grid;
   /* 前两列取固定宽度：名称列曾经吃掉近一半屏宽，meta 列 auto 时各行起点还会漂移。
      工具区拿剩下的空间，并在放不下时横向滚动（9 个图标在窄窗口里放不开）。 */
-  grid-template-columns: minmax(150px, 210px) minmax(150px, 200px) minmax(160px, 1fr) 42px 116px;
-  grid-template-areas: 'identity meta tools toggle actions';
+  grid-template-columns: minmax(150px, 210px) minmax(150px, 200px) minmax(160px, 1fr) 42px 116px 18px;
+  grid-template-areas: 'identity meta tools toggle actions arrow';
   align-items: center;
   column-gap: 8px;
   padding: 8px 16px;
@@ -1103,6 +1103,24 @@
   align-items: center;
   gap: 4px;
   white-space: nowrap;
+}
+.list-view .skill-card { cursor: pointer; }
+/* 行尾常驻的入口提示：平时很淡，指向这一行时变深并右移一点 */
+.list-view .skill-open-hint {
+  grid-area: arrow;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  opacity: .4;
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.list-view .skill-card:hover .skill-open-hint {
+  opacity: 1;
+  transform: translateX(2px);
+  color: var(--text-secondary);
 }
 .list-view .skill-tools-block {
   grid-area: tools;
@@ -1939,7 +1957,7 @@
   /* 与主规则保持同一套弹性区间：以前这里用 minmax(90px, auto)，
      meta 内容一多就自己撑宽，把工具区挤爆、行与行还对不齐。 */
   .list-view .skill-card {
-    grid-template-columns: minmax(140px, 200px) minmax(140px, 200px) minmax(140px, 1fr) 40px 112px;
+    grid-template-columns: minmax(140px, 200px) minmax(140px, 200px) minmax(140px, 1fr) 40px 112px 18px;
     gap: 8px;
     padding: 8px 10px;
   }
@@ -1950,11 +1968,11 @@
 @media (max-width: 860px) {
   .list-view .skill-card {
     min-height: 66px;
-    grid-template-columns: minmax(120px, 1fr) minmax(130px, 200px) 40px 112px;
+    grid-template-columns: minmax(120px, 1fr) minmax(130px, 200px) 40px 112px 16px;
     grid-template-rows: auto auto;
     grid-template-areas:
-      'identity meta  toggle actions'
-      'tools    tools toggle actions';
+      'identity meta  toggle actions arrow'
+      'tools    tools toggle actions arrow';
     row-gap: 6px;
     column-gap: 8px;
     padding: 8px 12px;

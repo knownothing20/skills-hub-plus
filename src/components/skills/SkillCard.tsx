@@ -141,6 +141,13 @@ const SkillCard = ({
   return (
     <div
       className={`skill-card${bulkMode ? ' bulk-mode' : ''}${bulkSelected ? ' bulk-selected' : ''}${enabled ? '' : ' disabled-skill'}`}
+      onClick={(event) => {
+        if (bulkMode) return
+        // 整行可点进详情，但行内的按钮/输入（图标、开关、标签、删除…）保持自己的行为
+        const target = event.target as HTMLElement
+        if (target.closest('button, a, input, textarea, select, label, [role="button"]')) return
+        onOpenDetail(skill)
+      }}
     >
       {bulkMode ? (
         <label className="bulk-skill-check" aria-label={t('bulk.toggleSkill')}>
@@ -486,6 +493,10 @@ const SkillCard = ({
           )
         })()}
       </div>
+
+        <span className="skill-open-hint" aria-hidden="true">
+          ›
+        </span>
 
         <div className="skill-actions-col">
           <button type="button" onClick={() => onEditTags(skill)} disabled={loading} aria-label={t('editTags')} title={t('editTags')}><Tag size={16} /></button>
