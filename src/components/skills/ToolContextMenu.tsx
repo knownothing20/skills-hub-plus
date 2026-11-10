@@ -33,6 +33,7 @@ export default function ToolContextMenu({
   onClose,
   onSyncWithMode,
   onUnsync,
+  onPromoteToOwner,
   onOpenFolder,
 }: ToolContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
