@@ -415,6 +415,18 @@ pub fn run() {
                     .build(app)?;
             }
 
+            // 点窗口的 × 只隐藏到托盘，不退出；退出走托盘菜单
+            if let Some(window) = app.get_webview_window("main") {
+                let window_for_event = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = window_for_event.hide();
+                        touch_activity_now();
+                    }
+                });
+            }
+
             // 检查启动参数是否包含最小化启动
             let start_minimized = std::env::args().any(|arg| arg == "--minimized" || arg == "-m");
             if start_minimized {
