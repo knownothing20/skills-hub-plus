@@ -175,7 +175,7 @@ export const SyncCompareModal = memo(({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <RefreshCw size={18} style={{ color: 'var(--color-primary, #2563eb)' }} />
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
-              多端对比与设为母版 - {skill.name}
+              多端对比与分发链路 - {skill.name}
             </h3>
           </div>
           <button
