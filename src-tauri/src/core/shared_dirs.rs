@@ -18,14 +18,19 @@ pub const AGENTS_SKILLS_RELATIVE: &str = ".agents/skills";
 /// - `agents`：适配器里这个目录就是它的全局技能目录
 /// - `claude_code` / `codex` / `cursor` / `antigravity`：Agent Skills 开放标准
 /// - `doubao`：程序内含 `filter additional local skills shadowed by .agents/skills`
-pub const SHARED_DIR_READERS: &[&str] = &[
-    "agents",
-    "claude_code",
-    "codex",
-    "cursor",
-    "antigravity",
-    "doubao",
-];
+/// 哪些工具真的会读 `~/.agents/skills`。
+///
+/// 这里只列**有实证**的读取者：
+/// - `agents`：这就是它自己的技能根目录
+/// - `doubao`：程序里能查到 `filter additional local skills shadowed by .agents/skills`
+///
+/// Claude Code 曾经被列在这里（按"开放标准"推断），但实测不成立：
+/// `~/.claude/skills` 里没有的那个技能，它的 `/` 命令也搜不到；而同一个技能
+/// 存在于 `.claude/skills` 时才可用。codex / cursor / antigravity 同样没有验证过。
+///
+/// 宁可少报：界面上画一条"共享可达"的虚线，用户就会以为那个工具能用，
+/// 实际搜不到比不提示更糟。
+pub const SHARED_DIR_READERS: &[&str] = &["agents", "doubao"];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SharedSkillDir {
