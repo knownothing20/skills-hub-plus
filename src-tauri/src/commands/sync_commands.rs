@@ -1819,10 +1819,8 @@ pub async fn promote_target_to_owner(
                     (Some(a), Some(b)) => a == &b,
                     _ => false,
                 };
-                if resolves_to_old {
-                    if std::fs::remove_dir(&other_path).is_ok() {
-                        let _ = create_enable_staged_junction(&target_path, &other_path);
-                    }
+                if resolves_to_old && std::fs::remove_dir(&other_path).is_ok() {
+                    let _ = create_enable_staged_junction(&target_path, &other_path);
                 }
             }
         }

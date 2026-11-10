@@ -14,13 +14,8 @@ pub const AGENTS_SKILLS_RELATIVE: &str = ".agents/skills";
 
 /// 会读取 `~/.agents/skills` 的工具 key（与 tool_adapters 的 id 一致）。
 ///
-/// 只收录已确认支持该目录的工具，宁可少列也不要误报「可用」。
-/// - `agents`：适配器里这个目录就是它的全局技能目录
-/// - `claude_code` / `codex` / `cursor` / `antigravity`：Agent Skills 开放标准
-/// - `doubao`：程序内含 `filter additional local skills shadowed by .agents/skills`
-/// 哪些工具真的会读 `~/.agents/skills`。
+/// 只列**有实证**的读取者：
 ///
-/// 这里只列**有实证**的读取者：
 /// - `agents`：这就是它自己的技能根目录
 /// - `doubao`：程序里能查到 `filter additional local skills shadowed by .agents/skills`
 ///
