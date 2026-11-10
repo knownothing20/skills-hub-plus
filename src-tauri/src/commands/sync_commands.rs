@@ -1722,6 +1722,8 @@ pub async fn promote_target_to_owner(
         if !target_path.is_dir() {
             anyhow::bail!("TARGET_MISSING|目标目录不存在：{:?}", target_path);
         }
+        // 旧原件：切换后要把指向它的那些链接改指向新原件
+        let previous_owner = skill.source_ref.clone();
 
         // 已经是原件：比路径字符串，不能比「身份」——链接会被解析到它指向的目录，
         // 那样 .zcode 的链接和 .codex 的原件会被判成同一处，永远无法提升。
@@ -1760,6 +1762,48 @@ pub async fn promote_target_to_owner(
         }
 
         let _ = auto_reconcile_skill_targets(&store, Some(&skillId));
+
+        // auto_reconcile 会按工具的默认同步方式回写 mode，所以修正放在它之后：
+        // 1) 新原件在磁盘上一定是实体，mode 不该再写 junction
+        // 2) 仍指向旧原件的链接要改指向新原件，否则它们会变成「指向别处」（界面上算断链）
+        let old_real = previous_owner.as_deref().and_then(|p| {
+            crate::core::library_health::resolve_existing_path(std::path::Path::new(p))
+        });
+        if let Ok(all_targets) = store.list_skill_targets(&skillId) {
+            for mut other in all_targets {
+                if other.id == target.id {
+                    if other.mode != "copy" {
+                        other.mode = "copy".to_string();
+                        let _ = store.upsert_skill_target(&other);
+                    }
+                    continue;
+                }
+                let other_path = std::path::PathBuf::from(&other.target_path);
+                let (is_link, _) = crate::core::tool_adapters::detect_link(&other_path);
+                if !is_link {
+                    // 磁盘是实体，记录还写着链接 → 校正
+                    if other.mode != "copy" {
+                        other.mode = "copy".to_string();
+                        let _ = store.upsert_skill_target(&other);
+                    }
+                    continue;
+                }
+                // 链接：原来指向旧原件的，重建为新原件（跨盘或失败就跳过，不中断整体）
+                let resolves_to_old = match (
+                    &old_real,
+                    crate::core::library_health::resolve_existing_path(&other_path),
+                ) {
+                    (Some(a), Some(b)) => a == &b,
+                    _ => false,
+                };
+                if resolves_to_old {
+                    if std::fs::remove_dir(&other_path).is_ok() {
+                        let _ = create_enable_staged_junction(&target_path, &other_path);
+                    }
+                }
+            }
+        }
+
         Ok(())
     })
     .await
