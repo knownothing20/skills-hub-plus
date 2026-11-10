@@ -264,9 +264,9 @@ pub fn sync_skill_to_tool_impl(
     scope: Option<&str>,
     project_path: Option<&str>,
     sync_mode: Option<&str>,
-    /// 多实例工具指定本次要写的账号目录；None 表示走工具默认根。
+    // 多实例工具指定本次要写的账号目录；None 表示走工具默认根。
     target_root_override: Option<&std::path::Path>,
-    /// 该账号目录的标识（Default / Profile 4）；空串＝主实例。
+    // 该账号目录的标识（Default / Profile 4）；空串＝主实例。
     target_instance: &str,
 ) -> anyhow::Result<SyncResultDto> {
     let _mutation_guard = lock_central_mutation()?;
