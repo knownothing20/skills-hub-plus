@@ -62,3 +62,4 @@ src-tauri/target/
 
 # Local release archive
 release/
+dist-download/
