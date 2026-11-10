@@ -1126,15 +1126,19 @@
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
-  scrollbar-color: #d8dde4 transparent;
   padding: 5px 4px 5px 2px;
   margin: -5px 0;
 }
 .list-view .skill-tool-avatars::-webkit-scrollbar { height: 4px; }
 .list-view .skill-tool-avatars::-webkit-scrollbar-track { background: transparent; }
+/* 滚动条平时隐形，指针移到图标区才出现：
+   每行都挂一条灰条会很吵，但滚动能力必须留着。 */
 .list-view .skill-tool-avatars::-webkit-scrollbar-thumb {
-  background: #d8dde4;
+  background: transparent;
   border-radius: 2px;
+}
+.list-view .skill-tool-avatars:hover::-webkit-scrollbar-thumb {
+  background: #d8dde4;
 }
 .list-view .skill-tool-avatars button {
   width: 28px;
