@@ -1060,7 +1060,7 @@
   display: grid;
   /* 前两列取固定宽度：名称列曾经吃掉近一半屏宽，meta 列 auto 时各行起点还会漂移。
      工具区拿剩下的空间，并在放不下时横向滚动（9 个图标在窄窗口里放不开）。 */
-  grid-template-columns: 210px 190px minmax(200px, 1fr) 42px 116px;
+  grid-template-columns: minmax(150px, 210px) minmax(150px, 190px) minmax(160px, 1fr) 42px 116px;
   grid-template-areas: 'identity meta tools toggle actions';
   align-items: center;
   column-gap: 8px;
@@ -1927,8 +1927,10 @@
 }
 
 @media (max-width: 1080px) {
+  /* 与主规则保持同一套弹性区间：以前这里用 minmax(90px, auto)，
+     meta 内容一多就自己撑宽，把工具区挤爆、行与行还对不齐。 */
   .list-view .skill-card {
-    grid-template-columns: minmax(140px, 1.1fr) minmax(90px, auto) minmax(180px, 1.8fr) 40px 112px;
+    grid-template-columns: minmax(140px, 200px) minmax(140px, 190px) minmax(140px, 1fr) 40px 112px;
     gap: 8px;
     padding: 8px 10px;
   }
@@ -1939,7 +1941,7 @@
 @media (max-width: 860px) {
   .list-view .skill-card {
     min-height: 66px;
-    grid-template-columns: 1fr auto 40px 112px;
+    grid-template-columns: minmax(120px, 1fr) minmax(130px, 190px) 40px 112px;
     grid-template-rows: auto auto;
     grid-template-areas:
       'identity meta  toggle actions'
