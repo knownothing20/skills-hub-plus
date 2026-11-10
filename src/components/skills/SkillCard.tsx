@@ -348,7 +348,9 @@ const SkillCard = ({
                 (tg) => tg.tool === tool.id && isActiveSkillTarget(tg),
               ).length
               const instanceTotal = toolInstanceTotals?.[tool.id] ?? 1
-              const showInstanceBadge = instanceTotal > 1
+              // 只在「这个技能确实进了至少一个账号目录」时才标数字。
+              // 否则多账户工具会给整库每个技能都挂一个 0，噪音太大。
+              const showInstanceBadge = instanceTotal > 1 && instanceCount > 0
               const instanceSuffix = showInstanceBadge
                 ? ` · ${t('toolManagement.instanceCoverage', {
                     covered: instanceCount,
