@@ -175,6 +175,7 @@ fn skill_targets_upsert_unique_constraint_and_list_order() {
 
     let t1 = SkillTargetRecord {
         id: "t1".to_string(),
+        instance: String::new(),
         skill_id: "s1".to_string(),
         tool: "cursor".to_string(),
         scope: "global".to_string(),
@@ -219,6 +220,7 @@ fn skill_targets_upsert_unique_constraint_and_list_order() {
 
     let t2 = SkillTargetRecord {
         id: "t3".to_string(),
+        instance: String::new(),
         skill_id: "s1".to_string(),
         tool: "claude_code".to_string(),
         scope: "global".to_string(),
@@ -253,6 +255,7 @@ fn project_targets_coexist_by_project_path_and_delete_precisely() {
 
     let global = SkillTargetRecord {
         id: "global".to_string(),
+        instance: String::new(),
         skill_id: "s1".to_string(),
         tool: "cursor".to_string(),
         scope: "global".to_string(),
@@ -265,6 +268,7 @@ fn project_targets_coexist_by_project_path_and_delete_precisely() {
     };
     let project_a = SkillTargetRecord {
         id: "project-a".to_string(),
+        instance: String::new(),
         skill_id: "s1".to_string(),
         tool: "cursor".to_string(),
         scope: "project".to_string(),
@@ -277,6 +281,7 @@ fn project_targets_coexist_by_project_path_and_delete_precisely() {
     };
     let project_b = SkillTargetRecord {
         id: "project-b".to_string(),
+        instance: String::new(),
         skill_id: "s1".to_string(),
         tool: "cursor".to_string(),
         scope: "project".to_string(),
@@ -360,6 +365,7 @@ fn deleting_skill_cascades_targets() {
 
     let t = SkillTargetRecord {
         id: "t1".to_string(),
+        instance: String::new(),
         skill_id: "s1".to_string(),
         tool: "cursor".to_string(),
         scope: "global".to_string(),
@@ -487,4 +493,74 @@ fn error_context_includes_db_path() {
     let err = store.ensure_schema().unwrap_err();
     let msg = format!("{:#}", err);
     assert!(msg.contains("failed to open db at"), "{msg}");
+}
+
+#[test]
+fn same_tool_keeps_one_record_per_instance() {
+    let (_dir, store) = make_store();
+    let skill = make_skill("s1", "S1", "/central/s1", 1);
+    store.upsert_skill(&skill).unwrap();
+
+    let base = SkillTargetRecord {
+        id: "t1".to_string(),
+        instance: String::new(),
+        skill_id: "s1".to_string(),
+        tool: "doubao_work".to_string(),
+        scope: "global".to_string(),
+        project_path: None,
+        target_path: "/doubao/Default/skill".to_string(),
+        mode: "junction".to_string(),
+        status: "ok".to_string(),
+        last_error: None,
+        synced_at: None,
+    };
+    store.upsert_skill_target(&base).unwrap();
+
+    let profile = SkillTargetRecord {
+        id: "t2".to_string(),
+        instance: "Profile 4".to_string(),
+        target_path: "/doubao/Profile 4/skill".to_string(),
+        ..base.clone()
+    };
+    store
+        .upsert_skill_target(&profile)
+        .expect("second instance must not hit the unique index");
+
+    // 旧签名只认主实例
+    let primary = store
+        .get_skill_target("s1", "doubao_work", "global", None)
+        .unwrap()
+        .expect("primary instance exists");
+    assert_eq!(primary.instance, "");
+    assert_eq!(primary.target_path, "/doubao/Default/skill");
+
+    let secondary = store
+        .get_skill_target_instance("s1", "doubao_work", "global", None, "Profile 4")
+        .unwrap()
+        .expect("profile instance exists");
+    assert_eq!(secondary.target_path, "/doubao/Profile 4/skill");
+
+    let all = store.list_skill_targets("s1").unwrap();
+    assert_eq!(all.len(), 2);
+    assert_eq!(all[0].instance, "");
+    assert_eq!(all[1].instance, "Profile 4");
+
+    // 只删一个实例，另一个必须留着
+    store
+        .delete_skill_target_instance("s1", "doubao_work", "global", None, "Profile 4")
+        .unwrap();
+    assert!(store
+        .get_skill_target_instance("s1", "doubao_work", "global", None, "Profile 4")
+        .unwrap()
+        .is_none());
+    assert!(store
+        .get_skill_target("s1", "doubao_work", "global", None)
+        .unwrap()
+        .is_some());
+
+    // 按工具清空全部实例
+    store
+        .delete_skill_targets_for_tool("s1", "doubao_work")
+        .unwrap();
+    assert!(store.list_skill_targets("s1").unwrap().is_empty());
 }

@@ -112,8 +112,10 @@ pub fn record_skill_target_failure(
     target_path: &std::path::Path,
     requested_mode: SyncMode,
     error: &str,
+    instance: &str,
 ) -> anyhow::Result<()> {
-    let existing = store.get_skill_target(skill_id, tool, scope, project_path)?;
+    let existing =
+        store.get_skill_target_instance(skill_id, tool, scope, project_path, instance)?;
     let record = SkillTargetRecord {
         id: existing
             .as_ref()
@@ -131,6 +133,7 @@ pub fn record_skill_target_failure(
         status: "error".to_string(),
         last_error: Some(error.to_string()),
         synced_at: existing.and_then(|target| target.synced_at),
+        instance: instance.to_string(),
     };
     store.upsert_skill_target(&record)
 }
@@ -229,6 +232,7 @@ pub fn auto_reconcile_skill_targets(
                     status: "ok".to_string(),
                     last_error: None,
                     synced_at: Some(now),
+                    instance: String::new(),
                 };
                 store.upsert_skill_target(&record)?;
                 reconciled_count += 1;
@@ -260,6 +264,10 @@ pub fn sync_skill_to_tool_impl(
     scope: Option<&str>,
     project_path: Option<&str>,
     sync_mode: Option<&str>,
+    /// 多实例工具指定本次要写的账号目录；None 表示走工具默认根。
+    target_root_override: Option<&std::path::Path>,
+    /// 该账号目录的标识（Default / Profile 4）；空串＝主实例。
+    target_instance: &str,
 ) -> anyhow::Result<SyncResultDto> {
     let _mutation_guard = lock_central_mutation()?;
     let skill = store
@@ -308,7 +316,10 @@ pub fn sync_skill_to_tool_impl(
         None
     };
 
-    let tool_root = resolve_runtime_tool_root(&runtime_tool, project_root.as_deref())?;
+    let tool_root = match target_root_override {
+        Some(root) => root.to_path_buf(),
+        None => resolve_runtime_tool_root(&runtime_tool, project_root.as_deref())?,
+    };
     std::fs::create_dir_all(&tool_root)
         .with_context(|| format!("create configured Skill root {:?}", tool_root))?;
     ensure_distinct_roots(&tool_root, central_root)?;
@@ -327,6 +338,7 @@ pub fn sync_skill_to_tool_impl(
             &target,
             runtime_tool.sync_mode,
             &error,
+            target_instance,
         )?;
         anyhow::bail!(error);
     }
@@ -350,6 +362,7 @@ pub fn sync_skill_to_tool_impl(
             &target,
             runtime_tool.sync_mode,
             &error,
+            target_instance,
         )?;
         anyhow::bail!(error);
     }
@@ -485,6 +498,7 @@ pub fn sync_skill_to_tool_impl(
                         &target,
                         runtime_tool.sync_mode,
                         &error,
+                        target_instance,
                     )?;
                     anyhow::bail!(error);
                 }
@@ -497,6 +511,7 @@ pub fn sync_skill_to_tool_impl(
     for a in group {
         let record = SkillTargetRecord {
             id: Uuid::new_v4().to_string(),
+            instance: String::new(),
             skill_id: skill_id.to_string(),
             tool: a.key,
             scope: scope.to_string(),
@@ -512,6 +527,7 @@ pub fn sync_skill_to_tool_impl(
             status: "ok".to_string(),
             last_error: None,
             synced_at: Some(now_ms()),
+            instance: target_instance.to_string(),
         };
         store.upsert_skill_target(&record)?;
     }
@@ -547,6 +563,63 @@ pub async fn sync_skill_to_tool(
     let store = store.inner().clone();
     let central_root = resolve_central_repo_path(&app, &store).map_err(|err| err.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
+        // 多账号工具（豆包这类 Chromium 客户端）：一次操作铺到每个已存在的
+        // 账号目录，这样切账号不会突然看不到技能。单实例工具行为不变。
+        let is_global = scope.as_deref().unwrap_or("global") == "global";
+        if is_global && projectPath.is_none() {
+            let instances = crate::core::tool_adapters::default_tool_adapters()
+                .into_iter()
+                .find(|a| a.id.as_key() == tool)
+                .filter(|a| a.instance_rule.is_some())
+                .map(|adapter| {
+                    crate::core::tool_adapters::discover_root_instances(&adapter)
+                        .into_iter()
+                        .filter(|i| i.exists)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            if instances.len() > 1 {
+                let mut first_ok: Option<SyncResultDto> = None;
+                let mut last_err: Option<anyhow::Error> = None;
+                for instance in instances {
+                    let instance_key = if instance.is_primary {
+                        String::new()
+                    } else {
+                        instance.label.clone()
+                    };
+                    let attempt = sync_skill_to_tool_impl(
+                        &central_root,
+                        &store,
+                        &sourcePath,
+                        &skillId,
+                        &tool,
+                        &name,
+                        overwrite,
+                        overwriteIfSameContent,
+                        scope.as_deref(),
+                        projectPath.as_deref(),
+                        syncMode.as_deref(),
+                        Some(std::path::Path::new(&instance.path)),
+                        &instance_key,
+                    );
+                    match attempt {
+                        Ok(res) => {
+                            if first_ok.is_none() {
+                                first_ok = Some(res);
+                            }
+                        }
+                        Err(err) => last_err = Some(err),
+                    }
+                }
+                if let Some(res) = first_ok {
+                    return Ok(res);
+                }
+                return Err(
+                    last_err.unwrap_or_else(|| anyhow::anyhow!("sync failed for every instance"))
+                );
+            }
+        }
+
         sync_skill_to_tool_impl(
             &central_root,
             &store,
@@ -559,6 +632,8 @@ pub async fn sync_skill_to_tool(
             scope.as_deref(),
             projectPath.as_deref(),
             syncMode.as_deref(),
+            None,
+            "",
         )
     })
     .await
@@ -1236,12 +1311,18 @@ pub async fn unsync_skill_from_tool(
             None
         };
 
+        // 多账号工具会有多条实例记录，全部纳入本次取消范围，
+        // 否则主实例删了、Profile 实例还指着已经不该存在的目录。
+        let all_targets = store.list_skill_targets(&skillId)?;
         let mut selected_targets = Vec::new();
         let mut central_coinciding_targets = Vec::new();
         for k in &group_tool_keys {
-            if let Some(target) =
-                store.get_skill_target(&skillId, k, scope, project_path.as_deref())?
-            {
+            let matching: Vec<_> = all_targets
+                .iter()
+                .filter(|t| &t.tool == k && t.scope == scope && t.project_path == project_path)
+                .cloned()
+                .collect();
+            for target in matching {
                 let is_central_target = if let Some(ref central) = fixed_central {
                     let p = std::path::Path::new(&target.target_path);
                     p == std::path::Path::new(&skill.central_path)
@@ -1266,21 +1347,23 @@ pub async fn unsync_skill_from_tool(
 
         // 清理与中心母版重合的虚假 target 记录（不执行物理文件删除）
         for target in &central_coinciding_targets {
-            let _ = store.delete_skill_target(
+            let _ = store.delete_skill_target_instance(
                 &skillId,
                 &target.tool,
                 &target.scope,
                 target.project_path.as_deref(),
+                &target.instance,
             );
         }
 
         let moved = move_managed_targets_to_trash(&store, &selected_targets, &skill.name)?;
         for target in &selected_targets {
-            if let Err(db_err) = store.delete_skill_target(
+            if let Err(db_err) = store.delete_skill_target_instance(
                 &skillId,
                 &target.tool,
                 &target.scope,
                 target.project_path.as_deref(),
+                &target.instance,
             ) {
                 let mut recovery_errors = Vec::new();
                 for original in &selected_targets {
@@ -1493,4 +1576,117 @@ pub async fn get_tool_root_instances(
     })
     .await
     .map_err(|err| err.to_string())
+}
+
+/// 一个实例（账号 / Profile 目录）的同步结果。
+#[derive(Debug, serde::Serialize)]
+pub struct InstanceSyncResultDto {
+    /// 账号目录标识；主实例为空串
+    pub instance: String,
+    pub label: String,
+    pub path: String,
+    pub ok: bool,
+    pub error: Option<String>,
+}
+
+/// 把一个技能同步到某工具的全部账号目录。
+///
+/// 只处理磁盘上已经存在的实例目录——不会为了同步而凭空创建账号目录。
+/// 主实例（Default）沿用历史记录（`instance = ''`），其余账号各占一条记录，
+/// 因此原本"换账号后技能消失"的目录会被真正纳管。
+#[tauri::command]
+#[allow(non_snake_case)]
+#[allow(clippy::too_many_arguments)]
+pub async fn sync_skill_to_tool_instances(
+    app: tauri::AppHandle,
+    store: State<'_, SkillStore>,
+    sourcePath: String,
+    skillId: String,
+    tool: String,
+    name: String,
+    overwrite: Option<bool>,
+    overwriteIfSameContent: Option<bool>,
+    syncMode: Option<String>,
+) -> Result<Vec<InstanceSyncResultDto>, String> {
+    let store = store.inner().clone();
+    let central_root = resolve_central_repo_path(&app, &store).map_err(|err| err.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let adapter = crate::core::tool_adapters::default_tool_adapters()
+            .into_iter()
+            .find(|a| a.id.as_key() == tool)
+            .ok_or_else(|| format!("unknown tool: {tool}"))?;
+        let instances = crate::core::tool_adapters::discover_root_instances(&adapter);
+        let existing: Vec<_> = instances.into_iter().filter(|i| i.exists).collect();
+        if existing.is_empty() {
+            // 没有可写的实例目录时退回默认根，保持原来的单目标行为。
+            let result = sync_skill_to_tool_impl(
+                &central_root,
+                &store,
+                &sourcePath,
+                &skillId,
+                &tool,
+                &name,
+                overwrite,
+                overwriteIfSameContent,
+                Some("global"),
+                None,
+                syncMode.as_deref(),
+                None,
+                "",
+            )?;
+            return Ok(vec![InstanceSyncResultDto {
+                instance: String::new(),
+                label: String::new(),
+                path: result.target_path,
+                ok: true,
+                error: None,
+            }]);
+        }
+
+        let mut out = Vec::new();
+        for instance in existing {
+            // 主实例沿用空串，避免和历史记录分叉
+            let instance_key = if instance.is_primary {
+                String::new()
+            } else {
+                instance.label.clone()
+            };
+            let target_path = std::path::Path::new(&instance.path).join(&name);
+            let attempt = sync_skill_to_tool_impl(
+                &central_root,
+                &store,
+                &sourcePath,
+                &skillId,
+                &tool,
+                &name,
+                overwrite,
+                overwriteIfSameContent,
+                Some("global"),
+                None,
+                syncMode.as_deref(),
+                Some(std::path::Path::new(&instance.path)),
+                &instance_key,
+            );
+            match attempt {
+                Ok(_) => out.push(InstanceSyncResultDto {
+                    instance: instance_key,
+                    label: instance.label,
+                    path: target_path.to_string_lossy().to_string(),
+                    ok: true,
+                    error: None,
+                }),
+                Err(err) => out.push(InstanceSyncResultDto {
+                    instance: instance_key,
+                    label: instance.label,
+                    path: target_path.to_string_lossy().to_string(),
+                    ok: false,
+                    error: Some(crate::commands::format_anyhow_error(&err)),
+                }),
+            }
+        }
+        Ok(out)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map_err(crate::commands::format_anyhow_error)
 }

@@ -39,6 +39,7 @@ fn seed_target(store: &SkillStore, skill_id: &str, tool: &str, target_dir: &Path
     store
         .upsert_skill_target(&SkillTargetRecord {
             id: format!("target-{tool}"),
+            instance: String::new(),
             skill_id: skill_id.to_string(),
             tool: tool.to_string(),
             scope: "global".to_string(),

@@ -74,6 +74,7 @@ fn make_enable_fixture(target_count: usize) -> EnableFixture {
         store
             .upsert_skill_target(&SkillTargetRecord {
                 id: format!("target-{index}"),
+                instance: String::new(),
                 skill_id: "atomic-enable".to_string(),
                 tool: tool_key,
                 scope: "global".to_string(),
@@ -304,6 +305,7 @@ fn get_managed_skills_impl_maps_targets() {
 
     let target = SkillTargetRecord {
         id: "t1".to_string(),
+        instance: String::new(),
         skill_id: "s1".to_string(),
         tool: "cursor".to_string(),
         scope: "global".to_string(),
@@ -581,6 +583,7 @@ fn record_skill_target_failure_persists_error_status() {
         std::path::Path::new("/tmp/target"),
         SyncMode::Copy,
         "permission denied",
+        "",
     )
     .unwrap();
 
@@ -873,6 +876,8 @@ fn test_discovered_skill_preserves_physical_entity_without_converting_to_link() 
         Some("global"),
         None,
         Some("copy"),
+        None,
+        "",
     )
     .unwrap();
 
@@ -907,6 +912,8 @@ fn test_discovered_skill_preserves_physical_entity_without_converting_to_link() 
         Some("global"),
         None,
         None,
+        None,
+        "",
     )
     .unwrap();
 

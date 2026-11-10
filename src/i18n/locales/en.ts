@@ -448,6 +448,7 @@ export default {
     detected: 'Detected',
     notDetected: 'Not detected',
     synced: 'Synced',
+    instanceCount: '{{count}} profile folders',
     syncFailed: 'Sync failed — click to retry',
     syncPartialFailed: 'Partially synced — click to retry',
     notSynced: 'Not synced — click to enable',

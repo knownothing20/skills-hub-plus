@@ -9,7 +9,7 @@ const DB_FILE_NAME: &str = "skills_hub.db";
 const LEGACY_APP_IDENTIFIERS: &[&str] = &["com.tauri.dev", "com.tauri.dev.skillshub"];
 
 // Schema versioning: bump when making changes and add a migration step.
-const SCHEMA_VERSION: i32 = 6;
+const SCHEMA_VERSION: i32 = 7;
 
 // Minimal schema for MVP: skills, skill_targets, settings, discovered_skills(optional).
 const SCHEMA_V1: &str = r#"
@@ -40,11 +40,12 @@ CREATE TABLE IF NOT EXISTS skill_targets (
   status TEXT NOT NULL,
   last_error TEXT NULL,
   synced_at INTEGER NULL,
+  instance TEXT NOT NULL DEFAULT '',
   FOREIGN KEY(skill_id) REFERENCES skills(id) ON DELETE CASCADE
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_skill_targets_unique_scope
-ON skill_targets(skill_id, tool, scope, COALESCE(project_path, ''));
+ON skill_targets(skill_id, tool, scope, COALESCE(project_path, ''), instance);
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -118,6 +119,8 @@ pub struct SkillTargetRecord {
     pub status: String,
     pub last_error: Option<String>,
     pub synced_at: Option<i64>,
+    /// 多实例目录标识（账号 / Profile 名）。空串＝主实例，历史记录全部如此。
+    pub instance: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -156,6 +159,9 @@ impl SkillStore {
                 // V3: add source_subpath column
                 conn.execute_batch("ALTER TABLE skills ADD COLUMN source_subpath TEXT NULL;")?;
                 migrate_skill_targets_to_v4(conn)?;
+                // v4 会重建 skill_targets，把 SCHEMA_V1 里的 instance 列丢掉，
+                // 所以新库也要跑一次 v7 把列和索引补回来（带存在性检查）。
+                migrate_skill_targets_instance_to_v7(conn)?;
                 conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
             } else if user_version < SCHEMA_VERSION {
                 // Incremental migrations
@@ -173,6 +179,9 @@ impl SkillStore {
                 }
                 if user_version < 6 {
                     migrate_skill_enabled_to_v6(conn)?;
+                }
+                if user_version < 7 {
+                    migrate_skill_targets_instance_to_v7(conn)?;
                 }
                 conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
             } else if user_version > SCHEMA_VERSION {
@@ -585,10 +594,10 @@ impl SkillStore {
     pub fn list_skill_targets(&self, skill_id: &str) -> Result<Vec<SkillTargetRecord>> {
         self.with_conn(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, skill_id, tool, scope, project_path, target_path, mode, status, last_error, synced_at
+                "SELECT id, skill_id, tool, scope, project_path, target_path, mode, status, last_error, synced_at, instance
          FROM skill_targets
          WHERE skill_id = ?1
-         ORDER BY tool ASC, scope ASC, project_path ASC",
+         ORDER BY tool ASC, scope ASC, project_path ASC, instance ASC",
             )?;
             let rows = stmt.query_map(params![skill_id], |row| {
                 Ok(SkillTargetRecord {
@@ -602,6 +611,7 @@ impl SkillStore {
                     status: row.get(7)?,
                     last_error: row.get(8)?,
                     synced_at: row.get(9)?,
+                    instance: row.get(10)?,
                 })
             })?;
 
@@ -616,10 +626,10 @@ impl SkillStore {
     pub fn list_skill_targets_by_tool(&self, tool: &str) -> Result<Vec<SkillTargetRecord>> {
         self.with_conn(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, skill_id, tool, scope, project_path, target_path, mode, status, last_error, synced_at
+                "SELECT id, skill_id, tool, scope, project_path, target_path, mode, status, last_error, synced_at, instance
          FROM skill_targets
          WHERE tool = ?1
-         ORDER BY skill_id ASC, scope ASC, project_path ASC",
+         ORDER BY skill_id ASC, scope ASC, project_path ASC, instance ASC",
             )?;
             let rows = stmt.query_map(params![tool], |row| {
                 Ok(SkillTargetRecord {
@@ -633,6 +643,7 @@ impl SkillStore {
                     status: row.get(7)?,
                     last_error: row.get(8)?,
                     synced_at: row.get(9)?,
+                    instance: row.get(10)?,
                 })
             })?;
 
@@ -701,6 +712,7 @@ impl SkillStore {
         })
     }
 
+    /// 取主实例的目标记录（历史行为，`instance = ''`）。
     pub fn get_skill_target(
         &self,
         skill_id: &str,
@@ -708,16 +720,29 @@ impl SkillStore {
         scope: &str,
         project_path: Option<&str>,
     ) -> Result<Option<SkillTargetRecord>> {
+        self.get_skill_target_instance(skill_id, tool, scope, project_path, "")
+    }
+
+    /// 取指定实例（账号 / Profile）下的目标记录。
+    pub fn get_skill_target_instance(
+        &self,
+        skill_id: &str,
+        tool: &str,
+        scope: &str,
+        project_path: Option<&str>,
+        instance: &str,
+    ) -> Result<Option<SkillTargetRecord>> {
         self.with_conn(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, skill_id, tool, scope, project_path, target_path, mode, status, last_error, synced_at
+                "SELECT id, skill_id, tool, scope, project_path, target_path, mode, status, last_error, synced_at, instance
          FROM skill_targets
          WHERE skill_id = ?1
            AND tool = ?2
            AND scope = ?3
-           AND ((?4 IS NULL AND project_path IS NULL) OR project_path = ?4)",
+           AND ((?4 IS NULL AND project_path IS NULL) OR project_path = ?4)
+           AND instance = ?5",
             )?;
-            let mut rows = stmt.query(params![skill_id, tool, scope, project_path])?;
+            let mut rows = stmt.query(params![skill_id, tool, scope, project_path, instance])?;
             if let Some(row) = rows.next()? {
                 Ok(Some(SkillTargetRecord {
                     id: row.get(0)?,
@@ -730,6 +755,7 @@ impl SkillStore {
                     status: row.get(7)?,
                     last_error: row.get(8)?,
                     synced_at: row.get(9)?,
+                    instance: row.get(10)?,
                 }))
             } else {
                 Ok(None)
@@ -744,14 +770,41 @@ impl SkillStore {
         scope: &str,
         project_path: Option<&str>,
     ) -> Result<()> {
+        self.delete_skill_target_instance(skill_id, tool, scope, project_path, "")
+    }
+
+    /// 删除某工具下的全部实例记录。
+    ///
+    /// 多账号工具可能同时有主实例和 Profile 实例，取消同步 / 移除工具入口时
+    /// 必须一起清掉，否则会留下指向已消失目录的孤儿记录。
+    pub fn delete_skill_targets_for_tool(&self, skill_id: &str, tool: &str) -> Result<()> {
+        self.with_conn(|conn| {
+            conn.execute(
+                "DELETE FROM skill_targets WHERE skill_id = ?1 AND tool = ?2",
+                params![skill_id, tool],
+            )?;
+            Ok(())
+        })
+    }
+
+    /// 删除指定实例的目标记录。
+    pub fn delete_skill_target_instance(
+        &self,
+        skill_id: &str,
+        tool: &str,
+        scope: &str,
+        project_path: Option<&str>,
+        instance: &str,
+    ) -> Result<()> {
         self.with_conn(|conn| {
             conn.execute(
                 "DELETE FROM skill_targets
                  WHERE skill_id = ?1
                    AND tool = ?2
                    AND scope = ?3
-                   AND ((?4 IS NULL AND project_path IS NULL) OR project_path = ?4)",
-                params![skill_id, tool, scope, project_path],
+                   AND ((?4 IS NULL AND project_path IS NULL) OR project_path = ?4)
+                   AND instance = ?5",
+                params![skill_id, tool, scope, project_path, instance],
             )?;
             Ok(())
         })
@@ -765,15 +818,29 @@ impl SkillStore {
         project_path: Option<&str>,
         status: &str,
     ) -> Result<()> {
+        self.update_skill_target_status_instance(skill_id, tool, scope, project_path, "", status)
+    }
+
+    /// 更新指定实例的目标状态。
+    pub fn update_skill_target_status_instance(
+        &self,
+        skill_id: &str,
+        tool: &str,
+        scope: &str,
+        project_path: Option<&str>,
+        instance: &str,
+        status: &str,
+    ) -> Result<()> {
         self.with_conn(|conn| {
             conn.execute(
                 "UPDATE skill_targets
-                 SET status = ?5
+                 SET status = ?6
                  WHERE skill_id = ?1
                    AND tool = ?2
                    AND scope = ?3
-                   AND ((?4 IS NULL AND project_path IS NULL) OR project_path = ?4)",
-                params![skill_id, tool, scope, project_path, status],
+                   AND ((?4 IS NULL AND project_path IS NULL) OR project_path = ?4)
+                   AND instance = ?5",
+                params![skill_id, tool, scope, project_path, instance, status],
             )?;
             Ok(())
         })
@@ -791,9 +858,9 @@ impl SkillStore {
 fn upsert_skill_target_on_conn(conn: &Connection, record: &SkillTargetRecord) -> Result<()> {
     conn.execute(
         "INSERT INTO skill_targets (
-          id, skill_id, tool, scope, project_path, target_path, mode, status, last_error, synced_at
+          id, skill_id, tool, scope, project_path, target_path, mode, status, last_error, synced_at, instance
         ) VALUES (
-          ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10
+          ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
         )
         ON CONFLICT DO UPDATE SET
           target_path = excluded.target_path,
@@ -811,7 +878,8 @@ fn upsert_skill_target_on_conn(conn: &Connection, record: &SkillTargetRecord) ->
             record.mode,
             record.status,
             record.last_error,
-            record.synced_at
+            record.synced_at,
+            record.instance
         ],
     )?;
     Ok(())
@@ -872,6 +940,46 @@ fn migrate_tags_to_v5(conn: &Connection) -> Result<()> {
 fn migrate_skill_enabled_to_v6(conn: &Connection) -> Result<()> {
     conn.execute_batch("ALTER TABLE skills ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;")?;
     Ok(())
+}
+
+/// V7：一个工具可以有多个实例目录（多账号 / 多 Profile）。
+///
+/// 空串代表「主实例」——历史上每个工具只有一条记录，迁移后它们全部落成
+/// 主实例，行为不变。唯一索引必须带上 instance，否则同一技能在同一工具的
+/// 第二个账号目录会被约束挡掉。
+fn migrate_skill_targets_instance_to_v7(conn: &Connection) -> Result<()> {
+    conn.execute_batch("BEGIN;")?;
+    // 全新安装时 SCHEMA_V1 已经带 instance，重复 ADD COLUMN 会报错；
+    // 老库则是从 v4 的表结构升上来，需要补列。
+    if !has_column(conn, "skill_targets", "instance")? {
+        conn.execute_batch(
+            "ALTER TABLE skill_targets ADD COLUMN instance TEXT NOT NULL DEFAULT '';",
+        )?;
+    }
+    conn.execute_batch(
+        "DROP INDEX IF EXISTS idx_skill_targets_unique_scope;
+         CREATE UNIQUE INDEX idx_skill_targets_unique_scope
+         ON skill_targets(skill_id, tool, scope, COALESCE(project_path, ''), instance);
+         COMMIT;",
+    )?;
+    Ok(())
+}
+
+fn has_column(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+    let sql = match table {
+        "skill_targets" => "PRAGMA table_info(skill_targets)",
+        "skills" => "PRAGMA table_info(skills)",
+        _ => return Ok(false),
+    };
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let name: String = row.get(1)?;
+        if name.eq_ignore_ascii_case(column) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn normalize_tag_name(name: &str) -> Result<String> {

@@ -41,6 +41,7 @@ fn make_target(
 ) -> SkillTargetRecord {
     SkillTargetRecord {
         id: id.to_string(),
+        instance: String::new(),
         skill_id: skill_id.to_string(),
         tool: tool.to_string(),
         scope: "global".to_string(),

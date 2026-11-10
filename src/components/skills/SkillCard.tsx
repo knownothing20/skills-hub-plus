@@ -340,6 +340,15 @@ const SkillCard = ({
                 ? staleBySkillTool?.get(`${skill.name}/${tool.id}`)
                 : undefined
 
+              // 多账号工具的同一工具会有多条实例记录，提示覆盖了几个账号目录
+              const instanceCount = scopeTargets.filter(
+                (tg) => tg.tool === tool.id && isActiveSkillTarget(tg),
+              ).length
+              const instanceSuffix =
+                instanceCount > 1
+                  ? ` · ${t('toolManagement.instanceCount', { count: instanceCount })}`
+                  : ''
+
               let finalClass: string = syncState
               let stateLabel = ''
               if (synced) {
@@ -371,7 +380,7 @@ const SkillCard = ({
                           ? t('stale.handEditedTitle')
                           : t('stale.conflictTitle')
                       : stateLabel
-                  } (右键更多操作)`}
+                  }${instanceSuffix} (右键更多操作)`}
                   aria-label={`${tool.label}${roleLabel ? ` · ${roleLabel}` : ''} · ${stateLabel}`}
                   aria-pressed={synced}
                   onClick={() => {

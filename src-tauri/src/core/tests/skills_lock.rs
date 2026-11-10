@@ -51,6 +51,7 @@ fn insert_skill(
         store
             .upsert_skill_target(&SkillTargetRecord {
                 id: format!("{name}-target-{index}"),
+                instance: String::new(),
                 skill_id: name.to_string(),
                 tool: tool.to_string(),
                 scope: scope.to_string(),

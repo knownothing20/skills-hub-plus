@@ -79,6 +79,7 @@ fn register_managed_copy_target(
     store
         .upsert_skill_target(&SkillTargetRecord {
             id: target_id.to_string(),
+            instance: String::new(),
             skill_id: skill_id.to_string(),
             tool: "custom_casey".to_string(),
             scope: "global".to_string(),
@@ -163,6 +164,7 @@ fn saving_changed_custom_tool_migrates_existing_targets_and_preserves_key() {
     store
         .upsert_skill_target(&SkillTargetRecord {
             id: "target-a".to_string(),
+            instance: String::new(),
             skill_id: "skill-a".to_string(),
             tool: "custom_casey".to_string(),
             scope: "global".to_string(),
@@ -559,6 +561,7 @@ fn aliased_root_target_is_recognized_as_shared_and_preserved() {
     store
         .upsert_skill_target(&SkillTargetRecord {
             id: "other-target".to_string(),
+            instance: String::new(),
             skill_id: "skill-a".to_string(),
             tool: "custom_other".to_string(),
             scope: "global".to_string(),
@@ -670,6 +673,7 @@ fn distinct_symlink_entries_to_same_source_are_not_treated_as_shared() {
     store
         .upsert_skill_target(&SkillTargetRecord {
             id: "other-target".to_string(),
+            instance: String::new(),
             skill_id: "skill-a".to_string(),
             tool: "custom_other".to_string(),
             scope: "global".to_string(),

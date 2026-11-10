@@ -76,6 +76,8 @@ pub struct SkillTargetDto {
     /// than from the recorded mode: "owner" | "link_to_owner" | "link_to_central"
     /// | "link_other" | "copy" | "missing".
     pub role: String,
+    /// 多实例目录标识（账号 / Profile）；空串＝主实例。
+    pub instance: String,
 }
 
 fn paths_match(left: &std::path::Path, right: &std::path::Path) -> bool {
@@ -251,6 +253,7 @@ pub fn get_managed_skills_impl_with_icon_budget(
                         target_path: target.target_path,
                         synced_at: target.synced_at,
                         role,
+                        instance: target.instance,
                     }
                 })
                 .collect();
@@ -532,11 +535,12 @@ pub async fn ignore_managed_skill(
                     }
                 }
             }
-            let _ = store.delete_skill_target(
+            let _ = store.delete_skill_target_instance(
                 &skillId,
                 &target.tool,
                 &target.scope,
                 target.project_path.as_deref(),
+                &target.instance,
             );
         }
 

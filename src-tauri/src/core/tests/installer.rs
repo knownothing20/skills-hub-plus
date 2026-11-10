@@ -431,6 +431,7 @@ fn installs_local_skill_and_updates_from_source() {
     fs::write(target.join("a.txt"), b"external-v1").unwrap();
     let t = SkillTargetRecord {
         id: "t1".to_string(),
+        instance: String::new(),
         skill_id: res.skill_id.clone(),
         tool: "legacy-unknown-tool".to_string(),
         scope: "global".to_string(),
@@ -525,6 +526,7 @@ fn update_refreshes_only_validated_copy_targets() {
     store
         .upsert_skill_target(&SkillTargetRecord {
             id: "copy-target".to_string(),
+            instance: String::new(),
             skill_id: installed.skill_id.clone(),
             tool: "custom_test".to_string(),
             scope: "global".to_string(),
@@ -602,6 +604,7 @@ fn failed_update_marks_skill_error_and_success_clears_it() {
     fs::write(&blocked_parent, b"not a directory").unwrap();
     let target = SkillTargetRecord {
         id: "blocked-target".to_string(),
+        instance: String::new(),
         skill_id: skill.id.clone(),
         tool: "unknown_tool".to_string(),
         scope: "global".to_string(),

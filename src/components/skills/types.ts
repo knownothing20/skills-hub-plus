@@ -71,6 +71,8 @@ export type ManagedSkill = {
     target_path: string
     synced_at?: number | null
     role?: string
+    /** 多实例目录标识（账号 / Profile）；空串或未给出＝主实例 */
+    instance?: string
   }[]
 }
 

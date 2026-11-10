@@ -1020,6 +1020,7 @@ fn apply_custom_tool_target_migration(
 
     let migrated = SkillTargetRecord {
         id: plan.target.id.clone(),
+        instance: String::new(),
         skill_id: plan.target.skill_id.clone(),
         tool: plan.target.tool.clone(),
         scope: plan.target.scope.clone(),
