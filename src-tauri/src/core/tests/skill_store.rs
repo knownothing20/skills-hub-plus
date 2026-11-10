@@ -239,7 +239,7 @@ fn skill_targets_upsert_unique_constraint_and_list_order() {
     assert_eq!(targets[1].tool, "cursor");
 
     store
-        .delete_skill_target("s1", "cursor", "global", None)
+        .delete_skill_target_instance("s1", "cursor", "global", None, "")
         .unwrap();
     assert!(store
         .get_skill_target("s1", "cursor", "global", None)
@@ -340,7 +340,7 @@ fn project_targets_coexist_by_project_path_and_delete_precisely() {
     assert_eq!(store.list_skill_targets("s1").unwrap().len(), 3);
 
     store
-        .delete_skill_target("s1", "cursor", "project", Some("/projects/a"))
+        .delete_skill_target_instance("s1", "cursor", "project", Some("/projects/a"), "")
         .unwrap();
 
     assert!(store

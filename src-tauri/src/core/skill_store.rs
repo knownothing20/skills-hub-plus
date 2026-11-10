@@ -763,16 +763,6 @@ impl SkillStore {
         })
     }
 
-    pub fn delete_skill_target(
-        &self,
-        skill_id: &str,
-        tool: &str,
-        scope: &str,
-        project_path: Option<&str>,
-    ) -> Result<()> {
-        self.delete_skill_target_instance(skill_id, tool, scope, project_path, "")
-    }
-
     /// 删除指定实例的目标记录。
     pub fn delete_skill_target_instance(
         &self,
