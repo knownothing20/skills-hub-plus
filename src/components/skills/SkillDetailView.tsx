@@ -745,7 +745,8 @@ const SkillDetailView = ({
                         isActiveSkillTarget(t),
                     )
                     const role = roleOfTarget(target)
-                    const isCopy = role === 'copy'
+                    // 物理形态看记录的 mode：原件（role='owner'）也有一条 mode，它照样是实体目录。
+                    const isCopy = target?.mode === 'copy'
                     const modeText =
                       role === 'owner'
                         ? t('roleOwner')

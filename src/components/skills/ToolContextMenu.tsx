@@ -96,11 +96,17 @@ export default function ToolContextMenu({
         <ToolIcon toolKey={tool.id} label={tool.label} avatar={tool.avatar} />
         <div className="tool-context-header-info">
           <div className="tool-context-title">{tool.label}</div>
-          <div className={`tool-context-badge ${synced ? (isCopy ? 'copy' : 'junction') : 'none'}`}>
+          <div
+            className={`tool-context-badge ${
+              synced ? (isOwner ? 'owner' : isCopy ? 'copy' : 'junction') : 'none'
+            }`}
+          >
             {synced
-              ? isCopy
-                ? '已同步 · 实体副本'
-                : '已同步 · 软链接'
+              ? isOwner
+                ? '原件（本地源）'
+                : isCopy
+                  ? '已同步 · 实体副本'
+                  : '已同步 · 软链接'
               : '未同步'}
           </div>
         </div>

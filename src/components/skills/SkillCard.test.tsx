@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { TFunction } from 'i18next'
 import { describe, expect, it, vi } from 'vitest'
 import SkillCard from './SkillCard'
-import type { ManagedSkill } from './types'
+import type { ManagedSkill, ToolOption } from './types'
 
 const translate = ((key: string) => key) as TFunction
 
@@ -23,10 +23,11 @@ const createSkill = (updateable: boolean): ManagedSkill => ({
   targets: [],
 })
 
-const renderCard = (skill: ManagedSkill) => renderToStaticMarkup(
-  <SkillCard
-    skill={skill}
-    installedTools={[]}
+const renderCard = (skill: ManagedSkill, installedTools: ToolOption[] = []) =>
+  renderToStaticMarkup(
+    <SkillCard
+      skill={skill}
+      installedTools={installedTools}
     loading={false}
     bulkMode={false}
     bulkSelected={false}
@@ -42,10 +43,10 @@ const renderCard = (skill: ManagedSkill) => renderToStaticMarkup(
     onEditTags={vi.fn()}
     onToggleBulkSelection={vi.fn()}
     getSkillScope={() => 'global'}
-    getSkillProjects={() => []}
-    t={translate}
-  />,
-)
+      getSkillProjects={() => []}
+      t={translate}
+    />,
+  )
 
 describe('SkillCard update action', () => {
   it('disables update when the backend marks a Git-looking skill as not updateable', () => {
@@ -106,5 +107,76 @@ describe('SkillCard update action', () => {
 
     expect(markup).toContain('aria-label="ignoreSkill"')
     expect(markup).toContain('title="ignoreSkillTooltip"')
+  })
+})
+
+describe('SkillCard tool target description', () => {
+  // 原件所在的工具（source_ref 指向它）在记录里 mode='copy'，但 role='owner'。
+  // 曾经用 role 反推形态，导致原件被说成「软链接」，而磁盘上它是实体目录。
+  const ownerCopySkill: ManagedSkill = {
+    ...createSkill(false),
+    source_type: 'local',
+    source_ref: 'C:/Users/leon/.codex/skills/pinokio',
+    targets: [
+      {
+        tool: 'codex',
+        scope: 'global',
+        mode: 'copy',
+        status: 'ok',
+        target_path: 'C:/Users/leon/.codex/skills/pinokio',
+        role: 'owner',
+      },
+    ],
+  }
+
+  const codex: ToolOption = { id: 'codex', label: 'Codex' }
+
+  it('calls the owning tool the local source instead of a symlink', () => {
+    const markup = renderCard(ownerCopySkill, [codex])
+
+    expect(markup).toContain('原件（本地源）')
+    expect(markup).not.toContain('is-symlink')
+    expect(markup).toContain('is-owner')
+  })
+
+  it('keeps a real copy target described as a copy', () => {
+    const copied: ManagedSkill = {
+      ...createSkill(false),
+      targets: [
+        {
+          tool: 'codex',
+          scope: 'global',
+          mode: 'copy',
+          status: 'ok',
+          target_path: '/elsewhere/pinokio',
+          role: 'copy',
+        },
+      ],
+    }
+
+    const markup = renderCard(copied, [codex])
+
+    expect(markup).toContain('is-copy')
+    expect(markup).not.toContain('is-owner')
+  })
+
+  it('keeps a junction target described as a symlink', () => {
+    const linked: ManagedSkill = {
+      ...createSkill(false),
+      targets: [
+        {
+          tool: 'codex',
+          scope: 'global',
+          mode: 'junction',
+          status: 'ok',
+          target_path: '/elsewhere/pinokio',
+          role: 'link_to_central',
+        },
+      ],
+    }
+
+    const markup = renderCard(linked, [codex])
+
+    expect(markup).toContain('is-symlink')
   })
 })

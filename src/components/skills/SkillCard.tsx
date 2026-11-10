@@ -323,7 +323,10 @@ const SkillCard = ({
               )
               // 没有 target 表示该工具尚未安装这个技能，不应算作异常角色
               const role = target ? roleOfTarget(target) : null
-              const isCopy = role === 'copy'
+              // 物理形态看 target 记录的 mode，不看 role：role 说的是「这个目录和原件/中心母版的关系」，
+              // 而原件自己（role='owner'）在磁盘上同样有 mode——codex 的实体目录就是 mode='copy'。
+              // 用 role 反推会把原件一律说成「软链接」，而它明明是实体。
+              const isCopy = target?.mode === 'copy'
               const roleLabel =
                 role === 'owner'
                   ? t('roleOwner')
@@ -343,7 +346,7 @@ const SkillCard = ({
                 ? staleBySkillTool?.get(`${skill.name}/${tool.id}`)
                 : undefined
 
-              // 多账号工具：图标右下角直接标出「已覆盖账号数 / 账号总数」
+              // 多账号工具：图标右上角直接标出「已覆盖账号数 / 账号总数」
               const instanceCount = scopeTargets.filter(
                 (tg) => tg.tool === tool.id && isActiveSkillTarget(tg),
               ).length
@@ -361,8 +364,14 @@ const SkillCard = ({
               let finalClass: string = syncState
               let stateLabel = ''
               if (synced) {
-                finalClass = isCopy ? 'synced is-copy' : 'synced is-symlink'
-                stateLabel = `已同步 · ${modeLabel}`
+                // 原件（主技能）不是「已同步的副本」：它本来就在这儿，绿色只表示就位。
+                finalClass =
+                  role === 'owner'
+                    ? 'synced is-owner'
+                    : isCopy
+                      ? 'synced is-copy'
+                      : 'synced is-symlink'
+                stateLabel = role === 'owner' ? '原件（本地源）' : `已同步 · ${modeLabel}`
               } else if (syncState === 'failed') {
                 finalClass = 'failed'
                 stateLabel = t('toolManagement.syncFailed')
@@ -381,7 +390,9 @@ const SkillCard = ({
                     staleInfo ? ' has-stale' : ''
                   }`}
                   type="button"
-                  title={`${tool.label}${roleLabel ? ` · ${roleLabel}` : ''} · ${
+                  title={`${tool.label}${
+                    role !== 'owner' && roleLabel ? ` · ${roleLabel}` : ''
+                  } · ${
                     staleInfo
                       ? staleInfo.verdict === 'behind'
                         ? t('stale.behindTitle')
@@ -390,7 +401,9 @@ const SkillCard = ({
                           : t('stale.conflictTitle')
                       : stateLabel
                   }${instanceSuffix} (右键更多操作)`}
-                  aria-label={`${tool.label}${roleLabel ? ` · ${roleLabel}` : ''} · ${stateLabel}`}
+                  aria-label={`${tool.label}${
+                    role !== 'owner' && roleLabel ? ` · ${roleLabel}` : ''
+                  } · ${stateLabel}`}
                   aria-pressed={synced}
                   onClick={() => {
                     if (!enabled) return

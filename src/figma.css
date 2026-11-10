@@ -766,6 +766,11 @@
   background: #fef3c7;
   border-color: #f59e0b;
 }
+/* 原件在本机：形态本来就是实体，但颜色仍取「就位」的绿，不是副本的琥珀。 */
+.skill-tool-avatars button.synced.is-owner {
+  background: #e5f7ed;
+  border-color: #10b981;
+}
 .skill-tool-avatars button.synced::after {
   display: none;
 }
@@ -806,10 +811,12 @@
   pointer-events: none;
 }
 /* 落后副本的红色感叹号：只出现在 Copy 图标右上角，点击按钮即刷新/查看 */
-/* 多账号工具：右下角标出已覆盖的账号数（绿=铺满，琥珀=部分） */
+/* 多账号工具：右上角标出已覆盖的账号数（绿=铺满，琥珀=部分）。
+   右上原本是落后感叹号的位置；数字在那里时感叹号让到左下角（唯一空着的角），
+   见下面那条 `:has()` 规则。 */
 .skill-tool-avatars .instance-badge {
   position: absolute;
-  bottom: -5px;
+  top: -5px;
   right: -5px;
   min-width: 14px;
   height: 14px;
@@ -850,6 +857,13 @@
 }
 .skill-tool-avatars button.has-stale:hover:not(:disabled) {
   border-color: #e24b4a;
+}
+/* 数字角标占了右上角时，落后感叹号让到左下：左上留给 owner 皇冠，右下留给同步模式图标。 */
+.skill-tool-avatars button:has(.instance-badge) .stale-badge {
+  top: auto;
+  right: auto;
+  bottom: -5px;
+  left: -5px;
 }
 /* 共享目录可达：该工具目录里没有它，但它会读取共享目录 */
 .skill-tool-avatars button.is-shared {
@@ -2040,6 +2054,10 @@
 
 .tool-context-badge.junction {
   color: #059669;
+}
+
+.tool-context-badge.owner {
+  color: #0f766e;
 }
 
 .tool-context-badge.none {
