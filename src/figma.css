@@ -622,7 +622,15 @@
 .skill-description { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 11px; line-height: 16px; }
 .skill-description.empty { color: var(--text-tertiary); }
 .skill-card-meta { min-width: 0; min-height: 24px; display: flex; align-items: center; gap: 7px; }
-.skill-tags-inline { min-width: 0; padding-right: 0; flex-wrap: nowrap; overflow: hidden; }
+.skill-tags-inline {
+  min-width: 0;
+  padding-right: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  /* 空间不够时用省略号收尾，避免把「无标签」硬切成半个字 */
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .skill-tag-pill { height: 23px; padding: 0 9px; background: var(--bg-element); font-weight: 400; }
 .table-empty { color: var(--text-tertiary); font-size: 11px; }
 .scope-badge { flex: 0 0 auto; height: 23px; border-radius: 999px; background: var(--bg-panel); font-size: 11px; }
@@ -870,8 +878,9 @@
 /* 共享目录可达：该工具目录里没有它，但它会读取共享目录 */
 .skill-tool-avatars button.is-shared {
   background: transparent;
-  border: 1px dashed #97c459;
-  opacity: .85;
+  /* 虚线原来 1px 浅绿太淡，几乎看不出「这是靠共享目录可达」 */
+  border: 1.5px dashed #639922;
+  opacity: 1;
 }
 .tool-card-instances {
   margin-top: 6px;
@@ -902,8 +911,8 @@
 }
 .skill-shared-badge:hover { background: #9fe1cb; border-color: #1d9e75; }
 .skill-tool-avatars button.is-shared:hover:not(:disabled) {
-  border-color: #639922;
-  background: color-mix(in srgb, #97c459 10%, transparent);
+  border-color: #4d7c0f;
+  background: color-mix(in srgb, #97c459 16%, transparent);
 }
 :root[data-theme='dark'] .skill-tool-avatars button.is-copy {
   background: #3b2a14;
@@ -1060,7 +1069,7 @@
   display: grid;
   /* 前两列取固定宽度：名称列曾经吃掉近一半屏宽，meta 列 auto 时各行起点还会漂移。
      工具区拿剩下的空间，并在放不下时横向滚动（9 个图标在窄窗口里放不开）。 */
-  grid-template-columns: minmax(150px, 210px) minmax(150px, 190px) minmax(160px, 1fr) 42px 116px;
+  grid-template-columns: minmax(150px, 210px) minmax(150px, 200px) minmax(160px, 1fr) 42px 116px;
   grid-template-areas: 'identity meta tools toggle actions';
   align-items: center;
   column-gap: 8px;
@@ -1092,7 +1101,7 @@
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   white-space: nowrap;
 }
 .list-view .skill-tools-block {
@@ -1188,7 +1197,7 @@
 .list-view .skill-card-footer { min-height: 0; margin: 0; padding: 0; border: 0; }
 .list-view .bulk-skill-check { top: 50%; left: 12px; transform: translateY(-50%); }
 .list-view .skill-icon { width: 32px; height: 32px; flex-basis: 32px; }
-.list-view .skill-updated { margin-left: auto; font-size: 11px; min-width: 76px; text-align: right; }
+.list-view .skill-updated { margin-left: auto; font-size: 11px; min-width: 62px; text-align: right; }
 .list-view .skill-tag-pill { max-width: 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .bulk-action-bar {
@@ -1930,7 +1939,7 @@
   /* 与主规则保持同一套弹性区间：以前这里用 minmax(90px, auto)，
      meta 内容一多就自己撑宽，把工具区挤爆、行与行还对不齐。 */
   .list-view .skill-card {
-    grid-template-columns: minmax(140px, 200px) minmax(140px, 190px) minmax(140px, 1fr) 40px 112px;
+    grid-template-columns: minmax(140px, 200px) minmax(140px, 200px) minmax(140px, 1fr) 40px 112px;
     gap: 8px;
     padding: 8px 10px;
   }
@@ -1941,7 +1950,7 @@
 @media (max-width: 860px) {
   .list-view .skill-card {
     min-height: 66px;
-    grid-template-columns: minmax(120px, 1fr) minmax(130px, 190px) 40px 112px;
+    grid-template-columns: minmax(120px, 1fr) minmax(130px, 200px) 40px 112px;
     grid-template-rows: auto auto;
     grid-template-areas:
       'identity meta  toggle actions'
