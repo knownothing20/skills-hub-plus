@@ -766,10 +766,11 @@
   background: #fef3c7;
   border-color: #f59e0b;
 }
-/* 原件在本机：形态本来就是实体，但颜色仍取「就位」的绿，不是副本的琥珀。 */
+/* 原件在本机：它不是「同步出来的」，所以不能用代表已同步的绿。
+   蓝色表示「这个是源」，与绿（已同步）/ 琥珀（副本）/ 红（失败）/ 灰（未装）都区分得开。 */
 .skill-tool-avatars button.synced.is-owner {
-  background: #e5f7ed;
-  border-color: #10b981;
+  background: #eaf2fe;
+  border-color: #3b82f6;
 }
 .skill-tool-avatars button.synced::after {
   display: none;
@@ -1899,6 +1900,7 @@
 }
 
 :root[data-theme='dark'] .skill-tool-avatars button.synced { background: #173927; border-color: var(--bg-panel); }
+:root[data-theme='dark'] .skill-tool-avatars button.synced.is-owner { background: #16273f; border-color: #3b82f6; }
 
 @media (max-width: 1240px) {
   .updates-dashboard { grid-template-columns: 1fr; }
