@@ -558,9 +558,9 @@ fn same_tool_keeps_one_record_per_instance() {
         .unwrap()
         .is_some());
 
-    // 按工具清空全部实例
+    // 主实例单独删除后不应影响已删的 Profile 记录
     store
-        .delete_skill_targets_for_tool("s1", "doubao_work")
+        .delete_skill_target_instance("s1", "doubao_work", "global", None, "")
         .unwrap();
     assert!(store.list_skill_targets("s1").unwrap().is_empty());
 }

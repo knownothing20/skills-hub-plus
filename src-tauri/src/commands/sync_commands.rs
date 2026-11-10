@@ -511,7 +511,6 @@ pub fn sync_skill_to_tool_impl(
     for a in group {
         let record = SkillTargetRecord {
             id: Uuid::new_v4().to_string(),
-            instance: String::new(),
             skill_id: skill_id.to_string(),
             tool: a.key,
             scope: scope.to_string(),
@@ -1614,7 +1613,7 @@ pub async fn sync_skill_to_tool_instances(
         let adapter = crate::core::tool_adapters::default_tool_adapters()
             .into_iter()
             .find(|a| a.id.as_key() == tool)
-            .ok_or_else(|| format!("unknown tool: {tool}"))?;
+            .ok_or_else(|| anyhow::anyhow!("unknown tool: {tool}"))?;
         let instances = crate::core::tool_adapters::discover_root_instances(&adapter);
         let existing: Vec<_> = instances.into_iter().filter(|i| i.exists).collect();
         if existing.is_empty() {
@@ -1680,7 +1679,7 @@ pub async fn sync_skill_to_tool_instances(
                     label: instance.label,
                     path: target_path.to_string_lossy().to_string(),
                     ok: false,
-                    error: Some(crate::commands::format_anyhow_error(&err)),
+                    error: Some(crate::commands::format_anyhow_error(err)),
                 }),
             }
         }

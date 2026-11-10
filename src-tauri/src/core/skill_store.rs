@@ -773,20 +773,6 @@ impl SkillStore {
         self.delete_skill_target_instance(skill_id, tool, scope, project_path, "")
     }
 
-    /// 删除某工具下的全部实例记录。
-    ///
-    /// 多账号工具可能同时有主实例和 Profile 实例，取消同步 / 移除工具入口时
-    /// 必须一起清掉，否则会留下指向已消失目录的孤儿记录。
-    pub fn delete_skill_targets_for_tool(&self, skill_id: &str, tool: &str) -> Result<()> {
-        self.with_conn(|conn| {
-            conn.execute(
-                "DELETE FROM skill_targets WHERE skill_id = ?1 AND tool = ?2",
-                params![skill_id, tool],
-            )?;
-            Ok(())
-        })
-    }
-
     /// 删除指定实例的目标记录。
     pub fn delete_skill_target_instance(
         &self,
