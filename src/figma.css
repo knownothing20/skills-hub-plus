@@ -816,8 +816,9 @@
    见下面那条 `:has()` 规则。 */
 .skill-tool-avatars .instance-badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  /* 只越界 2px：列表视图的工具区有 overflow:hidden，越界太多会被切掉 */
+  top: -2px;
+  right: -2px;
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
@@ -1056,11 +1057,12 @@
 .list-view .skill-card {
   min-height: 54px;
   display: grid;
-  /* meta 列固定宽度：各行内容长短不同，auto 会让「标签/全局」起点逐行漂移 */
-  grid-template-columns: minmax(200px, 1fr) 236px minmax(180px, 1fr) 42px 116px;
+  /* 前两列取固定宽度：名称列曾经吃掉近一半屏宽，meta 列 auto 时各行起点还会漂移。
+     工具区拿剩下的空间，并在放不下时横向滚动（9 个图标在窄窗口里放不开）。 */
+  grid-template-columns: 210px 190px minmax(200px, 1fr) 42px 116px;
   grid-template-areas: 'identity meta tools toggle actions';
   align-items: center;
-  column-gap: 10px;
+  column-gap: 8px;
   padding: 8px 16px;
   border-radius: 10px;
   position: relative;
@@ -1099,7 +1101,9 @@
   min-height: 32px;
   padding-left: 6px;
   border-left: 1px solid var(--border-subtle);
-  overflow: hidden;
+  /* 不裁切：真正滚动的是里面的 .skill-tool-avatars，
+     这里一旦 hidden，图标和它们的角标会被静默切掉。 */
+  overflow: visible;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1111,15 +1115,26 @@
 }
 .list-view .skill-tool-avatars {
   display: flex;
-  gap: 8px;
-  align-items: center;
   flex-wrap: nowrap;
+  /* 占满工具区的剩余宽度，否则图标容器只按内容撑开、余量白白空着还会溢出 */
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 7px;
+  align-items: center;
+  /* 图标再多也不裁切：横向滚动查看。
+     上下 padding 留出角标越界的空间，负 margin 保持视觉位置。 */
   overflow-x: auto;
-  scrollbar-width: none;
-  padding: 2px 2px 2px 0;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #d8dde4 transparent;
+  padding: 5px 4px 5px 2px;
+  margin: -5px 0;
 }
-.list-view .skill-tool-avatars::-webkit-scrollbar {
-  display: none;
+.list-view .skill-tool-avatars::-webkit-scrollbar { height: 4px; }
+.list-view .skill-tool-avatars::-webkit-scrollbar-track { background: transparent; }
+.list-view .skill-tool-avatars::-webkit-scrollbar-thumb {
+  background: #d8dde4;
+  border-radius: 2px;
 }
 .list-view .skill-tool-avatars button {
   width: 28px;
