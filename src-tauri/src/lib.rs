@@ -1,7 +1,7 @@
 mod commands;
 mod core;
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use core::cancel_token::CancelToken;
@@ -17,6 +17,8 @@ use tauri_plugin_log::{Target, TargetKind};
 static LAST_ACTIVITY_MS: AtomicU64 = AtomicU64::new(0);
 /// 界面隐藏后闲置这么久就销毁 WebView，把内存还给系统。
 const IDLE_DESTROY_MS: u64 = 30 * 60 * 1000;
+/// 用户是否明确要求退出。只有它为 true 时才允许进程结束。
+static EXITING: AtomicBool = AtomicBool::new(false);
 /// 后台巡查间隔：一小时。
 const SCAN_INTERVAL_SECS: u64 = 60 * 60;
 
@@ -385,6 +387,7 @@ pub fn run() {
                             });
                         }
                         "quit" => {
+                            EXITING.store(true, Ordering::Relaxed);
                             app_handle.exit(0);
                         }
                         _ => {}
@@ -564,5 +567,13 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|_app, _event| {});
+        .run(|_app, event| {
+            // 闲置回收销毁了主窗口，不能顺带把进程也结束掉：
+            // 托盘还得活着，否则「30 分钟省内存」变成「30 分钟自己退出」。
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                if !EXITING.load(Ordering::Relaxed) {
+                    api.prevent_exit();
+                }
+            }
+        });
 }
