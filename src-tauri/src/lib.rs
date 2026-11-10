@@ -454,6 +454,13 @@ pub fn run() {
             // 只销毁隐藏的窗口——可见时突然消失太突兀。
             {
                 let handle = app.handle().clone();
+                // 允许用环境变量临时改阈值，便于验证销毁逻辑（正式使用不设即可）
+                let idle_limit_ms = std::env::var("SKILLS_HUB_IDLE_DESTROY_SECS")
+                    .ok()
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .map(|secs| secs.saturating_mul(1000))
+                    .unwrap_or(IDLE_DESTROY_MS);
+                log::info!("idle destroy threshold: {idle_limit_ms} ms");
                 std::thread::spawn(move || loop {
                     std::thread::sleep(std::time::Duration::from_secs(60));
                     let Some(window) = handle.get_webview_window("main") else {
@@ -463,7 +470,7 @@ pub fn run() {
                         continue;
                     }
                     let idle = now_ms().saturating_sub(LAST_ACTIVITY_MS.load(Ordering::Relaxed));
-                    if idle >= IDLE_DESTROY_MS {
+                    if idle >= idle_limit_ms {
                         log::info!("window hidden and idle {idle}ms: destroying webview to free memory");
                         let _ = window.destroy();
                     }
