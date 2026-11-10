@@ -1,6 +1,7 @@
 mod commands;
 mod core;
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use core::cancel_token::CancelToken;
@@ -11,6 +12,52 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
+
+/// 最后一次「有人在用界面」的毫秒时间戳。前端节流上报，窗口显示/隐藏时也会刷新。
+static LAST_ACTIVITY_MS: AtomicU64 = AtomicU64::new(0);
+/// 界面隐藏后闲置这么久就销毁 WebView，把内存还给系统。
+const IDLE_DESTROY_MS: u64 = 30 * 60 * 1000;
+/// 后台巡查间隔：一小时。
+const SCAN_INTERVAL_SECS: u64 = 60 * 60;
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn touch_activity_now() {
+    LAST_ACTIVITY_MS.store(now_ms(), Ordering::Relaxed);
+}
+
+/// 前端在鼠标/键盘活动时节流调用，用来推进「闲置」计时。
+#[tauri::command]
+fn touch_activity() {
+    touch_activity_now();
+}
+
+/// 显示主窗口；窗口若已被闲置销毁，就重新创建。
+fn show_or_create_main_window<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Option<tauri::WebviewWindow<R>> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        touch_activity_now();
+        return Some(window);
+    }
+    let built =
+        tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+            .title("Skills Hub")
+            .inner_size(1200.0, 800.0)
+            .min_inner_size(900.0, 600.0)
+            .build()
+            .ok();
+    touch_activity_now();
+    built
+}
 
 fn open_folder_in_explorer(path: &std::path::Path) {
     if !path.exists() {
@@ -300,11 +347,7 @@ pub fn run() {
                     .show_menu_on_left_click(false)
                     .on_menu_event(move |app_handle, event| match event.id.as_ref() {
                         "show" => {
-                            if let Some(window) = app_handle.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.unminimize();
-                                let _ = window.set_focus();
-                            }
+                            let _ = show_or_create_main_window(app_handle);
                         }
                         "open_central" => {
                             let central_skills_path = core::central_repo::app_install_skills_dir();
@@ -354,14 +397,18 @@ pub fn run() {
                         } = event
                         {
                             let app = tray.app_handle();
-                            if let Some(window) = app.get_webview_window("main") {
-                                if window.is_visible().unwrap_or(false) {
+                            let visible = app
+                                .get_webview_window("main")
+                                .map(|w| w.is_visible().unwrap_or(false))
+                                .unwrap_or(false);
+                            if visible {
+                                if let Some(window) = app.get_webview_window("main") {
                                     let _ = window.hide();
-                                } else {
-                                    let _ = window.show();
-                                    let _ = window.unminimize();
-                                    let _ = window.set_focus();
                                 }
+                                // 隐藏的这一刻作为闲置计时起点
+                                touch_activity_now();
+                            } else {
+                                let _ = show_or_create_main_window(app);
                             }
                         }
                     })
@@ -375,10 +422,46 @@ pub fn run() {
                     let _ = window.hide();
                 }
             }
+            touch_activity_now();
+
+            // 每小时静默巡查一次：比对各目标、需要时刷新副本
+            {
+                let handle = app.handle().clone();
+                let store = app.state::<SkillStore>().inner().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(std::time::Duration::from_secs(SCAN_INTERVAL_SECS));
+                    log::info!("hourly scan: start");
+                    match core::auto_update::run_auto_update_now(&handle, &store) {
+                        Ok(_) => log::info!("hourly scan: done"),
+                        Err(err) => log::warn!("hourly scan failed: {err:#}"),
+                    }
+                });
+            }
+
+            // 界面隐藏后闲置 30 分钟：销毁 WebView，把内存还给系统。
+            // 只销毁隐藏的窗口——可见时突然消失太突兀。
+            {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(std::time::Duration::from_secs(60));
+                    let Some(window) = handle.get_webview_window("main") else {
+                        continue;
+                    };
+                    if window.is_visible().unwrap_or(true) {
+                        continue;
+                    }
+                    let idle = now_ms().saturating_sub(LAST_ACTIVITY_MS.load(Ordering::Relaxed));
+                    if idle >= IDLE_DESTROY_MS {
+                        log::info!("window hidden and idle {idle}ms: destroying webview to free memory");
+                        let _ = window.destroy();
+                    }
+                });
+            }
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            touch_activity,
             commands::get_central_repo_path,
             commands::get_recent_projects,
             commands::save_recent_project,

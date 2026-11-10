@@ -170,6 +170,27 @@ function App() {
     }
   }, [invokeTauri])
 
+  // 有操作时告诉后端「人还在」，用于界面隐藏后的闲置回收计时（30 秒最多上报一次）
+  useEffect(() => {
+    let last = 0
+    const ping = () => {
+      const now = Date.now()
+      if (now - last < 30_000) return
+      last = now
+      void invokeTauri('touch_activity').catch(() => {})
+    }
+    window.addEventListener('mousemove', ping, { passive: true })
+    window.addEventListener('mousedown', ping)
+    window.addEventListener('keydown', ping)
+    window.addEventListener('wheel', ping, { passive: true })
+    return () => {
+      window.removeEventListener('mousemove', ping)
+      window.removeEventListener('mousedown', ping)
+      window.removeEventListener('keydown', ping)
+      window.removeEventListener('wheel', ping)
+    }
+  }, [invokeTauri])
+
   useEffect(() => {
     if (!successToastMessage) return
     toast.success(successToastMessage, { duration: 1800 })
