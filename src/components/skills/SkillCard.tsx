@@ -46,6 +46,8 @@ type SkillCardProps = {
   staleBySkillTool?: Map<string, StaleCopyStatusDto>
   onRefreshStale?: (skillId: string, toolId: string) => Promise<void>
   sharedDirs?: SharedSkillDirDto[]
+  /** 每个工具实际有几个账号目录（仅统计存在的） */
+  toolInstanceTotals?: Record<string, number>
   toolCounts?: Record<string, number>
   t: TFunction
 }
@@ -77,6 +79,7 @@ const SkillCard = ({
   staleBySkillTool,
   onRefreshStale,
   sharedDirs,
+  toolInstanceTotals,
   t,
 }: SkillCardProps) => {
   const [contextMenu, setContextMenu] = useState<ToolContextMenuState | null>(null)
@@ -340,14 +343,18 @@ const SkillCard = ({
                 ? staleBySkillTool?.get(`${skill.name}/${tool.id}`)
                 : undefined
 
-              // 多账号工具的同一工具会有多条实例记录，提示覆盖了几个账号目录
+              // 多账号工具：图标右下角直接标出「已覆盖账号数 / 账号总数」
               const instanceCount = scopeTargets.filter(
                 (tg) => tg.tool === tool.id && isActiveSkillTarget(tg),
               ).length
-              const instanceSuffix =
-                instanceCount > 1
-                  ? ` · ${t('toolManagement.instanceCount', { count: instanceCount })}`
-                  : ''
+              const instanceTotal = toolInstanceTotals?.[tool.id] ?? 1
+              const showInstanceBadge = instanceTotal > 1
+              const instanceSuffix = showInstanceBadge
+                ? ` · ${t('toolManagement.instanceCoverage', {
+                    covered: instanceCount,
+                    total: instanceTotal,
+                  })}`
+                : ''
 
               let finalClass: string = syncState
               let stateLabel = ''
@@ -420,6 +427,16 @@ const SkillCard = ({
                   {staleInfo ? (
                     <span className="stale-badge" aria-hidden="true">
                       !
+                    </span>
+                  ) : null}
+                  {showInstanceBadge ? (
+                    <span
+                      className={`instance-badge${
+                        instanceCount >= instanceTotal ? '' : ' is-partial'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {instanceCount}
                     </span>
                   ) : null}
                   {role === 'owner' && (

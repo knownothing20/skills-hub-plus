@@ -806,6 +806,29 @@
   pointer-events: none;
 }
 /* 落后副本的红色感叹号：只出现在 Copy 图标右上角，点击按钮即刷新/查看 */
+/* 多账号工具：右下角标出已覆盖的账号数（绿=铺满，琥珀=部分） */
+.skill-tool-avatars .instance-badge {
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: #1d9e75;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  border: 1.5px solid var(--bg-panel, #fff);
+  z-index: 2;
+  pointer-events: none;
+  font-family: var(--font-ui);
+}
+.skill-tool-avatars .instance-badge.is-partial { background: #ef9f27; }
+
 .skill-tool-avatars .stale-badge {
   position: absolute;
   top: -5px;

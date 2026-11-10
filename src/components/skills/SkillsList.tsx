@@ -44,6 +44,7 @@ type SkillsListProps = {
   getSkillProjects: (skill: ManagedSkill) => string[]
   skillHealthByName?: Record<string, SkillHealthDto>
   sharedDirs?: SharedSkillDirDto[]
+  toolInstanceTotals?: Record<string, number>
   staleBySkillTool?: Map<string, StaleCopyStatusDto>
   onRefreshStale?: (skillId: string, toolId: string) => Promise<void>
   toolCounts?: Record<string, number>
@@ -79,6 +80,7 @@ const SkillsList = ({
   getSkillProjects,
   skillHealthByName,
   sharedDirs,
+  toolInstanceTotals,
   staleBySkillTool,
   onRefreshStale,
   t,
@@ -146,6 +148,7 @@ const SkillsList = ({
               toolCounts={toolCounts}
               health={skillHealthByName?.[skill.name]}
               sharedDirs={sharedDirs}
+              toolInstanceTotals={toolInstanceTotals}
               staleBySkillTool={staleBySkillTool}
               onRefreshStale={onRefreshStale}
               loading={loading}

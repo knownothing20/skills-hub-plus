@@ -70,6 +70,7 @@ import {
 import type {
   ManagedSkill,
   SharedSkillDirDto,
+  SkillRootInstanceDto,
   SkillHealthDto,
   ToolOption,
   ToolStatusDto,
@@ -101,6 +102,8 @@ function App() {
   )
   const [managedSkills, setManagedSkills] = useState<ManagedSkill[]>([])
   const [sharedSkillDirs, setSharedSkillDirs] = useState<SharedSkillDirDto[]>([])
+  // 每个工具实际有几个账号目录：卡片据此在图标右下角显示覆盖数
+  const [toolInstanceTotals, setToolInstanceTotals] = useState<Record<string, number>>({})
   const [loadingStartAt, setLoadingStartAt] = useState<number | null>(null)
   const [toolStatus, setToolStatus] = useState<ToolStatusDto | null>(null)
   const [showNewToolsModal, setShowNewToolsModal] = useState(false)
@@ -242,6 +245,29 @@ function App() {
       try {
         const dirs = await invokeTauri<SharedSkillDirDto[]>('get_shared_skill_dirs')
         if (!cancelled) setSharedSkillDirs(dirs)
+      } catch (err) {
+        console.warn(err)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isTauri, managedSkills])
+
+  useEffect(() => {
+    if (!isTauri) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const rows = await invokeTauri<SkillRootInstanceDto[]>(
+          'get_tool_root_instances',
+        )
+        if (cancelled) return
+        const totals: Record<string, number> = {}
+        for (const row of rows) {
+          if (row.exists) totals[row.tool] = (totals[row.tool] ?? 0) + 1
+        }
+        setToolInstanceTotals(totals)
       } catch (err) {
         console.warn(err)
       }
@@ -1325,6 +1351,7 @@ function App() {
               getSkillProjects={getSkillProjects}
               skillHealthByName={skillHealthByName}
               sharedDirs={sharedSkillDirs}
+              toolInstanceTotals={toolInstanceTotals}
               staleBySkillTool={staleBySkillTool}
               onRefreshStale={handleRefreshStaleOne}
               t={t}

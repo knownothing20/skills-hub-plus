@@ -439,6 +439,7 @@ export default {
     detected: '已检测',
     notDetected: '未检测',
     synced: '已同步',
+    instanceCoverage: '已铺 {{covered}}/{{total}} 个账号目录',
     instanceCount: '{{count}} 个账号目录',
     syncFailed: '同步失败，点击重试',
     syncPartialFailed: '部分同步失败，点击重试',
