@@ -3,6 +3,7 @@ use serde::Serialize;
 use tauri::State;
 use uuid::Uuid;
 
+use crate::commands::skill_commands::classify_target_role;
 use crate::core::central_repo::{
     ensure_central_repo, fixed_central_repo_path, resolve_central_repo_path,
 };
@@ -50,6 +51,12 @@ pub struct SkillTargetComparisonDto {
     pub tool_file_count: usize,
     pub status: String,
     pub diff_description: String,
+    /// 物理形态：copy / junction / symlink。前端据此把「副本」和「链接」分开。
+    pub mode: String,
+    /// 与原件的关系：owner / copy / link_to_owner / link_to_central / link_other / missing
+    pub role: String,
+    /// 多账号工具的账号标识；主实例为空
+    pub instance: String,
 }
 
 /// Resolve the authoritative source directory for a Skill.
@@ -1420,9 +1427,19 @@ pub async fn get_skill_target_comparisons(
 
         let targets = store.list_skill_targets(&skillId)?;
         let mut results = Vec::new();
+        let owner_for_role = skill
+            .source_ref
+            .as_deref()
+            .map(std::path::PathBuf::from)
+            .filter(|path| path.is_dir());
 
         for target in targets {
             let target_path = std::path::PathBuf::from(&target.target_path);
+            let role = classify_target_role(
+                std::path::Path::new(&skill.central_path),
+                owner_for_role.as_deref(),
+                &target.target_path,
+            );
             if !target_path.exists() {
                 results.push(SkillTargetComparisonDto {
                     tool: target.tool.clone(),
@@ -1435,6 +1452,9 @@ pub async fn get_skill_target_comparisons(
                     tool_file_count: 0,
                     status: "missing".to_string(),
                     diff_description: "目标目录不存在".to_string(),
+                    mode: target.mode.clone(),
+                    role,
+                    instance: target.instance.clone(),
                 });
                 continue;
             }
@@ -1467,6 +1487,9 @@ pub async fn get_skill_target_comparisons(
                 tool_file_count: tool_files,
                 status,
                 diff_description,
+                mode: target.mode.clone(),
+                role,
+                instance: target.instance.clone(),
             });
         }
 

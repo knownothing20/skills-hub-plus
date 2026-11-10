@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from 'react'
-import { Folder, Clock, RefreshCw, ArrowUpRight, ArrowDownRight, CheckCircle2, AlertTriangle, X } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 import type { ManagedSkill } from '../types'
@@ -15,6 +15,9 @@ export type SkillTargetComparisonDto = {
   tool_file_count: number
   status: 'synced' | 'tool_newer' | 'central_newer' | 'missing'
   diff_description: string
+  mode: string
+  role: string
+  instance: string
 }
 
 type SyncCompareModalProps = {
@@ -95,7 +98,8 @@ export const SyncCompareModal = memo(({
     setOperatingTool(tool)
     try {
       await invokeTauri('sync_skill_to_tool', {
-        sourcePath: skill.central_path,
+        // 同步内容取「原件」：母库只是镜像，可能落后于原件
+        sourcePath: skill.source_ref || skill.central_path,
         skillId: skill.id,
         tool,
         name: skill.name,
@@ -114,8 +118,32 @@ export const SyncCompareModal = memo(({
 
   if (!open) return null
 
-  const centralMtime = comparisons[0]?.central_mtime || 0
-  const centralFiles = comparisons[0]?.central_file_count || 0
+  const ownerComp = comparisons.find((c) => c.role === 'owner')
+  const linkComps = comparisons.filter(
+    (c) => c.role === 'link_to_owner' || c.role === 'link_to_central',
+  )
+  const copyComps = comparisons.filter((c) => c.role === 'copy')
+  const brokenComps = comparisons.filter(
+    (c) => c.role === 'missing' || c.role === 'link_other',
+  )
+  // 待处理的排在前面：异常 > 未同步 > 已一致
+  const severity = (c: SkillTargetComparisonDto) =>
+    c.role === 'missing' || c.role === 'link_other'
+      ? 0
+      : c.status === 'synced'
+        ? 2
+        : 1
+  const copyRows = [...copyComps].sort((a, b) => severity(a) - severity(b))
+  const linkSummary = Object.values(
+    linkComps.reduce<Record<string, { label: string; count: number }>>((acc, c) => {
+      const cur = acc[c.tool] ?? { label: c.tool_label, count: 0 }
+      cur.count += 1
+      acc[c.tool] = cur
+      return acc
+    }, {}),
+  )
+  const ownerFiles = ownerComp?.tool_file_count ?? comparisons[0]?.central_file_count ?? 0
+  const ownerMtime = ownerComp?.tool_mtime ?? comparisons[0]?.central_mtime ?? 0
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -170,198 +198,163 @@ export const SyncCompareModal = memo(({
             gap: '16px',
           }}
         >
-          {/* 中心母版状态展示卡 */}
+          {loading && (
+            <div style={{ fontSize: '11px', color: '#9ca3af' }}>正在扫描各软件目录并比对…</div>
+          )}
+
+          {/* 原件 */}
           <div
             style={{
-              padding: '14px 16px',
+              padding: '13px 15px',
               backgroundColor: 'rgba(37, 99, 235, 0.06)',
-              border: '1px solid rgba(37, 99, 235, 0.2)',
+              border: '1px solid rgba(37, 99, 235, 0.18)',
               borderRadius: '8px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--color-primary, #2563eb)' }}>
-                <Folder size={16} />
-                <span>全局中心母版 (Single Source of Truth)</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }} />
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1d4ed8' }}>原件（主 skill）</span>
+                {ownerComp && (
+                  <span style={{ fontSize: '11px', color: '#4b5563' }}>{ownerComp.tool_label}</span>
+                )}
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--color-text-muted, #6b7280)' }}>
-                文件数: <strong>{centralFiles}</strong> 个
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                {ownerFiles} 个文件 · {formatTimestamp(ownerMtime)}
               </span>
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--color-text-secondary, #4b5563)', wordBreak: 'break-all' }}>
-              路径: <code>{skill.central_path}</code>
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--color-text-secondary, #4b5563)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Clock size={13} />
-              <span>母版最新修改时间: <strong>{formatTimestamp(centralMtime)}</strong></span>
+            <div style={{ fontSize: '11px', fontFamily: 'monospace', color: '#4b5563', marginTop: '5px', wordBreak: 'break-all' }}>
+              {skill.source_ref || skill.central_path}
             </div>
           </div>
 
-          <div style={{ fontSize: '13px', color: 'var(--color-text-muted, #6b7280)', lineHeight: '1.5' }}>
-            💡 <strong>识别原理说明：</strong>系统通过实时比对各工具目录与母版的文件修改时间戳（mtime）与文件树。如果某个软件中的修改时间晚于母版，系统会自动标记为 <span style={{ color: '#d97706', fontWeight: 600 }}>【工具较新】</span>，您可以随时一键将其提拔为全局母版！
-          </div>
+          <div style={{ borderLeft: '1px solid #e5e7eb', marginLeft: '5px', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-          {/* 各端对比列表 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <h4 style={{ margin: '4px 0', fontSize: '14px', fontWeight: 600 }}>关联软件与状态对比</h4>
-
-            {loading ? (
-              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--color-text-muted, #6b7280)' }}>
-                正在实时扫描各软件目录并比对时间戳...
+            {/* 链接组 */}
+            <div style={{ position: 'relative', padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+              <span style={{ position: 'absolute', left: '-22px', top: '17px', width: '7px', height: '7px', borderRadius: '50%', background: '#fff', border: '1.5px solid #10b981' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                  链接 <span style={{ fontWeight: 400, color: '#6b7280' }}>{linkComps.length} 个</span>
+                </span>
+                <span style={{ fontSize: '11px', color: '#0f6e56' }}>实时跟随，不需要同步</span>
               </div>
-            ) : comparisons.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-text-muted, #6b7280)' }}>
-                当前尚未关联任何下游工具
+              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '6px', lineHeight: 1.7 }}>
+                {linkSummary.length === 0
+                  ? '暂无'
+                  : linkSummary.map((item) => (
+                      <span key={item.label}>
+                        {item.label}
+                        {item.count > 1 ? ` ×${item.count}` : ''}
+                        {'  '}
+                      </span>
+                    ))}
               </div>
-            ) : (
-              comparisons.map((comp) => {
-                const isToolNewer = comp.status === 'tool_newer'
-                const isSynced = comp.status === 'synced'
-                const isCentralNewer = comp.status === 'central_newer'
-                const isOperating = operatingTool === comp.tool
+            </div>
 
-                return (
-                  <div
-                    key={comp.tool}
-                    style={{
-                      padding: '14px',
-                      borderRadius: '8px',
-                      border: isToolNewer
-                        ? '1px solid #f59e0b'
-                        : '1px solid var(--color-border, #e5e7eb)',
-                      backgroundColor: isToolNewer
-                        ? 'rgba(245, 158, 11, 0.04)'
-                        : 'var(--color-bg-secondary, #f9fafb)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 600, fontSize: '14px' }}>{comp.tool_label.toUpperCase()}</span>
-                        {isSynced && (
+            {/* 副本组：待处理的排在最前 */}
+            <div style={{ position: 'relative', padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+              <span style={{ position: 'absolute', left: '-22px', top: '17px', width: '7px', height: '7px', borderRadius: '50%', background: '#fff', border: '1.5px solid #ef9f27' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                  副本 <span style={{ fontWeight: 400, color: '#6b7280' }}>{copyComps.length} 个</span>
+                </span>
+                <span style={{ fontSize: '11px', color: '#6b7280' }}>需要同步，启动时自动比对</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                {copyRows.length === 0 && (
+                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>没有实体副本，全部是链接</div>
+                )}
+                {copyRows.map((comp) => {
+                  const key = `${comp.tool}-${comp.instance}`
+                  const isOperating = operatingTool === comp.tool
+                  const bad = comp.status !== 'synced'
+                  const tone =
+                    comp.status === 'tool_newer'
+                      ? { bg: 'rgba(245,158,11,.10)', border: '1px solid rgba(245,158,11,.45)' }
+                      : comp.status === 'central_newer'
+                        ? { bg: 'rgba(37,99,235,.06)', border: '1px solid rgba(37,99,235,.30)' }
+                        : { bg: '#f9fafb', border: '1px solid #e5e7eb' }
+                  return (
+                    <div key={key} style={{ padding: '9px 11px', borderRadius: '6px', background: tone.bg, border: tone.border }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600 }}>
+                            {comp.tool_label}
+                            {comp.instance ? ` · ${comp.instance}` : ''}
+                          </span>
                           <span
                             style={{
                               fontSize: '11px',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                              color: '#059669',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontWeight: 500,
+                              padding: '2px 7px',
+                              borderRadius: '999px',
+                              backgroundColor:
+                                comp.status === 'synced'
+                                  ? 'rgba(16,185,129,.14)'
+                                  : comp.status === 'tool_newer'
+                                    ? 'rgba(245,158,11,.22)'
+                                    : 'rgba(37,99,235,.12)',
+                              color:
+                                comp.status === 'synced'
+                                  ? '#059669'
+                                  : comp.status === 'tool_newer'
+                                    ? '#b45309'
+                                    : '#2563eb',
                             }}
                           >
-                            <CheckCircle2 size={12} /> 完全一致 (Synced)
+                            {comp.status === 'synced' ? '完全一致' : comp.diff_description}
                           </span>
-                        )}
-                        {isToolNewer && (
-                          <span
-                            style={{
-                              fontSize: '11px',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                              color: '#d97706',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontWeight: 600,
-                            }}
+                          <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+                            {comp.tool_file_count} 文件
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {bad && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              disabled={isOperating}
+                              onClick={() => void handleSyncDown(comp.tool, comp.tool_label)}
+                              style={{ fontSize: '11px', padding: '3px 9px', height: 'auto', borderRadius: '6px' }}
+                            >
+                              同步此软件
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={isOperating}
+                            onClick={() => void handlePromoteToCentral(comp.tool, comp.tool_label)}
+                            style={{ fontSize: '11px', padding: '3px 9px', height: 'auto', borderRadius: '6px' }}
+                            title="把这个副本的内容更新到母库镜像"
                           >
-                            <AlertTriangle size={12} /> 工具修改较新 (可设为母版)
-                          </span>
-                        )}
-                        {isCentralNewer && (
-                          <span
-                            style={{
-                              fontSize: '11px',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              backgroundColor: 'rgba(37, 99, 235, 0.12)',
-                              color: '#2563eb',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontWeight: 500,
-                            }}
-                          >
-                            <ArrowDownRight size={12} /> 母版较新 (可同步)
-                          </span>
-                        )}
-                      </div>
-
-                      {/* 两个操作按钮 */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          disabled={isOperating}
-                          onClick={() => void handleSyncDown(comp.tool, comp.tool_label)}
-                          style={{
-                            fontSize: '12px',
-                            padding: '4px 10px',
-                            height: 'auto',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            borderRadius: '6px',
-                            cursor: isOperating ? 'not-allowed' : 'pointer',
-                          }}
-                          title="用母版最新代码更新此软件"
-                        >
-                          <ArrowDownRight size={13} />
-                          更新此软件
-                        </button>
-
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={isOperating}
-                          onClick={() => void handlePromoteToCentral(comp.tool, comp.tool_label)}
-                          style={{
-                            fontSize: '12px',
-                            padding: '4px 12px',
-                            height: 'auto',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            borderRadius: '6px',
-                            cursor: isOperating ? 'not-allowed' : 'pointer',
-                            backgroundColor: isToolNewer ? '#d97706' : 'var(--color-primary, #2563eb)',
-                            borderColor: isToolNewer ? '#d97706' : 'var(--color-primary, #2563eb)',
-                            fontWeight: isToolNewer ? 600 : 500,
-                          }}
-                          title="将此工具的最新改动设为全局母版"
-                        >
-                          <ArrowUpRight size={13} />
-                          {isOperating ? '更新中...' : '⬆️ 设为母版'}
-                        </button>
+                            设为母版
+                          </button>
+                        </div>
                       </div>
                     </div>
+                  )
+                })}
+              </div>
+            </div>
 
-                    <div style={{ fontSize: '12px', color: 'var(--color-text-secondary, #4b5563)', wordBreak: 'break-all' }}>
-                      路径: <code>{comp.target_path}</code>
-                    </div>
-
-                    <div style={{ fontSize: '12px', color: 'var(--color-text-secondary, #4b5563)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <span>文件数: <strong>{comp.tool_file_count}</strong></span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={12} /> 工具最后修改: <strong>{formatTimestamp(comp.tool_mtime)}</strong>
-                      </span>
-                      <span style={{ color: isToolNewer ? '#d97706' : 'var(--color-text-muted, #9ca3af)', fontWeight: isToolNewer ? 600 : 400 }}>
-                        {comp.diff_description}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })
+            {brokenComps.length > 0 && (
+              <div style={{ position: 'relative', padding: '12px 14px', border: '1px solid rgba(226,75,74,.45)', borderRadius: '8px', background: 'rgba(226,75,74,.05)' }}>
+                <span style={{ position: 'absolute', left: '-22px', top: '17px', width: '7px', height: '7px', borderRadius: '50%', background: '#fff', border: '1.5px solid #e24b4a' }} />
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#a32d2d' }}>
+                  需要处理 {brokenComps.length} 个
+                </div>
+                <div style={{ fontSize: '11px', color: '#b91c1c', marginTop: '5px', lineHeight: 1.7 }}>
+                  {brokenComps.map((c) => `${c.tool_label}（${c.diff_description}）`).join(' · ')}
+                </div>
+              </div>
             )}
+
+          </div>
+
+          <div style={{ fontSize: '11px', color: '#9ca3af', lineHeight: 1.6 }}>
+            链接不会落后——它们指向原件本身。只有副本需要比对，落后时旧内容会先移入 backup\stale-copies。
           </div>
         </div>
 

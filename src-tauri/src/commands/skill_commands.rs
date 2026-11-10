@@ -102,7 +102,7 @@ fn is_under(candidate: &std::path::Path, root: &std::path::Path) -> bool {
 
 /// Resolve what a target really is on disk. The recorded `mode` only says how
 /// it was created; the filesystem says whether it still holds.
-fn classify_target_role(
+pub(crate) fn classify_target_role(
     central_path: &std::path::Path,
     owner_path: Option<&std::path::Path>,
     target_path: &str,
