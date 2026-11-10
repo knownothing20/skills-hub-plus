@@ -1723,12 +1723,14 @@ pub async fn promote_target_to_owner(
             anyhow::bail!("TARGET_MISSING|目标目录不存在：{:?}", target_path);
         }
 
-        // 已经是原件
+        // 已经是原件：比路径字符串，不能比「身份」——链接会被解析到它指向的目录，
+        // 那样 .zcode 的链接和 .codex 的原件会被判成同一处，永远无法提升。
+        let same_path = |a: &str, b: &str| {
+            a.replace('\\', "/").trim_end_matches('/').to_lowercase()
+                == b.replace('\\', "/").trim_end_matches('/').to_lowercase()
+        };
         if let Some(current) = skill.source_ref.as_deref() {
-            if crate::core::safe_fs::paths_have_same_identity(
-                std::path::Path::new(current),
-                &target_path,
-            )? {
+            if same_path(current, &target.target_path) {
                 return Ok(());
             }
         }
