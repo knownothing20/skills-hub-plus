@@ -37,6 +37,7 @@ type SkillCardProps = {
   onToggleTool: (skill: ManagedSkill, toolId: string) => void
   onSyncToolWithMode?: (skill: ManagedSkill, toolId: string, mode: 'copy' | 'junction') => void
   onUnsyncTool?: (skill: ManagedSkill, toolId: string) => void
+  onPromoteToolToOwner?: (skill: ManagedSkill, toolId: string, instance?: string) => void
   onOpenScope: (skill: ManagedSkill) => void
   onOpenDetail: (skill: ManagedSkill) => void
   onEditTags: (skill: ManagedSkill) => void
@@ -70,6 +71,7 @@ const SkillCard = ({
   onToggleTool,
   onSyncToolWithMode,
   onUnsyncTool,
+  onPromoteToolToOwner,
   onOpenScope,
   onOpenDetail,
   onEditTags,
@@ -429,6 +431,8 @@ const SkillCard = ({
                       synced,
                       isCopy,
                       isOwner: role === 'owner',
+                      role: role ?? undefined,
+                      instance: target?.instance,
                       targetPath: target?.target_path,
                     })
                   }}
@@ -524,6 +528,9 @@ const SkillCard = ({
           }}
           onUnsync={(s, tId) => {
             onUnsyncTool?.(s, tId)
+          }}
+          onPromoteToOwner={(s, tId, inst) => {
+            onPromoteToolToOwner?.(s, tId, inst)
           }}
           onOpenFolder={(path) => {
             openPath(path).catch(() => {

@@ -811,6 +811,7 @@ function App() {
     handleToggleToolForSkill,
     handleSyncToolWithMode,
     handleUnsyncToolForSkill,
+    handlePromoteToolToOwner,
     handleConfirmToolToggle,
     handleSharedCancel,
     handleSharedConfirm,
@@ -1343,6 +1344,7 @@ function App() {
               onToggleTool={handleToggleToolForSkill}
               onSyncToolWithMode={handleSyncToolWithMode}
               onUnsyncTool={handleUnsyncToolForSkill}
+              onPromoteToolToOwner={handlePromoteToolToOwner}
               onOpenScope={handleOpenScope}
               onOpenDetail={handleOpenDetail}
               onEditTags={handleOpenEditTags}

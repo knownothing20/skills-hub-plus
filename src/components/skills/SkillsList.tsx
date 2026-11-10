@@ -36,6 +36,7 @@ type SkillsListProps = {
   onToggleTool: (skill: ManagedSkill, toolId: string) => void
   onSyncToolWithMode?: (skill: ManagedSkill, toolId: string, mode: 'copy' | 'junction') => void
   onUnsyncTool?: (skill: ManagedSkill, toolId: string) => void
+  onPromoteToolToOwner?: (skill: ManagedSkill, toolId: string, instance?: string) => void
   onOpenScope: (skill: ManagedSkill) => void
   onOpenDetail: (skill: ManagedSkill) => void
   onEditTags: (skill: ManagedSkill) => void
@@ -72,6 +73,7 @@ const SkillsList = ({
   onToggleTool,
   onSyncToolWithMode,
   onUnsyncTool,
+  onPromoteToolToOwner,
   onOpenScope,
   onOpenDetail,
   onEditTags,
@@ -164,6 +166,7 @@ const SkillsList = ({
               onToggleTool={onToggleTool}
               onSyncToolWithMode={onSyncToolWithMode}
               onUnsyncTool={onUnsyncTool}
+              onPromoteToolToOwner={onPromoteToolToOwner}
               onOpenScope={onOpenScope}
               onOpenDetail={onOpenDetail}
               onEditTags={onEditTags}

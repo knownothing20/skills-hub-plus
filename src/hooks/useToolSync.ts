@@ -309,6 +309,38 @@ export function useToolSync({
     [getSkillScope, runToggleToolForSkill, sharedToolIdsByToolId],
   )
 
+  /// 把某个工具的目录提升为该 Skill 的原件。
+  /// 链接会先被实体化（旧链接进回收站，它指向的目录不动），副本则只改记录。
+  const handlePromoteToolToOwner = useCallback(
+    (skill: ManagedSkill, toolId: string, instance?: string) => {
+      void (async () => {
+        setLoading(true)
+        setLoadingStartAt(Date.now())
+        try {
+          await invokeTauri('promote_target_to_owner', {
+            skillId: skill.id,
+            tool: toolId,
+            instance: instance ?? null,
+          })
+          await loadManagedSkills()
+          toast.success('已设为主 skill', {
+            description: '该目录现在是原件，其它软件以它为准',
+            duration: 4000,
+          })
+        } catch (err) {
+          toast.error('设为主 skill 失败', {
+            description: String(err).slice(0, 200),
+            duration: 6000,
+          })
+        } finally {
+          setLoading(false)
+          setLoadingStartAt(null)
+        }
+      })()
+    },
+    [invokeTauri, loadManagedSkills, setLoading, setLoadingStartAt],
+  )
+
   const handleConfirmToolToggle = useCallback(() => {
     if (!pendingToolToggle || loading) return
     const { skill, toolId } = pendingToolToggle
@@ -380,6 +412,7 @@ export function useToolSync({
     handleToggleToolForSkill,
     handleSyncToolWithMode,
     handleUnsyncToolForSkill,
+    handlePromoteToolToOwner,
     handleConfirmToolToggle,
     handleSharedCancel,
     handleSharedConfirm,

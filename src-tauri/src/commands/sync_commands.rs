@@ -1689,3 +1689,78 @@ pub async fn sync_skill_to_tool_instances(
     .map_err(|err| err.to_string())?
     .map_err(crate::commands::format_anyhow_error)
 }
+
+/// 把某个工具的目录提升为这个 Skill 的原件（主 skill）。
+///
+/// 三种情形：
+/// - 目标已是原件：直接返回，不做事
+/// - 目标是实体副本：只改记录里的 source_ref，文件不动
+/// - 目标是软链接：先把内容实体化到该位置（旧链接进回收站，它指向的目录保持原样），
+///   再改 source_ref——原件不能是一条指向别处的链接
+///
+/// 旧原件不会被删除，只是在记录里不再是 owner，仍然作为普通目标存在。
+#[tauri::command]
+#[allow(non_snake_case)]
+pub async fn promote_target_to_owner(
+    store: State<'_, SkillStore>,
+    skillId: String,
+    tool: String,
+    instance: Option<String>,
+) -> Result<(), String> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = lock_central_mutation()?;
+        let skill = store
+            .get_skill_by_id(&skillId)?
+            .ok_or_else(|| anyhow::anyhow!("skill not found"))?;
+        let inst = instance.unwrap_or_default();
+        let target = store
+            .get_skill_target_instance(&skillId, &tool, "global", None, &inst)?
+            .ok_or_else(|| anyhow::anyhow!("TARGET_NOT_FOUND|该工具还没有这个 Skill 的记录"))?;
+
+        let target_path = std::path::PathBuf::from(&target.target_path);
+        if !target_path.is_dir() {
+            anyhow::bail!("TARGET_MISSING|目标目录不存在：{:?}", target_path);
+        }
+
+        // 已经是原件
+        if let Some(current) = skill.source_ref.as_deref() {
+            if crate::core::safe_fs::paths_have_same_identity(
+                std::path::Path::new(current),
+                &target_path,
+            )? {
+                return Ok(());
+            }
+        }
+
+        // 链接不能当原件：先把内容实体化到该位置
+        let (is_link, _) = crate::core::tool_adapters::detect_link(&target_path);
+        if is_link {
+            let real = crate::core::library_health::resolve_existing_path(&target_path)
+                .ok_or_else(|| anyhow::anyhow!("LINK_BROKEN|链接指向的目录不存在"))?;
+            // 旧的链接本身进回收站；real 目录保持原样，不受影响
+            crate::core::sync_engine::sync_dir_copy_with_overwrite(&real, &target_path, true)?;
+        }
+
+        let mut record = skill.clone();
+        record.source_type = "local".to_string();
+        record.source_ref = Some(target_path.to_string_lossy().to_string());
+        record.updated_at = now_ms();
+        if let Ok(hash) = crate::core::content_hash::hash_dir(&target_path) {
+            record.content_hash = Some(hash);
+        }
+        store.upsert_skill(&record)?;
+
+        // 母库镜像跟上新原件
+        let central = std::path::PathBuf::from(&record.central_path);
+        if !crate::core::safe_fs::paths_have_same_identity(&target_path, &central)? {
+            crate::core::sync_engine::sync_dir_copy_with_overwrite(&target_path, &central, true)?;
+        }
+
+        let _ = auto_reconcile_skill_targets(&store, Some(&skillId));
+        Ok(())
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map_err(format_anyhow_error)
+}

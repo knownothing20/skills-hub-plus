@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Box, Link2, Trash2, FolderOpen } from 'lucide-react'
+import { Box, Crown, Link2, Trash2, FolderOpen } from 'lucide-react'
 import ToolIcon from './ToolIcon'
 import type { ManagedSkill, ToolOption } from './types'
 
@@ -12,6 +12,10 @@ export type ToolContextMenuState = {
   synced: boolean
   isCopy: boolean
   isOwner?: boolean
+  /** 后端判定的角色：owner / copy / link_to_owner / link_to_central / link_other / missing */
+  role?: string
+  /** 多账号工具的账号标识；主实例为空 */
+  instance?: string
   targetPath?: string
 }
 
@@ -20,6 +24,7 @@ type ToolContextMenuProps = {
   onClose: () => void
   onSyncWithMode: (skill: ManagedSkill, toolId: string, mode: 'copy' | 'junction') => void
   onUnsync: (skill: ManagedSkill, toolId: string) => void
+  onPromoteToOwner?: (skill: ManagedSkill, toolId: string, instance?: string) => void
   onOpenFolder?: (path: string) => void
 }
 
@@ -31,7 +36,7 @@ export default function ToolContextMenu({
   onOpenFolder,
 }: ToolContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
-  const { tool, skill, synced, isCopy, isOwner, targetPath, x, y } = state
+  const { tool, skill, synced, isCopy, isOwner, instance, targetPath, x, y } = state
   const linkSupported = tool.supports_junction !== false
 
   useEffect(() => {
@@ -218,6 +223,41 @@ export default function ToolContextMenu({
               <span>取消同步 (移除该软件技能)</span>
             </div>
           </button>
+        </>
+      )}
+
+      {/* 主 skill 归属：按当前形态给不同说明 */}
+      {synced && onPromoteToOwner && (
+        <>
+          <div className="tool-context-divider" />
+          {isOwner ? (
+            <button type="button" className="tool-context-item" disabled>
+              <Crown size={14} />
+              <div className="item-text">
+                <span>当前为主 skill</span>
+                <small>原件就在这个目录，其它软件都以它为准</small>
+              </div>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="tool-context-item"
+              onClick={() => {
+                onClose()
+                onPromoteToOwner(skill, tool.id, instance)
+              }}
+            >
+              <Crown size={14} />
+              <div className="item-text">
+                <span>设为主 skill</span>
+                <small>
+                  {isCopy
+                    ? '直接以这个实体副本为原件，文件不动'
+                    : '把内容复制到此并作为原件，旧链接进回收站'}
+                </small>
+              </div>
+            </button>
+          )}
         </>
       )}
 

@@ -449,6 +449,7 @@ pub fn run() {
             commands::cancel_current_operation,
             commands::get_skill_target_comparisons,
             commands::promote_target_to_central,
+            commands::promote_target_to_owner,
             commands::get_backup_config,
             commands::save_backup_config,
             commands::create_backup_now,
