@@ -1125,9 +1125,16 @@
      上下 padding 留出角标越界的空间，负 margin 保持视觉位置。 */
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  /* 不要用 scrollbar-width: 一旦设成 thin，Chromium 会忽略下面的
+     ::-webkit-scrollbar 自定义样式，退回系统默认的灰色滚动条。 */
   padding: 5px 4px 5px 2px;
   margin: -5px 0;
+}
+.list-view .skill-tool-avatars::-webkit-scrollbar {
+  height: 4px;
+}
+.list-view .skill-tool-avatars::-webkit-scrollbar-track {
+  background: transparent;
 }
 .list-view .skill-tool-avatars::-webkit-scrollbar { height: 4px; }
 .list-view .skill-tool-avatars::-webkit-scrollbar-track { background: transparent; }
