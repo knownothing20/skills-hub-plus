@@ -261,17 +261,6 @@ impl SkillStore {
         })
     }
 
-    /// 删除一个技能的基线（技能被移除时）
-    pub fn delete_skill_baseline(&self, skill_id: &str) -> Result<()> {
-        self.with_conn(|conn| {
-            conn.execute(
-                "DELETE FROM skill_baselines WHERE skill_id = ?1",
-                params![skill_id],
-            )?;
-            Ok(())
-        })
-    }
-
     pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
         self.with_conn(|conn| {
             let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
@@ -518,6 +507,11 @@ impl SkillStore {
     pub fn delete_skill(&self, skill_id: &str) -> Result<()> {
         self.with_conn(|conn| {
             conn.execute("DELETE FROM skills WHERE id = ?1", params![skill_id])?;
+            // 基线表没有外键，跟着一起清掉
+            let _ = conn.execute(
+                "DELETE FROM skill_baselines WHERE skill_id = ?1",
+                params![skill_id],
+            );
             Ok(())
         })
     }
