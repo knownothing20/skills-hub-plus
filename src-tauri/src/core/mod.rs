@@ -13,6 +13,7 @@ pub mod library_health;
 pub mod mirror_check;
 pub mod network_proxy;
 pub mod onboarding;
+pub mod peer_sync;
 pub mod safe_fs;
 pub mod shared_dirs;
 pub mod skill_files;

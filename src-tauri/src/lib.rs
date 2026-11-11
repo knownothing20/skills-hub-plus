@@ -323,12 +323,11 @@ pub fn run() {
                             let store = app_handle.state::<SkillStore>().inner().clone();
                             tauri::async_runtime::spawn(async move {
                                 log::info!("manual copy sync triggered from system tray");
-                                let central_root = core::central_repo::app_install_skills_dir();
-                                match core::stale_copies::startup_stale_refresh(&store, &central_root) {
-                                    Ok((refreshed, untouched)) => log::info!(
-                                        "manual copy sync: {refreshed} 个已更新，{untouched} 个无需处理"
+                                match core::peer_sync::reconcile_all(&store) {
+                                    Ok((adopted, conflicts, unchanged)) => log::info!(
+                                        "manual peer sync: 采纳 {adopted} 个，冲突 {conflicts} 个，无变化 {unchanged} 个"
                                     ),
-                                    Err(err) => log::warn!("manual copy sync failed: {err:#}"),
+                                    Err(err) => log::warn!("manual peer sync failed: {err:#}"),
                                 }
                             });
                         }
@@ -391,16 +390,15 @@ pub fn run() {
                 let store = app.state::<SkillStore>().inner().clone();
                 std::thread::spawn(move || loop {
                     std::thread::sleep(std::time::Duration::from_secs(COPY_SYNC_INTERVAL_SECS));
-                    let central_root = core::central_repo::app_install_skills_dir();
-                    match core::stale_copies::startup_stale_refresh(&store, &central_root) {
-                        Ok((refreshed, untouched)) => {
-                            if refreshed > 0 {
+                    match core::peer_sync::reconcile_all(&store) {
+                        Ok((adopted, conflicts, unchanged)) => {
+                            if adopted > 0 || conflicts > 0 {
                                 log::info!(
-                                    "periodic copy refresh: {refreshed} 个已更新，{untouched} 个无需处理"
+                                    "peer sync: 采纳 {adopted} 个，冲突 {conflicts} 个，无变化 {unchanged} 个"
                                 );
                             }
                         }
-                        Err(err) => log::warn!("periodic copy refresh failed: {err:#}"),
+                        Err(err) => log::warn!("peer sync failed: {err:#}"),
                     }
                     // 副本更新后让界面重新拉一次数据
                     let _ = handle.emit("skills-updated", ());
@@ -438,6 +436,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             touch_activity,
+            commands::get_peer_standings,
+            commands::reconcile_skill_now,
+            commands::reconcile_all_now,
             commands::list_central_library,
             commands::list_library_files,
             commands::read_library_file,

@@ -9,7 +9,7 @@ const DB_FILE_NAME: &str = "skills_hub.db";
 const LEGACY_APP_IDENTIFIERS: &[&str] = &["com.tauri.dev", "com.tauri.dev.skillshub"];
 
 // Schema versioning: bump when making changes and add a migration step.
-const SCHEMA_VERSION: i32 = 7;
+const SCHEMA_VERSION: i32 = 8;
 
 // Minimal schema for MVP: skills, skill_targets, settings, discovered_skills(optional).
 const SCHEMA_V1: &str = r#"
@@ -72,6 +72,15 @@ CREATE TABLE IF NOT EXISTS skill_tags (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS skill_baselines (
+    skill_id TEXT NOT NULL,
+    rel_path TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    size INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(skill_id, rel_path)
+);
+CREATE INDEX IF NOT EXISTS idx_skill_baselines_skill ON skill_baselines(skill_id);
 
 CREATE TABLE IF NOT EXISTS skill_tag_links (
   skill_id TEXT NOT NULL,
@@ -183,6 +192,20 @@ impl SkillStore {
                 if user_version < 7 {
                     migrate_skill_targets_instance_to_v7(conn)?;
                 }
+                if user_version < 8 {
+                    // v8：对等同步的基线快照（每个技能上次一致时的文件指纹）
+                    conn.execute_batch(
+                        "CREATE TABLE IF NOT EXISTS skill_baselines (
+                            skill_id TEXT NOT NULL,
+                            rel_path TEXT NOT NULL,
+                            hash TEXT NOT NULL,
+                            size INTEGER NOT NULL DEFAULT 0,
+                            UNIQUE(skill_id, rel_path)
+                        );
+                        CREATE INDEX IF NOT EXISTS idx_skill_baselines_skill
+                            ON skill_baselines(skill_id);",
+                    )?;
+                }
                 conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
             } else if user_version > SCHEMA_VERSION {
                 anyhow::bail!(
@@ -192,6 +215,59 @@ impl SkillStore {
                 );
             }
 
+            Ok(())
+        })
+    }
+
+    /// 读取一个技能的基线快照：相对路径 -> (hash, size)
+    pub fn get_skill_baseline(&self, skill_id: &str) -> Result<Vec<(String, String, i64)>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn
+                .prepare("SELECT rel_path, hash, size FROM skill_baselines WHERE skill_id = ?1")?;
+            let rows = stmt.query_map(params![skill_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            })?;
+            let mut out = Vec::new();
+            for row in rows {
+                out.push(row?);
+            }
+            Ok(out)
+        })
+    }
+
+    /// 用给定快照整体替换一个技能的基线
+    pub fn replace_skill_baseline(
+        &self,
+        skill_id: &str,
+        entries: &[(String, String, i64)],
+    ) -> Result<()> {
+        self.with_conn(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            tx.execute("DELETE FROM skill_baselines WHERE skill_id = ?1", params![skill_id])?;
+            {
+                let mut stmt = tx.prepare(
+                    "INSERT INTO skill_baselines (skill_id, rel_path, hash, size) VALUES (?1, ?2, ?3, ?4)",
+                )?;
+                for (rel, hash, size) in entries {
+                    stmt.execute(params![skill_id, rel, hash, size])?;
+                }
+            }
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    /// 删除一个技能的基线（技能被移除时）
+    pub fn delete_skill_baseline(&self, skill_id: &str) -> Result<()> {
+        self.with_conn(|conn| {
+            conn.execute(
+                "DELETE FROM skill_baselines WHERE skill_id = ?1",
+                params![skill_id],
+            )?;
             Ok(())
         })
     }
