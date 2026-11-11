@@ -5,14 +5,13 @@ import {
   Compass,
   Layers3,
   Library,
-  RefreshCw,
   Settings,
   Tag,
   Wrench,
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
 
-type ManagementTab = 'tags' | 'tools' | 'updates'
+type ManagementTab = 'tags' | 'tools'
 
 type SidebarProps = {
   activeView: 'myskills' | 'explore' | 'detail' | 'settings' | 'manage' | 'library'
@@ -126,16 +125,6 @@ const Sidebar = ({
         <Wrench size={18} />
         <span>{t('manageTabs.tools')}</span>
         {!collapsed && <em>{toolCount}</em>}
-      </button>
-      <button
-        className={activeView === 'manage' && managementTab === 'updates' ? 'active' : ''}
-        type="button"
-        onClick={() => onManagementTabChange('updates')}
-        title={collapsed ? t('manageTabs.updates') : undefined}
-      >
-        <RefreshCw size={18} />
-        <span>{t('manageTabs.updates')}</span>
-
       </button>
     </nav>
 

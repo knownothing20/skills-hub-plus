@@ -3,7 +3,7 @@ import TitleBar from './TitleBar'
 import Sidebar from './Sidebar'
 import type { TFunction } from 'i18next'
 
-type ManagementTab = 'tags' | 'tools' | 'updates'
+type ManagementTab = 'tags' | 'tools'
 
 type HeaderProps = {
   activeView: 'myskills' | 'explore' | 'detail' | 'settings' | 'manage' | 'library'
@@ -11,7 +11,6 @@ type HeaderProps = {
   skillCount: number
   tagCount: number
   toolCount: number
-  updateCount: number
   collapsed: boolean
   onToggleCollapsed: () => void
   onOpenSettings: () => void
@@ -26,7 +25,6 @@ const Header = ({
   skillCount,
   tagCount,
   toolCount,
-  updateCount,
   collapsed,
   onToggleCollapsed,
   onOpenSettings,
@@ -42,7 +40,6 @@ const Header = ({
       skillCount={skillCount}
       tagCount={tagCount}
       toolCount={toolCount}
-      updateCount={updateCount}
       collapsed={collapsed}
       onToggleCollapsed={onToggleCollapsed}
       onOpenSettings={onOpenSettings}
