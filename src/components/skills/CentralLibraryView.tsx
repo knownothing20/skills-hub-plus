@@ -33,6 +33,17 @@ function formatSize(bytes: number): string {
 
 const MARKDOWN_EXT = /\.(md|markdown)$/i
 
+/// 把 markdown 顶部的 --- 元数据块单独摘出来：
+/// 直接交给 Markdown 渲染会把它当成正文标题，看起来像是文档坏了。
+function splitFrontmatter(text: string): { meta: string; body: string } {
+  if (!text.startsWith('---')) return { meta: '', body: text }
+  const end = text.indexOf('\n---', 3)
+  if (end === -1) return { meta: '', body: text }
+  const meta = text.slice(3, end).trim()
+  const body = text.slice(end + 4).replace(/^\r?\n/, '')
+  return { meta, body }
+}
+
 export default function CentralLibraryView({ onOpenFolder }: Props) {
   const [skills, setSkills] = useState<CentralSkillSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -172,7 +183,10 @@ export default function CentralLibraryView({ onOpenFolder }: Props) {
           }}
         >
           <File size={13} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span
+            title={node.name}
+            style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
             {node.name}
           </span>
           <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--text-tertiary)' }}>
@@ -385,9 +399,35 @@ export default function CentralLibraryView({ onOpenFolder }: Props) {
                   <div style={{ fontSize: '12px', color: 'var(--status-error)' }}>{fileError}</div>
                 )}
                 {!fileError && MARKDOWN_EXT.test(activeFile) && (
-                  <div className="markdown-body" style={{ fontSize: '13px' }}>
-                    <Markdown>{fileContent}</Markdown>
-                  </div>
+                  <>
+                    {(() => {
+                      const { meta, body } = splitFrontmatter(fileContent)
+                      return (
+                        <>
+                          {meta && (
+                            <pre
+                              style={{
+                                margin: '0 0 14px',
+                                padding: '8px 10px',
+                                background: 'var(--bg-element)',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                lineHeight: 1.6,
+                                color: 'var(--text-tertiary)',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                              }}
+                            >
+                              {meta}
+                            </pre>
+                          )}
+                          <div className="markdown-body" style={{ fontSize: '13px' }}>
+                            <Markdown>{body}</Markdown>
+                          </div>
+                        </>
+                      )
+                    })()}
+                  </>
                 )}
                 {!fileError && !MARKDOWN_EXT.test(activeFile) && (
                   <pre
