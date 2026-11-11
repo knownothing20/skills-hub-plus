@@ -248,7 +248,7 @@ const SkillCard = ({
         ) : null}
 
         <button
-          className="skill-central-badge"
+          className={`skill-central-badge${mirrorStale ? ' is-stale' : ''}`}
           type="button"
           aria-label={centralBadgeLabel}
           title={centralBadgeTitle}
@@ -262,6 +262,11 @@ const SkillCard = ({
           }}
         >
           <img src={logoMark} alt={centralBadgeLabel} className="central-badge-logo" />
+          {mirrorStale ? (
+            <span className="central-alert" aria-hidden="true">
+              !
+            </span>
+          ) : null}
         </button>
 
         {sharedDir ? (

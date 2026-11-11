@@ -10,6 +10,8 @@ export interface UseSkillFiltersOptions {
   getSkillScope: (skill: ManagedSkill) => 'global' | 'project'
   /** 有问题的技能名（断链、落后、母库落后、多版本），排序时置顶 */
   problemSkillNames?: Set<string>
+  /** 只看这些技能（用于「点落后数字筛选」） */
+  onlyProblemFilter?: Set<string> | null
 }
 
 export interface UseSkillFiltersReturn {
@@ -39,6 +41,7 @@ export function useSkillFilters({
   managedSkills,
   getSkillScope,
   problemSkillNames,
+  onlyProblemFilter,
 }: UseSkillFiltersOptions): UseSkillFiltersReturn {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortByOption>('updated')
@@ -57,6 +60,7 @@ export function useSkillFilters({
         const isSynced = getToolSyncState(skill, toolFilter, getSkillScope(skill)) === 'synced'
         if (!isSynced) return false
       }
+      if (onlyProblemFilter && !onlyProblemFilter.has(skill.name)) return false
       if (hasTagFilter) {
         const matchesSelectedTag = skill.tags.some((tag) => selectedTagSet.has(tag.id))
         const matchesUntagged = includeUntagged && skill.tags.length === 0
@@ -91,6 +95,7 @@ export function useSkillFilters({
     selectedTagIds,
     sortBy,
     problemSkillNames,
+    onlyProblemFilter,
   ])
 
   const untaggedCount = useMemo(

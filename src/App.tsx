@@ -530,6 +530,13 @@ function App() {
     [staleMirrors],
   )
 
+  // 点健康栏的数字时，列表只显示有问题的技能；再点一次恢复
+  const [onlyProblemFilter, setOnlyProblemFilter] = useState<Set<string> | null>(null)
+  const toggleProblemFilter = useCallback(() => {
+    setOnlyProblemFilter((prev) => (prev ? null : new Set(problemSkillNamesRef.current)))
+  }, [])
+  const problemSkillNamesRef = useRef<Set<string>>(new Set())
+
   // 有问题的技能：断链 / 副本落后或手改 / 母库落后 —— 排序时统一置顶
   const problemSkillNames = useMemo(() => {
     const names = new Set<string>()
@@ -545,6 +552,10 @@ function App() {
     }
     return names
   }, [libraryHealth, staleBySkillTool, staleMirrors])
+
+  useEffect(() => {
+    problemSkillNamesRef.current = problemSkillNames
+  }, [problemSkillNames])
 
   const {
     searchQuery,
@@ -569,6 +580,7 @@ function App() {
     managedSkills,
     getSkillScope,
     problemSkillNames,
+    onlyProblemFilter,
   })
 
   const {
@@ -1337,7 +1349,11 @@ function App() {
                   title={staleCount > 0 ? t('stale.detailsTitle', { count: staleCount }) : undefined}
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleStaleCountClick()
+                    if (staleCount > 0) {
+                      toggleProblemFilter()
+                    } else {
+                      handleStaleCountClick()
+                    }
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -1364,6 +1380,8 @@ function App() {
                       void refreshStaleMirrors()
                       return
                     }
+                    toggleProblemFilter()
+                    return;
                     const lines = staleMirrors
                       .slice(0, 8)
                       .map((mirror) => mirror.name)
@@ -1392,6 +1410,14 @@ function App() {
               >
                 <RefreshCw size={13} />
               </button>
+              </div>
+            ) : null}
+            {onlyProblemFilter ? (
+              <div className="problem-filter-banner">
+                <span>只显示有问题的技能（{onlyProblemFilter.size} 个）</span>
+                <button type="button" onClick={() => setOnlyProblemFilter(null)}>
+                  显示全部
+                </button>
               </div>
             ) : null}
             <FilterBar

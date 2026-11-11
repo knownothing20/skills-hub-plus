@@ -2339,3 +2339,52 @@
   white-space: nowrap;
   cursor: help;
 }
+
+/* 母库徽标：镜像落后时打感叹号 */
+.skill-central-badge {
+  position: relative;
+}
+.skill-central-badge .central-alert {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e24b4a;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--bg-panel, #fff);
+  pointer-events: none;
+}
+
+/* 「只看有问题」筛选状态提示条 */
+.problem-filter-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 7px 12px;
+  border: 1px solid rgba(226, 75, 74, .35);
+  border-radius: 8px;
+  background: rgba(226, 75, 74, .06);
+  font-size: 12px;
+  color: #a32d2d;
+}
+.problem-filter-banner button {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid rgba(226, 75, 74, .45);
+  border-radius: 5px;
+  background: transparent;
+  color: #a32d2d;
+  font-size: 11px;
+  cursor: pointer;
+}
+.problem-filter-banner button:hover {
+  background: rgba(226, 75, 74, .10);
+}
