@@ -21,6 +21,7 @@ type SkillsListProps = {
   peerVersionLabels?: Record<string, Record<string, string>>
   /** 母库落后的技能名 */
   staleMirrorNames?: Set<string>
+  onRefreshMirror?: (skillId: string) => void
   plan: OnboardingPlan | null
   visibleSkills: ManagedSkill[]
   installedTools: ToolOption[]
@@ -90,6 +91,7 @@ const SkillsList = ({
   staleBySkillTool,
   peerVersionLabels,
   staleMirrorNames,
+  onRefreshMirror,
   onRefreshStale,
   t,
 }: SkillsListProps) => {
@@ -160,6 +162,7 @@ const SkillsList = ({
               staleBySkillTool={staleBySkillTool}
               versionLabels={peerVersionLabels?.[skill.id]}
               mirrorStale={staleMirrorNames?.has(skill.name)}
+              onRefreshMirror={onRefreshMirror}
               onRefreshStale={onRefreshStale}
               loading={loading}
               bulkMode={bulkMode}

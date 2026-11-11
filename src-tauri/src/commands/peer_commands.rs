@@ -115,3 +115,44 @@ pub async fn adopt_target_as_latest(
     .map_err(|e| e.to_string())?
     .map_err(|e| e.to_string())
 }
+
+/// 用原件的内容刷新母库镜像（整目录替换，含删除原件里没有的文件）
+#[tauri::command]
+pub async fn refresh_skill_mirror(
+    skill_id: String,
+    store: State<'_, SkillStore>,
+) -> Result<(), String> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<()> {
+        let skill = store
+            .get_skill_by_id(&skill_id)?
+            .ok_or_else(|| anyhow::anyhow!("SKILL_NOT_FOUND|{skill_id}"))?;
+        let Some(source_ref) = skill.source_ref.as_deref() else {
+            anyhow::bail!("NO_SOURCE|{skill_id}");
+        };
+        let source = std::path::Path::new(source_ref);
+        let mirror = std::path::Path::new(&skill.central_path);
+        if !source.is_dir() {
+            anyhow::bail!("SOURCE_MISSING|{source_ref}");
+        }
+        if source == mirror {
+            anyhow::bail!("SAME_PATH|{source_ref}");
+        }
+
+        crate::core::sync_engine::sync_dir_copy_with_overwrite(source, mirror, true)?;
+
+        if let Ok(new_hash) = crate::core::content_hash::hash_dir(mirror) {
+            let mut record = skill;
+            record.content_hash = Some(new_hash);
+            record.updated_at = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as i64)
+                .unwrap_or(0);
+            let _ = store.upsert_skill(&record);
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}

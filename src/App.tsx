@@ -171,6 +171,22 @@ function App() {
     }
   }, [invokeTauri])
 
+  // 用原件刷新母库镜像
+  const handleRefreshMirror = useCallback(
+    async (skillId: string) => {
+      try {
+        await invokeTauri('refresh_skill_mirror', { skillId })
+        toast.success('母库已更新为原件内容')
+        await loadManagedSkills()
+        void refreshStaleMirrors()
+        void refreshLibraryHealth()
+      } catch (err) {
+        toast.error(`更新母库失败: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    },
+    [invokeTauri, loadManagedSkills, refreshLibraryHealth, refreshStaleMirrors],
+  )
+
   // 手动刷新：列表、健康栏、落后状态、版本字母一起重读
   const refreshAll = useCallback(async () => {
     await loadManagedSkills()
@@ -1450,6 +1466,7 @@ function App() {
             <SkillsList
               peerVersionLabels={peerVersionLabels}
               staleMirrorNames={staleMirrorNames}
+              onRefreshMirror={handleRefreshMirror}
               plan={plan}
               visibleSkills={visibleSkills}
               installedTools={installedTools}

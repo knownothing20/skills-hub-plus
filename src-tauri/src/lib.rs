@@ -502,6 +502,7 @@ pub fn run() {
             commands::reconcile_skill_now,
             commands::reconcile_all_now,
             commands::adopt_target_as_latest,
+            commands::refresh_skill_mirror,
             commands::list_central_library,
             commands::list_library_files,
             commands::read_library_file,
