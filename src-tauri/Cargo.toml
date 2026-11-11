@@ -1,6 +1,6 @@
 [package]
 name = "skills-hub"
-version = "1.0.0"
+version = "2.0.0"
 description = "A security-hardened desktop app for managing Agent Skills"
 authors = ["mcncarl and Skills Hub contributors"]
 license = "MIT"
