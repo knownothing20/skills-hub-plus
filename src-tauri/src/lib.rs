@@ -60,22 +60,26 @@ fn notify_sync_conflict<R: tauri::Runtime>(app: &tauri::AppHandle<R>, conflicts:
         .show();
 }
 
+/// 托盘句柄：需要能在别处换图标，所以存进全局状态。
+struct TrayHandle<R: tauri::Runtime>(tauri::tray::TrayIcon<R>);
+
 /// 托盘图标：有需要处理的问题时换成带感叹号的版本，正常时换回来。
 fn update_tray_alert<R: tauri::Runtime>(app: &tauri::AppHandle<R>, alert: bool) {
-    let Some(tray) = app.tray_by_id("main") else {
+    let Some(state) = app.try_state::<TrayHandle<R>>() else {
         return;
     };
     if alert {
         let bytes = include_bytes!("../icons/icon-alert-32.png");
-        if let Ok(image) = tauri::image::Image::from_bytes(bytes) {
-            let _ = tray.set_icon(Some(image));
+        match tauri::image::Image::from_bytes(bytes) {
+            Ok(image) => {
+                let _ = state.0.set_icon(Some(image));
+                let _ = state.0.set_tooltip(Some("Skills Hub — 有副本需要处理"));
+            }
+            Err(err) => log::warn!("alert icon decode failed: {err}"),
         }
-        let _ = tray.set_tooltip(Some("Skills Hub — 有副本需要处理"));
-    } else {
-        if let Some(icon) = app.default_window_icon() {
-            let _ = tray.set_icon(Some(icon.clone()));
-        }
-        let _ = tray.set_tooltip(Some("Skills Hub - Agent 技能管家"));
+    } else if let Some(icon) = app.default_window_icon() {
+        let _ = state.0.set_icon(Some(icon.clone()));
+        let _ = state.0.set_tooltip(Some("Skills Hub - Agent 技能管家"));
     }
 }
 
@@ -402,6 +406,7 @@ pub fn run() {
                         }
                     })
                     .build(app)?;
+                app.manage(TrayHandle(_tray));
             }
 
             // 点窗口的 × 只隐藏到托盘，不退出；退出走托盘菜单
