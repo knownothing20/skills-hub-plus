@@ -351,7 +351,6 @@ pub fn run() {
 
             if let Some(app_icon) = app.default_window_icon() {
                 let _tray = TrayIconBuilder::new()
-                    .id("main")
                     .icon(app_icon.clone())
                     .tooltip("Skills Hub - Agent 技能管家")
                     .menu(&tray_menu)
