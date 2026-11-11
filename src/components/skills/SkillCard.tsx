@@ -270,7 +270,18 @@ const SkillCard = ({
           }}
         >
           <img src={logoMark} alt={centralBadgeLabel} className="central-badge-logo" />
-          {mirrorStale ? (
+          {versionLabels?.['central'] ? (
+            <span
+              className={`central-alert is-version${
+                versionLabels['central'] === 'A' ? ' is-latest' : ''
+              }`}
+              title={`母库停在版本 ${versionLabels['central']}${
+                versionLabels['central'] === 'A' ? '（最新）' : ''
+              }`}
+            >
+              {versionLabels['central']}
+            </span>
+          ) : mirrorStale ? (
             <span className="central-alert" aria-hidden="true">
               !
             </span>

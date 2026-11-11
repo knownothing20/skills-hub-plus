@@ -2389,3 +2389,15 @@
 .problem-filter-banner button:hover {
   background: rgba(226, 75, 74, .10);
 }
+
+/* 母库徽标上的版本字母：A 红色表示母库已是最新，其余灰色表示停在旧版 */
+.skill-central-badge .central-alert.is-version {
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  background: #9ca3af;
+  font-size: 9px;
+}
+.skill-central-badge .central-alert.is-version.is-latest {
+  background: #e24b4a;
+}

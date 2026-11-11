@@ -241,7 +241,7 @@ export const SyncCompareModal = memo(({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }} />
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1d4ed8' }}>原件（主 skill）</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#1d4ed8' }}>主 skill（最初创建位置）</span>
                 {ownerComp && (
                   <span style={{ fontSize: '11px', color: '#4b5563' }}>{ownerComp.tool_label}</span>
                 )}
@@ -252,6 +252,9 @@ export const SyncCompareModal = memo(({
             </div>
             <div style={{ fontSize: '11px', fontFamily: 'monospace', color: '#4b5563', marginTop: '5px', wordBreak: 'break-all' }}>
               {skill.source_ref || skill.central_path}
+            </div>
+            <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
+              下面各份副本没有主次之分：谁改过内容，谁就是最新，会被自动同步到其它副本。
             </div>
           </div>
 

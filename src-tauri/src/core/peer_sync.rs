@@ -444,6 +444,25 @@ pub fn version_labels(
         });
     }
 
+    // 母库镜像也参与分组：这样能说清「母库停在哪一版」，
+    // 而不是只有一个笼统的「母库落后」。
+    let mirror = PathBuf::from(&skill.central_path);
+    if mirror.is_dir() {
+        let already_covered = targets
+            .iter()
+            .any(|t| Path::new(&t.target_path) == mirror.as_path());
+        if !already_covered {
+            let (fingerprint, newest) = snapshot_with_time(&mirror);
+            if !fingerprint.is_empty() {
+                peers.push(Peer {
+                    key: "central".to_string(),
+                    fingerprint,
+                    newest,
+                });
+            }
+        }
+    }
+
     let mut by_fp: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
     for peer in &peers {
         let entry = by_fp.entry(peer.fingerprint.clone()).or_insert(0);
