@@ -848,8 +848,9 @@
 
 .skill-tool-avatars .stale-badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  /* 异常标记统一放左下：左上主 skill、右上账号数、右下复制模式 */
+  bottom: -5px;
+  left: -5px;
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -867,13 +868,6 @@
 }
 .skill-tool-avatars button.has-stale:hover:not(:disabled) {
   border-color: #e24b4a;
-}
-/* 数字角标占了右上角时，落后感叹号让到左下：左上留给 owner 皇冠，右下留给同步模式图标。 */
-.skill-tool-avatars button:has(.instance-badge) .stale-badge {
-  top: auto;
-  right: auto;
-  bottom: -5px;
-  left: -5px;
 }
 /* 共享目录可达：该工具目录里没有它，但它会读取共享目录 */
 .skill-tool-avatars button.is-shared {
@@ -2346,8 +2340,9 @@
 }
 .skill-central-badge .central-alert {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  /* 四个角落的分工：左上主 skill、右上账号数、右下复制模式，左下留给异常标记 */
+  bottom: -4px;
+  left: -4px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
