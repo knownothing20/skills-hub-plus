@@ -178,7 +178,7 @@ pub async fn list_central_library(
                 source_ref,
             });
         }
-        out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        out.sort_by_key(|s| s.name.to_lowercase());
         Ok(out)
     })
     .await
