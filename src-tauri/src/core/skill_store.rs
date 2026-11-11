@@ -9,7 +9,7 @@ const DB_FILE_NAME: &str = "skills_hub.db";
 const LEGACY_APP_IDENTIFIERS: &[&str] = &["com.tauri.dev", "com.tauri.dev.skillshub"];
 
 // Schema versioning: bump when making changes and add a migration step.
-const SCHEMA_VERSION: i32 = 8;
+const SCHEMA_VERSION: i32 = 9;
 
 // Minimal schema for MVP: skills, skill_targets, settings, discovered_skills(optional).
 const SCHEMA_V1: &str = r#"
@@ -81,6 +81,13 @@ CREATE TABLE IF NOT EXISTS skill_baselines (
     UNIQUE(skill_id, rel_path)
 );
 CREATE INDEX IF NOT EXISTS idx_skill_baselines_skill ON skill_baselines(skill_id);
+
+CREATE TABLE IF NOT EXISTS skill_baseline_history (
+    skill_id TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    UNIQUE(skill_id, fingerprint)
+);
 
 CREATE TABLE IF NOT EXISTS skill_tag_links (
   skill_id TEXT NOT NULL,
@@ -192,6 +199,16 @@ impl SkillStore {
                 if user_version < 7 {
                     migrate_skill_targets_instance_to_v7(conn)?;
                 }
+                if user_version < 9 {
+                    conn.execute_batch(
+                        "CREATE TABLE IF NOT EXISTS skill_baseline_history (
+                            skill_id TEXT NOT NULL,
+                            fingerprint TEXT NOT NULL,
+                            created_at INTEGER NOT NULL,
+                            UNIQUE(skill_id, fingerprint)
+                        );",
+                    )?;
+                }
                 if user_version < 8 {
                     // v8：对等同步的基线快照（每个技能上次一致时的文件指纹）
                     conn.execute_batch(
@@ -236,6 +253,52 @@ impl SkillStore {
                 out.push(row?);
             }
             Ok(out)
+        })
+    }
+
+    /// 最近几条基线指纹（新的在前）
+    pub fn get_baseline_history(&self, skill_id: &str, limit: usize) -> Result<Vec<String>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT fingerprint FROM skill_baseline_history WHERE skill_id = ?1 ORDER BY created_at DESC LIMIT ?2",
+            )?;
+            let rows = stmt.query_map(params![skill_id, limit as i64], |row| {
+                row.get::<_, String>(0)
+            })?;
+            let mut out = Vec::new();
+            for row in rows {
+                out.push(row?);
+            }
+            Ok(out)
+        })
+    }
+
+    /// 记一条历史指纹，只保留最近 keep 条
+    pub fn push_baseline_history(
+        &self,
+        skill_id: &str,
+        fingerprint: &str,
+        keep: usize,
+    ) -> Result<()> {
+        self.with_conn(|conn| {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as i64)
+                .unwrap_or(0);
+            conn.execute(
+                "INSERT OR IGNORE INTO skill_baseline_history (skill_id, fingerprint, created_at)
+                 VALUES (?1, ?2, ?3)",
+                params![skill_id, fingerprint, now],
+            )?;
+            conn.execute(
+                "DELETE FROM skill_baseline_history
+                 WHERE skill_id = ?1 AND fingerprint NOT IN (
+                     SELECT fingerprint FROM skill_baseline_history
+                     WHERE skill_id = ?1 ORDER BY created_at DESC LIMIT ?2
+                 )",
+                params![skill_id, keep as i64],
+            )?;
+            Ok(())
         })
     }
 

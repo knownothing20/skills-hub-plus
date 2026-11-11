@@ -18,6 +18,39 @@ use crate::core::sync_engine::sync_dir_copy_with_overwrite;
 
 type Snapshot = BTreeMap<String, (String, i64)>;
 
+/// 单文件上限：超过的不参与同步，避免把模型权重、视频之类的东西带进全库。
+const MAX_FILE_BYTES: u64 = 5 * 1024 * 1024;
+/// 单技能文件数上限：超过就不自动同步，防止脚本生成的临时产物扩散。
+pub const MAX_FILES_PER_SKILL: usize = 500;
+
+/// 生成物和临时文件：不参与比对，也不参与同步。
+const IGNORED_SUFFIXES: &[&str] = &[
+    ".pyc", ".pyo", ".pyd", ".tmp", ".temp", ".swp", ".swx", ".bak", ".orig",
+];
+const IGNORED_NAMES: &[&str] = &[".DS_Store", "Thumbs.db", "desktop.ini"];
+
+/// 判断一个相对路径是否该被忽略
+fn is_ignored_rel(rel: &str) -> bool {
+    if rel.starts_with(".git/") || rel.contains("__pycache__") || rel.contains(".pytest_cache") {
+        return true;
+    }
+    let name = rel.rsplit('/').next().unwrap_or(rel);
+    if IGNORED_NAMES
+        .iter()
+        .any(|ignored| name.eq_ignore_ascii_case(ignored))
+    {
+        return true;
+    }
+    // Office 保存时产生的锁文件：~$xxx.docx
+    if name.starts_with("~$") {
+        return true;
+    }
+    let lower = name.to_ascii_lowercase();
+    IGNORED_SUFFIXES
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PeerState {
@@ -53,6 +86,10 @@ pub enum ReconcileOutcome {
         candidates: Vec<String>,
         changed_files: Vec<String>,
     },
+    /// 偏离的那份命中历史版本：看起来是回滚，不扩散
+    Rollback { from: String },
+    /// 文件太多，按保护策略跳过
+    TooManyFiles { count: usize },
 }
 
 /// 目录内容快照：相对路径 -> (文件 hash, 字节数)
@@ -73,7 +110,14 @@ fn snapshot(root: &Path) -> Snapshot {
             .strip_prefix(root)
             .map(|p| p.to_string_lossy().replace('\\', "/"))
             .unwrap_or_default();
-        if rel.starts_with(".git/") || rel.contains("__pycache__") {
+        if is_ignored_rel(&rel) {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else {
+            continue;
+        };
+        if meta.len() > MAX_FILE_BYTES {
+            log::warn!("peer_sync: 跳过超大文件 {rel}（{} KB）", meta.len() / 1024);
             continue;
         }
         let Ok(bytes) = std::fs::read(entry.path()) else {
@@ -87,6 +131,27 @@ fn snapshot(root: &Path) -> Snapshot {
         );
     }
     out
+}
+
+/// 整个目录的指纹：把每个文件的相对路径和 hash 串起来再哈希一次
+fn snapshot_fingerprint(snap: &Snapshot) -> String {
+    let mut hasher = Sha256::new();
+    for (rel, (hash, _size)) in snap {
+        hasher.update(rel.as_bytes());
+        hasher.update(hash.as_bytes());
+    }
+    format!("{:x}", hasher.finalize())
+}
+
+/// 上一轮扫描看到的「待采纳」指纹。
+///
+/// 只有当同一个指纹连续两轮出现时才真正同步——避免编辑器保存到一半
+/// 或者脚本正在生成文件时，把半成品扩散到所有副本。
+fn pending_slots() -> &'static std::sync::Mutex<std::collections::HashMap<String, String>> {
+    static PENDING: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::HashMap<String, String>>,
+    > = std::sync::OnceLock::new();
+    PENDING.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
 }
 
 fn baseline_map(store: &SkillStore, skill_id: &str) -> Snapshot {
@@ -160,7 +225,11 @@ pub fn scan_peers(store: &SkillStore, skill: &SkillRecord) -> Result<Vec<PeerSta
 }
 
 /// 对一个技能做一次对等同步
-pub fn reconcile_skill(store: &SkillStore, skill: &SkillRecord) -> Result<ReconcileOutcome> {
+pub fn reconcile_skill(
+    store: &SkillStore,
+    skill: &SkillRecord,
+    require_stable: bool,
+) -> Result<ReconcileOutcome> {
     let baseline = baseline_map(store, &skill.id);
     let targets = store.list_skill_targets(&skill.id)?;
 
@@ -170,6 +239,16 @@ pub fn reconcile_skill(store: &SkillStore, skill: &SkillRecord) -> Result<Reconc
         let snap = snapshot(&path);
         if snap.is_empty() {
             continue;
+        }
+        if snap.len() > MAX_FILES_PER_SKILL {
+            log::warn!(
+                "[peer_sync] {} 的 {} 有 {} 个文件，超过上限 {}，跳过自动同步",
+                skill.name,
+                target.target_path,
+                snap.len(),
+                MAX_FILES_PER_SKILL
+            );
+            return Ok(ReconcileOutcome::TooManyFiles { count: snap.len() });
         }
         peers.push((label_for(target), path, snap));
     }
@@ -196,6 +275,7 @@ pub fn reconcile_skill(store: &SkillStore, skill: &SkillRecord) -> Result<Reconc
                 .map(|(rel, (hash, size))| (rel.clone(), hash.clone(), *size))
                 .collect();
             store.replace_skill_baseline(&skill.id, &entries)?;
+            let _ = store.push_baseline_history(&skill.id, &snapshot_fingerprint(&snap), 5);
             return Ok(ReconcileOutcome::Initialized { from: label });
         }
         return Ok(ReconcileOutcome::NoChange);
@@ -225,13 +305,52 @@ pub fn reconcile_skill(store: &SkillStore, skill: &SkillRecord) -> Result<Reconc
         });
     }
 
-    // 只剩一个版本：它承载了最新编辑，采纳并推给其它副本
+    // 只剩一个版本：先确认它不是「回滚」，再确认它已经稳定
     let (from_label, src_path, src_snap) = edited[0].clone();
+    let candidate_fp = snapshot_fingerprint(&src_snap);
+
+    // 命中历史上出现过的版本 → 这是回滚，不是新编辑，绝不扩散
+    if let Ok(history) = store.get_baseline_history(&skill.id, 5) {
+        if history.iter().any(|known| known == &candidate_fp) {
+            log::warn!(
+                "[peer_sync] {} 的 {} 回到了历史版本，判为回滚，不扩散",
+                skill.name,
+                from_label
+            );
+            return Ok(ReconcileOutcome::Rollback { from: from_label });
+        }
+    }
+
+    // 二次确认：同一个指纹要连续两轮都看到才动手，避免扩散写了一半的内容
+    if require_stable {
+        let mut slots = pending_slots()
+            .lock()
+            .map_err(|_| anyhow::anyhow!("pending lock poisoned"))?;
+        match slots.get(&skill.id) {
+            Some(previous) if previous == &candidate_fp => {
+                slots.remove(&skill.id);
+            }
+            _ => {
+                slots.insert(skill.id.clone(), candidate_fp.clone());
+                log::info!(
+                    "[peer_sync] {} 待确认（{} 偏离，等下一轮复核）",
+                    skill.name,
+                    from_label
+                );
+                return Ok(ReconcileOutcome::NoChange);
+            }
+        }
+    }
+    // 旧基线先进历史，供下一轮识别「回滚」
+    let old_fp = snapshot_fingerprint(&baseline);
+    let _ = store.push_baseline_history(&skill.id, &old_fp, 5);
+
     let entries: Vec<(String, String, i64)> = src_snap
         .iter()
         .map(|(rel, (hash, size))| (rel.clone(), hash.clone(), *size))
         .collect();
     store.replace_skill_baseline(&skill.id, &entries)?;
+    let _ = store.push_baseline_history(&skill.id, &candidate_fp, 5);
 
     let mut updated = Vec::new();
     for (label, path, snap) in &peers {
@@ -254,7 +373,7 @@ pub fn reconcile_all(store: &SkillStore) -> Result<(usize, usize, usize)> {
     let skills = store.list_skills()?;
     let (mut adopted, mut conflicts, mut unchanged) = (0usize, 0usize, 0usize);
     for skill in &skills {
-        match reconcile_skill(store, skill) {
+        match reconcile_skill(store, skill, true) {
             Ok(ReconcileOutcome::Adopted { from, updated }) => {
                 adopted += 1;
                 log::info!(
@@ -274,6 +393,18 @@ pub fn reconcile_all(store: &SkillStore) -> Result<(usize, usize, usize)> {
             }
             Ok(ReconcileOutcome::Initialized { from }) => {
                 log::info!("[peer_sync] {} 建立基线，来源 {}", skill.name, from);
+            }
+            Ok(ReconcileOutcome::Rollback { from }) => {
+                conflicts += 1;
+                log::warn!(
+                    "[peer_sync] {} 的 {} 退回历史版本，已跳过（如确需生效请手动处理）",
+                    skill.name,
+                    from
+                );
+            }
+            Ok(ReconcileOutcome::TooManyFiles { count }) => {
+                log::warn!("[peer_sync] {} 文件过多（{count}），跳过", skill.name);
+                unchanged += 1;
             }
             Ok(ReconcileOutcome::NoChange) => unchanged += 1,
             Err(err) => log::warn!("[peer_sync] {} 处理失败: {err:#}", skill.name),
@@ -368,7 +499,7 @@ fn snapshot_with_time(root: &Path) -> (String, u64) {
             .strip_prefix(root)
             .map(|p| p.to_string_lossy().replace('\\', "/"))
             .unwrap_or_default();
-        if rel.starts_with(".git/") || rel.contains("__pycache__") {
+        if is_ignored_rel(&rel) {
             continue;
         }
         entries.push((rel, entry.path().to_path_buf()));

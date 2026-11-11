@@ -87,7 +87,7 @@ fn identical_drift_propagates_and_does_not_revert_on_second_round() {
     let skill = store.get_skill_by_id("demo").unwrap().unwrap();
 
     // 第一轮：建立基线（三份一致，没有改动）
-    let first = reconcile_skill(&store, &skill).unwrap();
+    let first = reconcile_skill(&store, &skill, false).unwrap();
     assert!(
         matches!(first, ReconcileOutcome::Initialized { .. }),
         "第一轮应该是建立基线，实际是 {first:?}"
@@ -97,7 +97,7 @@ fn identical_drift_propagates_and_does_not_revert_on_second_round() {
     write_skill(&a, "version two\n");
     write_skill(&b, "version two\n");
 
-    let second = reconcile_skill(&store, &skill).unwrap();
+    let second = reconcile_skill(&store, &skill, false).unwrap();
     assert!(
         matches!(second, ReconcileOutcome::Adopted { .. }),
         "两份内容相同的偏离应该被采纳，实际是 {second:?}"
@@ -109,7 +109,7 @@ fn identical_drift_propagates_and_does_not_revert_on_second_round() {
     );
 
     // 第二轮：所有副本都已经是 version two，不应该再有任何动作
-    let third = reconcile_skill(&store, &skill).unwrap();
+    let third = reconcile_skill(&store, &skill, false).unwrap();
     assert!(
         matches!(third, ReconcileOutcome::NoChange),
         "第二轮应该是无变化，实际是 {third:?}"
@@ -137,13 +137,13 @@ fn three_different_versions_do_not_overwrite_anything() {
     seed_target(&store, "demo", "tool_b", &b);
     seed_target(&store, "demo", "tool_c", &c);
     let skill = store.get_skill_by_id("demo").unwrap().unwrap();
-    let _ = reconcile_skill(&store, &skill).unwrap();
+    let _ = reconcile_skill(&store, &skill, false).unwrap();
 
     write_skill(&a, "from a\n");
     write_skill(&b, "from b\n");
     write_skill(&c, "from c\n");
 
-    let outcome = reconcile_skill(&store, &skill).unwrap();
+    let outcome = reconcile_skill(&store, &skill, false).unwrap();
     assert!(
         matches!(outcome, ReconcileOutcome::Conflict { .. }),
         "三份各不相同应判冲突，实际是 {outcome:?}"
@@ -151,4 +151,62 @@ fn three_different_versions_do_not_overwrite_anything() {
     assert_eq!(read_body(&a), "from a\n");
     assert_eq!(read_body(&b), "from b\n");
     assert_eq!(read_body(&c), "from c\n");
+}
+
+/// 副本被换回历史版本：判为回滚，不扩散。
+#[test]
+fn reverting_to_a_known_version_is_treated_as_rollback() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let store = make_store(root);
+
+    let a = root.join("a");
+    let b = root.join("b");
+    write_skill(&a, "version one\n");
+    write_skill(&b, "version one\n");
+    seed_skill(&store, "demo", &a);
+    seed_target(&store, "demo", "tool_a", &a);
+    seed_target(&store, "demo", "tool_b", &b);
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+
+    // 建基线 → 改成 v2 并被采纳
+    let _ = reconcile_skill(&store, &skill, false).unwrap();
+    write_skill(&a, "version two\n");
+    let adopted = reconcile_skill(&store, &skill, false).unwrap();
+    assert!(
+        matches!(adopted, ReconcileOutcome::Adopted { .. }),
+        "v2 应被采纳"
+    );
+
+    // 把 a 换回 v1（历史里出现过）→ 回滚，不该推给 b
+    write_skill(&a, "version one\n");
+    let outcome = reconcile_skill(&store, &skill, false).unwrap();
+    assert!(
+        matches!(outcome, ReconcileOutcome::Rollback { .. }),
+        "换回历史版本应判回滚，实际是 {outcome:?}"
+    );
+    assert_eq!(read_body(&b), "version two\n", "回滚不应扩散到其它副本");
+}
+
+/// 文件数超上限：直接跳过，不比对也不写盘。
+#[test]
+fn too_many_files_is_skipped() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let store = make_store(root);
+
+    let a = root.join("a");
+    fs::create_dir_all(&a).unwrap();
+    for index in 0..(crate::core::peer_sync::MAX_FILES_PER_SKILL + 5) {
+        fs::write(a.join(format!("f{index}.txt")), "x").unwrap();
+    }
+    seed_skill(&store, "demo", &a);
+    seed_target(&store, "demo", "tool_a", &a);
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+
+    let outcome = reconcile_skill(&store, &skill, false).unwrap();
+    assert!(
+        matches!(outcome, ReconcileOutcome::TooManyFiles { .. }),
+        "超过文件上限应跳过，实际是 {outcome:?}"
+    );
 }

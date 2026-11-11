@@ -34,7 +34,7 @@ pub async fn reconcile_skill_now(
         let skill = store
             .get_skill_by_id(&skill_id)?
             .ok_or_else(|| anyhow::anyhow!("SKILL_NOT_FOUND|{skill_id}"))?;
-        reconcile_skill(&store, &skill)
+        reconcile_skill(&store, &skill, false)
     })
     .await
     .map_err(|e| e.to_string())?
