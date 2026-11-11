@@ -134,7 +134,12 @@ fn classify_copy_target(source: &Path, target: &Path) -> Option<StaleVerdict> {
     let (source_mtime, _) = scan_dir_latest_mtime(source);
     let (target_mtime, _) = scan_dir_latest_mtime(target);
 
-    // 内容确实不同，再判断方向：副本更新 → 手改，绝不自动覆盖。
+    // 内容不同、时间也分不清先后：保守起见按冲突处理，不自动动。
+    if source_mtime.abs_diff(target_mtime) <= MTIME_TOLERANCE_MS {
+        return Some(StaleVerdict::Conflict);
+    }
+
+    // 内容不同且副本更新 → 手改，绝不自动覆盖。
     if target_mtime > source_mtime + MTIME_TOLERANCE_MS {
         return Some(StaleVerdict::HandEdited);
     }
