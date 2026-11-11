@@ -170,6 +170,10 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        // 只允许一个实例：多开会让两个进程同时改技能目录和数据库
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let _ = show_or_create_main_window(app);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
