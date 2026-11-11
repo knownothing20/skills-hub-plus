@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import PeerStatusBanner from './PeerStatusBanner'
 import {
   ArrowLeft,
   ChevronDown,
@@ -705,6 +706,7 @@ const SkillDetailView = ({
           {skill.description ? (
             <p className="detail-desc">{skill.description}</p>
           ) : null}
+          <PeerStatusBanner skillId={skill.id} />
         </div>
         <div className="detail-metadata-rail">
           <div className="detail-context-row">
