@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { RefreshCw } from 'lucide-react'
 import './App.css'
 import './figma.css'
 import { useTranslation } from 'react-i18next'
@@ -1279,6 +1280,7 @@ function App() {
               </article>
             </section>
             {libraryHealth ? (
+              <div className="library-health-row">
               <button
                 type="button"
                 className={`library-health-bar${libraryHealth.summary.broken_targets > 0 ? ' has-broken' : ''}`}
@@ -1359,6 +1361,16 @@ function App() {
                   {t('health.idle', { count: libraryHealth.summary.idle_skills })}
                 </span>
               </button>
+              <button
+                type="button"
+                className="filter-refresh-btn"
+                onClick={() => void refreshAll()}
+                title="刷新列表和状态（F5）"
+                aria-label="刷新"
+              >
+                <RefreshCw size={13} />
+              </button>
+              </div>
             ) : null}
             <FilterBar
               onRefresh={refreshAll}

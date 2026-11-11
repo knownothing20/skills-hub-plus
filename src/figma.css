@@ -2316,3 +2316,13 @@
   color: var(--text-primary);
   border-color: var(--border-strong, #c8c8c4);
 }
+
+/* 健康栏 + 刷新按钮同排 */
+.library-health-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.library-health-row .library-health-bar {
+  flex: 0 1 auto;
+}
