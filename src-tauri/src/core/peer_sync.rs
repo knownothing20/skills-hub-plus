@@ -430,3 +430,7 @@ pub fn adopt_from(store: &SkillStore, skill: &SkillRecord, source_path: &Path) -
     }
     Ok(updated)
 }
+
+#[cfg(test)]
+#[path = "tests/peer_sync.rs"]
+mod tests;
