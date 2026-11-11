@@ -277,41 +277,6 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
-            let backup_item = MenuItem::with_id(
-                app,
-                "open_backup",
-                "📂 打开自动备份目录 (D:\\GitHub\\skill-hub\\backup)",
-                true,
-                None::<&str>,
-            )?;
-            let antigravity_item = MenuItem::with_id(
-                app,
-                "open_antigravity",
-                "📂 打开 Antigravity 技能目录",
-                true,
-                None::<&str>,
-            )?;
-            let cursor_item = MenuItem::with_id(
-                app,
-                "open_cursor",
-                "📂 打开 Cursor 技能目录",
-                true,
-                None::<&str>,
-            )?;
-            let claude_item = MenuItem::with_id(
-                app,
-                "open_claude",
-                "📂 打开 Claude 技能目录",
-                true,
-                None::<&str>,
-            )?;
-            let repo_item = MenuItem::with_id(
-                app,
-                "open_repo_folder",
-                "📂 打开项目源码目录 (D:\\GitHub\\skill-hub)",
-                true,
-                None::<&str>,
-            )?;
             let sep2 = PredefinedMenuItem::separator(app)?;
             let sync_item = MenuItem::with_id(
                 app,
@@ -329,11 +294,6 @@ pub fn run() {
                     &show_item,
                     &sep1,
                     &central_item,
-                    &backup_item,
-                    &antigravity_item,
-                    &cursor_item,
-                    &claude_item,
-                    &repo_item,
                     &sep2,
                     &sync_item,
                     &sep3,
@@ -354,29 +314,6 @@ pub fn run() {
                         "open_central" => {
                             let central_skills_path = core::central_repo::app_install_skills_dir();
                             open_folder_in_explorer(&central_skills_path);
-                        }
-                        "open_backup" => {
-                            let store = app_handle.state::<SkillStore>().inner().clone();
-                            let config = core::backup::get_backup_config(&store);
-                            open_folder_in_explorer(std::path::Path::new(&config.backup_dir));
-                        }
-                        "open_antigravity" => {
-                            if let Some(home) = dirs::home_dir() {
-                                open_folder_in_explorer(&home.join(".gemini/config/skills"));
-                            }
-                        }
-                        "open_cursor" => {
-                            if let Some(home) = dirs::home_dir() {
-                                open_folder_in_explorer(&home.join(".cursor/skills"));
-                            }
-                        }
-                        "open_claude" => {
-                            if let Some(home) = dirs::home_dir() {
-                                open_folder_in_explorer(&home.join(".claude/skills"));
-                            }
-                        }
-                        "open_repo_folder" => {
-                            open_folder_in_explorer(std::path::Path::new("d:\\GitHub\\skill-hub"));
                         }
                         "sync_now" => {
                             let handle = app_handle.clone();
