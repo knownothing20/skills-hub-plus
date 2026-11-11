@@ -388,7 +388,16 @@ pub fn run() {
             {
                 let handle = app.handle().clone();
                 let store = app.state::<SkillStore>().inner().clone();
-                std::thread::spawn(move || loop {
+                std::thread::spawn(move || {
+                    // 启动后先跑一次：为还没有基线的技能建立基线，顺便处理积压的改动
+                    match core::peer_sync::reconcile_all(&store) {
+                        Ok((adopted, conflicts, unchanged)) => log::info!(
+                            "startup peer sync: 采纳 {adopted} 个，冲突 {conflicts} 个，无变化 {unchanged} 个"
+                        ),
+                        Err(err) => log::warn!("startup peer sync failed: {err:#}"),
+                    }
+                    let _ = handle.emit("skills-updated", ());
+                    loop {
                     std::thread::sleep(std::time::Duration::from_secs(COPY_SYNC_INTERVAL_SECS));
                     match core::peer_sync::reconcile_all(&store) {
                         Ok((adopted, conflicts, unchanged)) => {
@@ -402,6 +411,7 @@ pub fn run() {
                     }
                     // 副本更新后让界面重新拉一次数据
                     let _ = handle.emit("skills-updated", ());
+                    }
                 });
             }
 

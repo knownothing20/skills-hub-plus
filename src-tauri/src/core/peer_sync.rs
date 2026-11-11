@@ -123,7 +123,14 @@ fn label_for(target: &crate::core::skill_store::SkillTargetRecord) -> String {
 
 /// 列出每个副本相对基线的位置（只读）
 pub fn scan_peers(store: &SkillStore, skill: &SkillRecord) -> Result<Vec<PeerStanding>> {
-    let baseline = baseline_map(store, &skill.id);
+    let mut baseline = baseline_map(store, &skill.id);
+    // 还没有基线（刚升级或新技能）：先用来源目录的快照当参照，
+    // 否则所有副本都会被判成「一致」，看不出谁偏离。
+    if baseline.is_empty() {
+        if let Some(raw) = skill.source_ref.as_deref() {
+            baseline = snapshot(Path::new(raw));
+        }
+    }
     let mut out = Vec::new();
     for target in store.list_skill_targets(&skill.id)? {
         let path = PathBuf::from(&target.target_path);
