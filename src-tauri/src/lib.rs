@@ -10,7 +10,7 @@ use core::skill_store::{default_db_path, SkillStore};
 use core::tool_adapters::{default_tool_adapters, load_tool_config, save_tool_config, ToolConfig};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_log::{Target, TargetKind};
 
 /// 最后一次「有人在用界面」的毫秒时间戳。前端节流上报，窗口显示/隐藏时也会刷新。
@@ -19,8 +19,10 @@ static LAST_ACTIVITY_MS: AtomicU64 = AtomicU64::new(0);
 const IDLE_DESTROY_MS: u64 = 30 * 60 * 1000;
 /// 用户是否明确要求退出。只有它为 true 时才允许进程结束。
 static EXITING: AtomicBool = AtomicBool::new(false);
-/// 后台巡查间隔：一小时。
+/// 后台巡查间隔：一小时（检查外部源有没有新版本）。
 const SCAN_INTERVAL_SECS: u64 = 60 * 60;
+/// 副本同步间隔：原件改动后最多这么久就会推送到各工具。
+const COPY_SYNC_INTERVAL_SECS: u64 = 5 * 60;
 
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
@@ -320,6 +322,14 @@ pub fn run() {
                             let store = app_handle.state::<SkillStore>().inner().clone();
                             tauri::async_runtime::spawn(async move {
                                 log::info!("manual sync triggered from system tray");
+                                // 先把落后副本刷新成原件内容，再检查外部有没有新版本
+                                let central_root = core::central_repo::app_install_skills_dir();
+                                match core::stale_copies::startup_stale_refresh(&store, &central_root) {
+                                    Ok((refreshed, remaining)) => log::info!(
+                                        "manual copy refresh: refreshed={refreshed} remaining={remaining}"
+                                    ),
+                                    Err(err) => log::warn!("manual copy refresh failed: {err:#}"),
+                                }
                                 let _ = core::auto_update::run_auto_update_now(&handle, &store);
                             });
                         }
@@ -375,6 +385,28 @@ pub fn run() {
                 }
             }
             touch_activity_now();
+
+            // 每 5 分钟把原件的新内容推给落后副本（各工具、各账户）
+            {
+                let handle = app.handle().clone();
+                let store = app.state::<SkillStore>().inner().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(std::time::Duration::from_secs(COPY_SYNC_INTERVAL_SECS));
+                    let central_root = core::central_repo::app_install_skills_dir();
+                    match core::stale_copies::startup_stale_refresh(&store, &central_root) {
+                        Ok((refreshed, remaining)) => {
+                            if refreshed > 0 || remaining > 0 {
+                                log::info!(
+                                    "periodic copy refresh: refreshed={refreshed} remaining={remaining}"
+                                );
+                            }
+                        }
+                        Err(err) => log::warn!("periodic copy refresh failed: {err:#}"),
+                    }
+                    // 副本更新后让界面重新拉一次数据
+                    let _ = handle.emit("skills-updated", ());
+                });
+            }
 
             // 每小时静默巡查一次：比对各目标、需要时刷新副本
             {

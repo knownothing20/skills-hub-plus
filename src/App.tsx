@@ -23,6 +23,7 @@ import ExplorePage from './components/skills/ExplorePage'
 import FilterBar from './components/skills/FilterBar'
 import SkillDetailView from './components/skills/SkillDetailView'
 import { openPath } from '@tauri-apps/plugin-opener'
+import { listen } from '@tauri-apps/api/event'
 import CentralLibraryView from './components/skills/CentralLibraryView'
 import TitleBar from './components/skills/TitleBar'
 import Sidebar from './components/skills/Sidebar'
@@ -170,6 +171,21 @@ function App() {
       setError(err instanceof Error ? err.message : String(err))
     }
   }, [invokeTauri])
+
+  // 后台同步完副本后会让界面重新拉一次数据
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    listen('skills-updated', () => {
+      void loadManagedSkills()
+    })
+      .then((fn) => {
+        unlisten = fn
+      })
+      .catch(() => {})
+    return () => {
+      unlisten?.()
+    }
+  }, [loadManagedSkills])
 
   // 有操作时告诉后端「人还在」，用于界面隐藏后的闲置回收计时（30 秒最多上报一次）
   useEffect(() => {
