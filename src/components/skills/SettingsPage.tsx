@@ -39,14 +39,12 @@ type SettingsPageProps = {
   storagePath: string
   gitCacheTtlSecs: number
   themePreference: 'system' | 'light' | 'dark'
-  defaultSyncMode: 'junction' | 'copy'
   autoRefreshStaleCopies: boolean
   githubProxyConfig: GithubProxyConfigDto
   discoveryScanEnabledCount: number
   discoveryScanSourceCount: number
   onToggleLanguage: () => void
   onThemeChange: (nextTheme: 'system' | 'light' | 'dark') => void
-  onDefaultSyncModeChange: (nextMode: 'junction' | 'copy') => void
   onAutoRefreshStaleCopiesChange: (next: boolean) => void
   onGitCacheTtlSecsChange: (nextSecs: number) => void
   onClearGitCacheNow: () => void
@@ -62,11 +60,9 @@ const SettingsPage = ({
   storagePath,
   gitCacheTtlSecs,
   themePreference,
-  defaultSyncMode,
   autoRefreshStaleCopies,
   onToggleLanguage,
   onThemeChange,
-  onDefaultSyncModeChange,
   onAutoRefreshStaleCopiesChange,
   onGitCacheTtlSecsChange,
   onClearGitCacheNow,
@@ -412,12 +408,8 @@ const SettingsPage = ({
               <strong>{t(`themeOptions.${themePreference}`)}</strong>
             </div>
             <div className="settings-summary-item">
-              <span>{t('defaultSyncMode')}</span>
-              <strong>
-                {defaultSyncMode === 'junction'
-                  ? t('syncModeJunction')
-                  : t('syncModeCopy')}
-              </strong>
+              <span>{t('syncModeLabel')}</span>
+              <strong>{t('syncModeCopy')}</strong>
             </div>
             <div className="settings-summary-item">
               <span>{t('appVersion')}</span>
@@ -744,32 +736,9 @@ const SettingsPage = ({
                   <label className="settings-label" id="settings-sync-mode-label">
                     {t('defaultSyncMode')}
                   </label>
-                  <div className="settings-theme-options" role="group" aria-labelledby="settings-sync-mode-label">
-                    <button
-                      type="button"
-                      className={`settings-theme-btn ${
-                        defaultSyncMode === 'junction' ? 'active' : ''
-                      }`}
-                      aria-pressed={defaultSyncMode === 'junction'}
-                      onClick={() => onDefaultSyncModeChange('junction')}
-                    >
-                      🔗 {t('syncModeJunction')}
-                    </button>
-                    <button
-                      type="button"
-                      className={`settings-theme-btn ${
-                        defaultSyncMode === 'copy' ? 'active' : ''
-                      }`}
-                      aria-pressed={defaultSyncMode === 'copy'}
-                      onClick={() => onDefaultSyncModeChange('copy')}
-                    >
-                      📦 {t('syncModeCopy')}
-                    </button>
-                  </div>
-                  <div className="settings-helper" style={{ marginTop: '8px' }}>
-                    {defaultSyncMode === 'junction'
-                      ? t('syncModeJunctionDesc')
-                      : t('syncModeCopyDesc')}
+                  {/* 软链接已停用：各工具一律使用独立的实体副本，避免链接被实体化时连带清空原件 */}
+                  <div className="settings-helper">
+                    📦 {t('syncModeCopy')} —— {t('syncModeCopyDesc')}
                   </div>
                 </div>
               </div>

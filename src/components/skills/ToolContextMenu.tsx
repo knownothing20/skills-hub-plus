@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Box, Crown, Link2, Trash2, FolderOpen } from 'lucide-react'
+import { Box, Crown, Trash2, FolderOpen } from 'lucide-react'
 import ToolIcon from './ToolIcon'
 import type { ManagedSkill, ToolOption } from './types'
 
@@ -38,7 +38,6 @@ export default function ToolContextMenu({
 }: ToolContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const { tool, skill, synced, isCopy, isOwner, instance, targetPath, x, y } = state
-  const linkSupported = tool.supports_junction !== false
 
   useEffect(() => {
     const handlePointerDown = (e: MouseEvent) => {
@@ -126,27 +125,6 @@ export default function ToolContextMenu({
           <button
             type="button"
             className="tool-context-item"
-            disabled={!linkSupported}
-            title={linkSupported ? undefined : '该软件只支持实体副本'}
-            onClick={() => {
-              if (!linkSupported) return
-              onClose()
-              onSyncWithMode(skill, tool.id, 'junction')
-            }}
-          >
-            <Link2 size={14} className="icon-junction" />
-            <div className="item-text">
-              <span>同步为 软链接 (Junction)</span>
-              <small>
-                {linkSupported
-                  ? '轻量快捷，随母版实时更新'
-                  : '该软件的技能索引不跟随链接，只能复制'}
-              </small>
-            </div>
-          </button>
-          <button
-            type="button"
-            className="tool-context-item"
             onClick={() => {
               onClose()
               onSyncWithMode(skill, tool.id, 'copy')
@@ -197,20 +175,6 @@ export default function ToolContextMenu({
       {/* 已同步为实体副本：提供转为软链接、取消同步 */}
       {synced && isCopy && !isOwner && (
         <>
-          <button
-            type="button"
-            className="tool-context-item"
-            onClick={() => {
-              onClose()
-              onSyncWithMode(skill, tool.id, 'junction')
-            }}
-          >
-            <Link2 size={14} className="icon-junction" />
-            <div className="item-text">
-              <span>切换为 软链接 (Junction)</span>
-              <small>转为指向中心母版的快捷软链</small>
-            </div>
-          </button>
           <button
             type="button"
             className="tool-context-item danger"

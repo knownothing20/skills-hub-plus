@@ -369,17 +369,12 @@ pub fn save_tool_sync_mode(
     Ok(modes)
 }
 
-/// Link flavour that works on the current platform. Windows directory
-/// junctions need no special privilege, so they are the safer default there.
+/// 软链接已停用：界面上的同步方式固定为实体副本。
+///
+/// 这个函数保留下来只为兼容 onboarding 里旧的 "link" 策略——它现在一律返回
+/// Copy，因为 junction 被第三方工具实体化时会连带清空原件（2026-11-10 事故）。
 pub fn platform_link_mode() -> SyncMode {
-    #[cfg(windows)]
-    {
-        SyncMode::Junction
-    }
-    #[cfg(not(windows))]
-    {
-        SyncMode::Symlink
-    }
+    SyncMode::Copy
 }
 
 pub fn resolve_tool_sync_mode(

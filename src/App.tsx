@@ -88,7 +88,6 @@ function App() {
     themePreference,
     setThemePreference,
     defaultSyncMode,
-    handleDefaultSyncModeChange,
     skillViewMode,
     setSkillViewMode,
     sidebarCollapsed,
@@ -1536,11 +1535,9 @@ function App() {
             storagePath={storagePath}
             gitCacheTtlSecs={gitCacheTtlSecs}
             themePreference={themePreference}
-            defaultSyncMode={defaultSyncMode}
             autoRefreshStaleCopies={autoRefreshEnabled}
             onToggleLanguage={toggleLanguage}
             onThemeChange={handleThemeChange}
-            onDefaultSyncModeChange={handleDefaultSyncModeChange}
             onAutoRefreshStaleCopiesChange={handleAutoRefreshStaleChange}
             onGitCacheTtlSecsChange={handleGitCacheTtlSecsChange}
             onClearGitCacheNow={handleClearGitCacheNow}
@@ -1669,7 +1666,6 @@ function App() {
           plan={plan}
           selected={selected}
           variantChoice={variantChoice}
-          defaultSyncMode={defaultSyncMode}
           onRequestClose={handleCloseImport}
           onToggleGroup={handleToggleGroup}
           onSelectVariant={handleSelectVariant}

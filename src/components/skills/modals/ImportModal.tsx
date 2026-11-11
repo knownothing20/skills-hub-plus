@@ -1,5 +1,5 @@
-import { memo, useEffect, useMemo, useState } from 'react'
-import { Download, Search, Link2, Box, ShieldOff } from 'lucide-react'
+import { memo, useMemo, useState } from 'react'
+import { Download, Search, Box, ShieldOff } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import type { OnboardingPlan } from '../types'
 
@@ -9,7 +9,6 @@ type ImportModalProps = {
   plan: OnboardingPlan
   selected: Record<string, boolean>
   variantChoice: Record<string, string>
-  defaultSyncMode?: 'junction' | 'copy'
   onRequestClose: () => void
   onToggleGroup: (groupName: string, checked: boolean) => void
   onSelectVariant: (groupName: string, path: string) => void
@@ -24,7 +23,6 @@ const ImportModal = ({
   plan,
   selected,
   variantChoice,
-  defaultSyncMode = 'copy',
   onRequestClose,
   onToggleGroup,
   onSelectVariant,
@@ -32,14 +30,6 @@ const ImportModal = ({
   onImport,
   t,
 }: ImportModalProps) => {
-  const [importSyncMode, setImportSyncMode] = useState<'junction' | 'copy'>(defaultSyncMode)
-
-  useEffect(() => {
-    if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setImportSyncMode(defaultSyncMode)
-    }
-  }, [open, defaultSyncMode])
   const [query, setQuery] = useState('')
   const normalizedQuery = query.trim().toLowerCase()
   const filteredGroups = useMemo(() => {
@@ -223,30 +213,17 @@ const ImportModal = ({
           <div className="sync-mode-selector">
             <span className="sync-mode-label">{t('syncModeLabel')}:</span>
             <div className="sync-mode-toggle-group">
-              <button
-                type="button"
-                className={`sync-mode-toggle-btn ${importSyncMode === 'junction' ? 'active' : ''}`}
-                onClick={() => setImportSyncMode('junction')}
-                title={t('syncModeJunctionDesc')}
-              >
-                <Link2 size={13} />
-                <span>{t('syncModeJunction')}</span>
-              </button>
-              <button
-                type="button"
-                className={`sync-mode-toggle-btn ${importSyncMode === 'copy' ? 'active' : ''}`}
-                onClick={() => setImportSyncMode('copy')}
-                title={t('syncModeCopyDesc')}
-              >
+              {/* 软链接已停用：导入一律创建实体副本 */}
+              <span className="sync-mode-toggle-btn active" title={t('syncModeCopyDesc')}>
                 <Box size={13} />
                 <span>{t('syncModeCopy')}</span>
-              </button>
+              </span>
             </div>
           </div>
           <div className="import-modal-actions">
             <button
               className="btn btn-primary"
-              onClick={() => onImport(importSyncMode)}
+              onClick={() => onImport('copy')}
               disabled={loading || selectedCount === 0}
             >
               <Download size={14} />
