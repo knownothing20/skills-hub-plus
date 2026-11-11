@@ -2268,3 +2268,32 @@
 }
 
 
+
+/* 版本字母：多版本时标在图标左下角，A（最新）红色、其余灰色。
+   它和「!」互斥——字母本身就说清了这一份是哪一版。 */
+.skill-tool-avatars .version-badge {
+  position: absolute;
+  bottom: -5px;
+  left: -5px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 2px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  font-family: var(--font-ui);
+  border: 1.5px solid var(--bg-panel, #fff);
+  z-index: 3;
+  pointer-events: none;
+}
+.skill-tool-avatars .version-badge.is-latest {
+  background: #e24b4a;
+  color: #fff;
+}
+.skill-tool-avatars .version-badge.is-older {
+  background: #9ca3af;
+  color: #fff;
+}

@@ -52,3 +52,29 @@ pub async fn reconcile_all_now(
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
 }
+
+/// 所有技能的版本字母表：skill_id -> { "tool#instance" -> "A" }
+///
+/// 前端在列表加载后异步取一次，用来在图标左下角标版本；
+/// 只有一个版本的技能不会出现在结果里。
+#[tauri::command]
+pub async fn get_peer_version_map(
+    store: State<'_, SkillStore>,
+) -> Result<std::collections::HashMap<String, std::collections::HashMap<String, String>>, String> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<_> {
+        let skills = store.list_skills()?;
+        let mut out = std::collections::HashMap::new();
+        for skill in &skills {
+            if let Ok(labels) = crate::core::peer_sync::version_labels(&store, skill) {
+                if !labels.is_empty() {
+                    out.insert(skill.id.clone(), labels);
+                }
+            }
+        }
+        Ok(out)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}

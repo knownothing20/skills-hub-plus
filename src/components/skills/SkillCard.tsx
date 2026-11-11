@@ -45,6 +45,8 @@ type SkillCardProps = {
   getSkillScope: (skill: ManagedSkill) => 'global' | 'project'
   getSkillProjects: (skill: ManagedSkill) => string[]
   staleBySkillTool?: Map<string, StaleCopyStatusDto>
+  /** 这个技能里各副本的版本字母；只有一个版本时为空 */
+  versionLabels?: Record<string, string>
   onRefreshStale?: (skillId: string, toolId: string) => Promise<void>
   sharedDirs?: SharedSkillDirDto[]
   /** 每个工具实际有几个账号目录（仅统计存在的） */
@@ -79,6 +81,7 @@ const SkillCard = ({
   getSkillScope,
   getSkillProjects,
   staleBySkillTool,
+  versionLabels,
   onRefreshStale,
   sharedDirs,
   toolInstanceTotals,
@@ -450,11 +453,31 @@ const SkillCard = ({
                     label={tool.label}
                     avatar={tool.avatar}
                   />
-                  {staleInfo ? (
-                    <span className="stale-badge" aria-hidden="true">
-                      !
-                    </span>
-                  ) : null}
+                  {(() => {
+                    const key = target
+                      ? target.instance
+                        ? `${tool.id}#${target.instance}`
+                        : tool.id
+                      : tool.id
+                    const label = versionLabels?.[key]
+                    if (label) {
+                      const isLatest = label === 'A'
+                      return (
+                        <span
+                          className={`version-badge${isLatest ? ' is-latest' : ' is-older'}`}
+                          aria-label={`版本 ${label}`}
+                          title={`这一份是版本 ${label}${isLatest ? '（最新）' : ''}`}
+                        >
+                          {label}
+                        </span>
+                      )
+                    }
+                    return staleInfo ? (
+                      <span className="stale-badge" aria-hidden="true">
+                        !
+                      </span>
+                    ) : null
+                  })()}
                   {showInstanceBadge ? (
                     <span
                       className={`instance-badge${

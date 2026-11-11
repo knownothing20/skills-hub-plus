@@ -281,3 +281,116 @@ pub fn reconcile_all(store: &SkillStore) -> Result<(usize, usize, usize)> {
     }
     Ok((adopted, conflicts, unchanged))
 }
+
+/// 版本字母：把同一技能的副本按内容分组，按「组内最新修改时间」降序编号。
+/// A 永远是最近被编辑的那一版；只有一个版本时不标字母。
+pub fn version_labels(
+    store: &SkillStore,
+    skill: &SkillRecord,
+) -> Result<std::collections::HashMap<String, String>> {
+    let targets = store.list_skill_targets(&skill.id)?;
+
+    // 先算出每个副本的快照与最新时间
+    struct Peer {
+        key: String,
+        fingerprint: String,
+        newest: u64,
+    }
+    let mut peers: Vec<Peer> = Vec::new();
+    for target in &targets {
+        let path = PathBuf::from(&target.target_path);
+        if !path.is_dir() {
+            continue;
+        }
+        let (fingerprint, newest) = snapshot_with_time(&path);
+        if fingerprint.is_empty() {
+            continue;
+        }
+        peers.push(Peer {
+            key: target_key(&target.tool, &target.instance),
+            fingerprint,
+            newest,
+        });
+    }
+
+    let mut by_fp: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+    for peer in &peers {
+        let entry = by_fp.entry(peer.fingerprint.clone()).or_insert(0);
+        if peer.newest > *entry {
+            *entry = peer.newest;
+        }
+    }
+    // 只有一个版本：不标
+    if by_fp.len() <= 1 {
+        return Ok(std::collections::HashMap::new());
+    }
+
+    let mut ordered: Vec<(String, u64)> = by_fp.into_iter().collect();
+    ordered.sort_by(|a, b| b.1.cmp(&a.1));
+    let mut label_of: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for (index, (fp, _)) in ordered.iter().enumerate() {
+        let letter = char::from(b'A' + (index as u8 % 26)).to_string();
+        label_of.insert(fp.clone(), letter);
+    }
+
+    let mut out = std::collections::HashMap::new();
+    for peer in peers {
+        if let Some(letter) = label_of.get(&peer.fingerprint) {
+            out.insert(peer.key, letter.clone());
+        }
+    }
+    Ok(out)
+}
+
+fn target_key(tool: &str, instance: &str) -> String {
+    if instance.is_empty() {
+        tool.to_string()
+    } else {
+        format!("{tool}#{instance}")
+    }
+}
+
+/// 目录指纹（不含逐文件明细）与最新文件时间
+fn snapshot_with_time(root: &Path) -> (String, u64) {
+    let mut hasher = Sha256::new();
+    let mut newest = 0u64;
+    let mut found = false;
+    let mut entries: Vec<(String, PathBuf)> = Vec::new();
+    for entry in walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let rel = entry
+            .path()
+            .strip_prefix(root)
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        if rel.starts_with(".git/") || rel.contains("__pycache__") {
+            continue;
+        }
+        entries.push((rel, entry.path().to_path_buf()));
+    }
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    for (rel, path) in entries {
+        let Ok(bytes) = std::fs::read(&path) else {
+            continue;
+        };
+        hasher.update(rel.as_bytes());
+        hasher.update(&bytes);
+        if let Ok(meta) = std::fs::metadata(&path) {
+            if let Ok(modified) = meta.modified() {
+                if let Ok(dur) = modified.duration_since(std::time::UNIX_EPOCH) {
+                    newest = newest.max(dur.as_millis() as u64);
+                }
+            }
+        }
+        found = true;
+    }
+    if !found {
+        return (String::new(), 0);
+    }
+    (format!("{:x}", hasher.finalize()), newest)
+}

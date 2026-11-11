@@ -17,6 +17,8 @@ type GithubInfo = {
 }
 
 type SkillsListProps = {
+  /** skill_id -> { "tool#instance" -> "A" }，只有多版本时才有条目 */
+  peerVersionLabels?: Record<string, Record<string, string>>
   plan: OnboardingPlan | null
   visibleSkills: ManagedSkill[]
   installedTools: ToolOption[]
@@ -84,6 +86,7 @@ const SkillsList = ({
   sharedDirs,
   toolInstanceTotals,
   staleBySkillTool,
+  peerVersionLabels,
   onRefreshStale,
   t,
 }: SkillsListProps) => {
@@ -152,6 +155,7 @@ const SkillsList = ({
               sharedDirs={sharedDirs}
               toolInstanceTotals={toolInstanceTotals}
               staleBySkillTool={staleBySkillTool}
+              versionLabels={peerVersionLabels?.[skill.id]}
               onRefreshStale={onRefreshStale}
               loading={loading}
               bulkMode={bulkMode}

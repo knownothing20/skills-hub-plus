@@ -447,6 +447,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             touch_activity,
             commands::get_peer_standings,
+            commands::get_peer_version_map,
             commands::reconcile_skill_now,
             commands::reconcile_all_now,
             commands::list_central_library,

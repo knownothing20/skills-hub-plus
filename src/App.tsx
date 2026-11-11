@@ -185,6 +185,22 @@ function App() {
     }
   }, [loadManagedSkills])
 
+  // 各副本的版本字母：列表渲染完再异步算，不阻塞首屏
+  const [peerVersionLabels, setPeerVersionLabels] = useState<
+    Record<string, Record<string, string>>
+  >({})
+  useEffect(() => {
+    let cancelled = false
+    invokeTauri<Record<string, Record<string, string>>>('get_peer_version_map')
+      .then((map) => {
+        if (!cancelled) setPeerVersionLabels(map || {})
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [managedSkills])
+
   // 有操作时告诉后端「人还在」，用于界面隐藏后的闲置回收计时（30 秒最多上报一次）
   useEffect(() => {
     let last = 0
@@ -1348,6 +1364,7 @@ function App() {
               t={t}
             />
             <SkillsList
+              peerVersionLabels={peerVersionLabels}
               plan={plan}
               visibleSkills={visibleSkills}
               installedTools={installedTools}
