@@ -204,10 +204,10 @@ pub async fn list_library_files(
 
 /// 读取一个文本文件的内容（只读、限制体积、拒绝二进制）
 #[tauri::command]
-pub async fn read_library_file(skillName: String, relPath: String) -> Result<String, String> {
+pub async fn read_library_file(skill_name: String, rel_path: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<String> {
-        let dir = safe_skill_dir(&skillName)?;
-        let file = safe_rel_path(&dir, &relPath)?;
+        let dir = safe_skill_dir(&skill_name)?;
+        let file = safe_rel_path(&dir, &rel_path)?;
         if !file.is_file() {
             anyhow::bail!("FILE_NOT_FOUND|{rel_path}");
         }
