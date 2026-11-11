@@ -8,6 +8,8 @@ export type ScopeFilterOption = 'all' | 'global' | 'project'
 export interface UseSkillFiltersOptions {
   managedSkills: ManagedSkill[]
   getSkillScope: (skill: ManagedSkill) => 'global' | 'project'
+  /** 有问题的技能名（断链、落后、母库落后、多版本），排序时置顶 */
+  problemSkillNames?: Set<string>
 }
 
 export interface UseSkillFiltersReturn {
@@ -36,6 +38,7 @@ export interface UseSkillFiltersReturn {
 export function useSkillFilters({
   managedSkills,
   getSkillScope,
+  problemSkillNames,
 }: UseSkillFiltersOptions): UseSkillFiltersReturn {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortByOption>('updated')
@@ -68,6 +71,10 @@ export function useSkillFilters({
       )
     })
     const sorted = [...filtered].sort((a, b) => {
+      // 有问题的技能永远排最前，方便先处理；同组内再按选的排序方式
+      const aProblem = problemSkillNames?.has(a.name) ? 0 : 1
+      const bProblem = problemSkillNames?.has(b.name) ? 0 : 1
+      if (aProblem !== bProblem) return aProblem - bProblem
       if (sortBy === 'name') {
         return a.name.localeCompare(b.name)
       }
@@ -83,6 +90,7 @@ export function useSkillFilters({
     searchQuery,
     selectedTagIds,
     sortBy,
+    problemSkillNames,
   ])
 
   const untaggedCount = useMemo(

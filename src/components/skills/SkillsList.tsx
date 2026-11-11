@@ -19,6 +19,8 @@ type GithubInfo = {
 type SkillsListProps = {
   /** skill_id -> { "tool#instance" -> "A" }，只有多版本时才有条目 */
   peerVersionLabels?: Record<string, Record<string, string>>
+  /** 母库落后的技能名 */
+  staleMirrorNames?: Set<string>
   plan: OnboardingPlan | null
   visibleSkills: ManagedSkill[]
   installedTools: ToolOption[]
@@ -87,6 +89,7 @@ const SkillsList = ({
   toolInstanceTotals,
   staleBySkillTool,
   peerVersionLabels,
+  staleMirrorNames,
   onRefreshStale,
   t,
 }: SkillsListProps) => {
@@ -156,6 +159,7 @@ const SkillsList = ({
               toolInstanceTotals={toolInstanceTotals}
               staleBySkillTool={staleBySkillTool}
               versionLabels={peerVersionLabels?.[skill.id]}
+              mirrorStale={staleMirrorNames?.has(skill.name)}
               onRefreshStale={onRefreshStale}
               loading={loading}
               bulkMode={bulkMode}

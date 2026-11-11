@@ -525,6 +525,27 @@ function App() {
     loadManagedSkills,
   })
 
+  const staleMirrorNames = useMemo(
+    () => new Set(staleMirrors.map((mirror) => mirror.name)),
+    [staleMirrors],
+  )
+
+  // 有问题的技能：断链 / 副本落后或手改 / 母库落后 —— 排序时统一置顶
+  const problemSkillNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const skill of libraryHealth?.skills ?? []) {
+      if (skill.broken && skill.broken.length > 0) names.add(skill.name)
+    }
+    for (const key of staleBySkillTool.keys()) {
+      const name = key.split('/')[0]
+      if (name) names.add(name)
+    }
+    for (const mirror of staleMirrors) {
+      names.add(mirror.name)
+    }
+    return names
+  }, [libraryHealth, staleBySkillTool, staleMirrors])
+
   const {
     searchQuery,
     setSearchQuery,
@@ -547,6 +568,7 @@ function App() {
   } = useSkillFilters({
     managedSkills,
     getSkillScope,
+    problemSkillNames,
   })
 
   const {
@@ -1401,6 +1423,7 @@ function App() {
             />
             <SkillsList
               peerVersionLabels={peerVersionLabels}
+              staleMirrorNames={staleMirrorNames}
               plan={plan}
               visibleSkills={visibleSkills}
               installedTools={installedTools}

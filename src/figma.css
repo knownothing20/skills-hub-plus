@@ -2326,3 +2326,16 @@
 .library-health-row .library-health-bar {
   flex: 0 1 auto;
 }
+
+/* 技能名后的「母库落后」标记：只在母库镜像没跟上时出现 */
+.skill-mirror-stale {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(245, 158, 11, .16);
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: help;
+}

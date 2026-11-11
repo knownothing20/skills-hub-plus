@@ -47,6 +47,8 @@ type SkillCardProps = {
   staleBySkillTool?: Map<string, StaleCopyStatusDto>
   /** 这个技能里各副本的版本字母；只有一个版本时为空 */
   versionLabels?: Record<string, string>
+  /** 母库镜像落后于原件 */
+  mirrorStale?: boolean
   onRefreshStale?: (skillId: string, toolId: string) => Promise<void>
   sharedDirs?: SharedSkillDirDto[]
   /** 每个工具实际有几个账号目录（仅统计存在的） */
@@ -82,6 +84,7 @@ const SkillCard = ({
   getSkillProjects,
   staleBySkillTool,
   versionLabels,
+  mirrorStale,
   onRefreshStale,
   sharedDirs,
   toolInstanceTotals,
@@ -176,6 +179,14 @@ const SkillCard = ({
               <button className="skill-name clickable" type="button" onClick={() => onOpenDetail(skill)}>
                 {skill.name}
               </button>
+              {mirrorStale ? (
+                <span
+                  className="skill-mirror-stale"
+                  title="母库镜像落后于原件：这份技能在母库里的备份没有跟上最新改动"
+                >
+                  母库落后
+                </span>
+              ) : null}
               <button
                 className="skill-source-copy"
                 type="button"
