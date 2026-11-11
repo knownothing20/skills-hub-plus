@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUpDown, Check, CheckSquare, ChevronDown, LayoutGrid, Layers, List, Search, Tags } from 'lucide-react'
+import { ArrowUpDown, Check, CheckSquare, ChevronDown, LayoutGrid, Layers, List, RefreshCw, Search, Tags } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import type { TagWithCountDto, ToolOptionWithCount } from './types'
 
@@ -17,6 +17,7 @@ type FilterBarProps = {
   bulkMode: boolean
   bulkSelectedCount: number
   viewMode: 'list' | 'cards'
+  onRefresh?: () => void
   onSortChange: (value: 'updated' | 'name') => void
   onSearchChange: (value: string) => void
   onScopeFilterChange: (value: 'all' | 'global' | 'project') => void
@@ -44,6 +45,7 @@ const FilterBar = ({
   bulkMode,
   bulkSelectedCount,
   viewMode,
+  onRefresh,
   onSortChange,
   onSearchChange,
   onScopeFilterChange,
@@ -86,7 +88,18 @@ const FilterBar = ({
   return (
     <div className="filter-bar">
       <div className="filter-title">
-        {t('allSkills')}（{totalCount}）
+        <span>{t('allSkills')}（{totalCount}）</span>
+        {onRefresh ? (
+          <button
+            type="button"
+            className="filter-refresh-btn"
+            onClick={() => onRefresh()}
+            title="刷新列表和状态（F5）"
+            aria-label="刷新"
+          >
+            <RefreshCw size={13} />
+          </button>
+        ) : null}
       </div>
       <div className="filter-actions">
         <button

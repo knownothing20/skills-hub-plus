@@ -2297,3 +2297,22 @@
   background: #9ca3af;
   color: #fff;
 }
+
+/* 技能列表标题旁的刷新按钮：F5 的可见入口 */
+.filter-refresh-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color .12s ease, border-color .12s ease;
+}
+.filter-refresh-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong, #c8c8c4);
+}

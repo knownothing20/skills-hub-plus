@@ -170,6 +170,16 @@ function App() {
     }
   }, [invokeTauri])
 
+  // 手动刷新：列表、健康栏、落后状态、版本字母一起重读
+  const refreshAll = useCallback(async () => {
+    await loadManagedSkills()
+    void refreshLibraryHealth()
+    void refreshStaleStatus()
+    invokeTauri<Record<string, Record<string, string>>>('get_peer_version_map')
+      .then((map) => setPeerVersionLabels(map || {}))
+      .catch(() => {})
+  }, [invokeTauri, loadManagedSkills, refreshLibraryHealth, refreshStaleStatus])
+
   // 后台同步完副本后会让界面重新拉一次数据
   useEffect(() => {
     let unlisten: (() => void) | undefined
@@ -184,6 +194,19 @@ function App() {
       unlisten?.()
     }
   }, [loadManagedSkills])
+
+  // F5 / Ctrl+R 刷新：窗口里没有浏览器地址栏，得自己接
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isRefresh =
+        e.key === 'F5' || ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R'))
+      if (!isRefresh) return
+      e.preventDefault()
+      void refreshAll()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [refreshAll])
 
   // 各副本的版本字母：列表渲染完再异步算，不阻塞首屏
   const [peerVersionLabels, setPeerVersionLabels] = useState<
@@ -1338,6 +1361,7 @@ function App() {
               </button>
             ) : null}
             <FilterBar
+              onRefresh={refreshAll}
               sortBy={sortBy}
               searchQuery={searchQuery}
               scopeFilter={scopeFilter}
