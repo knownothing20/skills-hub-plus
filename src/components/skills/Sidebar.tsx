@@ -20,7 +20,6 @@ type SidebarProps = {
   skillCount: number
   tagCount: number
   toolCount: number
-  updateCount: number
   collapsed: boolean
   onToggleCollapsed: () => void
   onOpenSettings: () => void
@@ -43,7 +42,6 @@ const Sidebar = ({
   skillCount,
   tagCount,
   toolCount,
-  updateCount,
   collapsed,
   onToggleCollapsed,
   onOpenSettings,
@@ -137,7 +135,7 @@ const Sidebar = ({
       >
         <RefreshCw size={18} />
         <span>{t('manageTabs.updates')}</span>
-        {!collapsed && <em>{updateCount}</em>}
+
       </button>
     </nav>
 

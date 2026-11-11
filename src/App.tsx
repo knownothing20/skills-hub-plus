@@ -49,9 +49,7 @@ import SharedDirModal from './components/skills/modals/SharedDirModal'
 import ToggleToolConfirmModal from './components/skills/modals/ToggleToolConfirmModal'
 import SettingsPage from './components/skills/SettingsPage'
 import ToolsPage from './components/skills/ToolsPage'
-import UpdatesPage from './components/skills/UpdatesPage'
 import WindowResizeHandles from './components/WindowResizeHandles'
-import { useAutoUpdate } from './hooks/useAutoUpdate'
 import { useDiscoveryScan } from './hooks/useDiscoveryScan'
 import { useBulkOperations } from './hooks/useBulkOperations'
 import { useSkillFilters } from './hooks/useSkillFilters'
@@ -81,7 +79,7 @@ import type {
 
 
 type ActiveView = 'myskills' | 'explore' | 'detail' | 'settings' | 'manage' | 'library'
-type ManagementTab = 'tags' | 'tools' | 'updates'
+type ManagementTab = 'tags' | 'tools'
 
 function App() {
   const { t } = useTranslation()
@@ -885,18 +883,6 @@ function App() {
     setToolStatus,
     setSyncTargets,
   })
-  const {
-    autoUpdateConfig,
-    autoUpdateTriggering,
-    handleAutoUpdateConfigChange,
-    handleTriggerAutoUpdateTaskNow,
-  } = useAutoUpdate({
-    activeView,
-    managementTab,
-    onSkillsReload: loadManagedSkills,
-    onSuccessToast: setSuccessToastMessage,
-    onError: setError,
-  })
 
   const handlePickLocalPath = useCallback(async () => {
     try {
@@ -1158,7 +1144,6 @@ function App() {
         : enabledSkillCount === managedSkills.length
           ? { className: 'healthy', label: t('stats.allNormal') }
           : { className: 'idle', label: t('stats.enabledCount', { count: enabledSkillCount }) }
-  const pendingUpdateCount = autoUpdateConfig?.last_failed ?? 0
 
   const handleManagementTabChange = (tab: ManagementTab) => {
     setShowAddModal(false)
@@ -1191,7 +1176,6 @@ function App() {
           skillCount={managedSkills.length}
           tagCount={tags.length}
           toolCount={toolStatus?.tools.length ?? 0}
-          updateCount={pendingUpdateCount}
           collapsed={sidebarCollapsed}
           onToggleCollapsed={() => setSidebarCollapsed((collapsed) => !collapsed)}
           onOpenSettings={handleOpenSettings}
@@ -1235,7 +1219,7 @@ function App() {
                   className="dashboard-status-button"
                   type="button"
                   disabled={syncIssueCount === 0}
-                  onClick={() => handleManagementTabChange('updates')}
+                  onClick={() => handleViewChange('myskills')}
                   aria-label={
                     syncIssueCount > 0
                       ? `${dashboardSyncStatus.label}，${t('stats.viewIssues')}`
@@ -1502,15 +1486,6 @@ function App() {
                 >
                   {t('manageTabs.tools')}
                 </button>
-                <button
-                  className={`management-tab${managementTab === 'updates' ? ' active' : ''}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={managementTab === 'updates'}
-                  onClick={() => setManagementTab('updates')}
-                >
-                  {t('manageTabs.updates')}
-                </button>
               </div>
             </div>
             <div className="management-panel">
@@ -1528,21 +1503,13 @@ function App() {
                   onDeleteTag={handleDeleteTag}
                   t={t}
                 />
-              ) : managementTab === 'tools' ? (
+              ) : (
                 <ToolsPage
                   embedded
                   toolStatus={toolStatus}
                   toolConfig={toolConfig}
                   onToolConfigChange={handleToolConfigChange}
                   onToolStatusRefresh={reloadToolStatus}
-                  t={t}
-                />
-              ) : (
-                <UpdatesPage
-                  autoUpdateConfig={autoUpdateConfig}
-                  onAutoUpdateConfigChange={handleAutoUpdateConfigChange}
-                  onRunAutoUpdateNow={handleTriggerAutoUpdateTaskNow}
-                  autoUpdateTriggering={autoUpdateTriggering}
                   t={t}
                 />
               )}
