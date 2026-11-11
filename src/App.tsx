@@ -22,6 +22,8 @@ import { useAppSettings } from './hooks/useAppSettings'
 import ExplorePage from './components/skills/ExplorePage'
 import FilterBar from './components/skills/FilterBar'
 import SkillDetailView from './components/skills/SkillDetailView'
+import { openPath } from '@tauri-apps/plugin-opener'
+import CentralLibraryView from './components/skills/CentralLibraryView'
 import TitleBar from './components/skills/TitleBar'
 import Sidebar from './components/skills/Sidebar'
 import LoadingOverlay from './components/skills/LoadingOverlay'
@@ -77,7 +79,7 @@ import type {
 } from './components/skills/types'
 
 
-type ActiveView = 'myskills' | 'explore' | 'detail' | 'settings' | 'manage'
+type ActiveView = 'myskills' | 'explore' | 'detail' | 'settings' | 'manage' | 'library'
 type ManagementTab = 'tags' | 'tools' | 'updates'
 
 function App() {
@@ -914,7 +916,7 @@ function App() {
 
 
   const handleViewChange = useCallback(
-    (view: 'myskills' | 'explore' | 'manage') => {
+    (view: 'myskills' | 'explore' | 'manage' | 'library') => {
       setShowAddModal(false)
       setActiveView(view)
       if (view !== 'myskills') {
@@ -1183,7 +1185,9 @@ function App() {
         />
 
         <main className="skills-main">
-        {activeView === 'detail' && detailSkill ? (
+        {activeView === 'library' ? (
+          <CentralLibraryView onOpenFolder={(path) => { void openPath(path) }} />
+        ) : activeView === 'detail' && detailSkill ? (
           <SkillDetailView
             skill={detailSkill}
             onBack={handleBackToList}

@@ -6,7 +6,7 @@ import type { TFunction } from 'i18next'
 type ManagementTab = 'tags' | 'tools' | 'updates'
 
 type HeaderProps = {
-  activeView: 'myskills' | 'explore' | 'detail' | 'settings' | 'manage'
+  activeView: 'myskills' | 'explore' | 'detail' | 'settings' | 'manage' | 'library'
   managementTab: ManagementTab
   skillCount: number
   tagCount: number
@@ -15,7 +15,7 @@ type HeaderProps = {
   collapsed: boolean
   onToggleCollapsed: () => void
   onOpenSettings: () => void
-  onViewChange: (view: 'myskills' | 'explore' | 'manage') => void
+  onViewChange: (view: 'myskills' | 'explore' | 'manage' | 'library') => void
   onManagementTabChange: (tab: ManagementTab) => void
   t: TFunction
 }

@@ -2,6 +2,7 @@ pub mod auto_update_commands;
 pub mod common;
 pub mod health_commands;
 pub mod install_commands;
+pub mod library_commands;
 pub mod lock_commands;
 pub mod onboarding_commands;
 pub mod setting_commands;
@@ -19,6 +20,8 @@ pub use common::*;
 pub use health_commands::*;
 #[allow(unused_imports)]
 pub use install_commands::*;
+#[allow(unused_imports)]
+pub use library_commands::*;
 #[allow(unused_imports)]
 pub use lock_commands::*;
 #[allow(unused_imports)]

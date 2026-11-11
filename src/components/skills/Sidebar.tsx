@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   Compass,
   Layers3,
+  Library,
   RefreshCw,
   Settings,
   Tag,
@@ -14,7 +15,7 @@ import type { TFunction } from 'i18next'
 type ManagementTab = 'tags' | 'tools' | 'updates'
 
 type SidebarProps = {
-  activeView: 'myskills' | 'explore' | 'detail' | 'settings' | 'manage'
+  activeView: 'myskills' | 'explore' | 'detail' | 'settings' | 'manage' | 'library'
   managementTab: ManagementTab
   skillCount: number
   tagCount: number
@@ -23,7 +24,7 @@ type SidebarProps = {
   collapsed: boolean
   onToggleCollapsed: () => void
   onOpenSettings: () => void
-  onViewChange: (view: 'myskills' | 'explore' | 'manage') => void
+  onViewChange: (view: 'myskills' | 'explore' | 'manage' | 'library') => void
   onManagementTabChange: (tab: ManagementTab) => void
   t: TFunction
 }
@@ -85,6 +86,15 @@ const Sidebar = ({
         <Layers3 size={18} />
         <span>{t('navMySkills')}</span>
         {!collapsed && <em>{skillCount}</em>}
+      </button>
+      <button
+        className={activeView === 'library' ? 'active' : ''}
+        type="button"
+        onClick={() => onViewChange('library')}
+        title={collapsed ? t('centralLibrary', { defaultValue: '母库' }) : undefined}
+      >
+        <Library size={18} />
+        <span>{t('centralLibrary', { defaultValue: '母库' })}</span>
       </button>
       <button
         className={activeView === 'explore' ? 'active' : ''}

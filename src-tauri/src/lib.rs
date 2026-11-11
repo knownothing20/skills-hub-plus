@@ -421,6 +421,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             touch_activity,
+            commands::list_central_library,
+            commands::list_library_files,
+            commands::read_library_file,
             commands::get_central_repo_path,
             commands::get_recent_projects,
             commands::save_recent_project,
