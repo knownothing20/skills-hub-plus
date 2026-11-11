@@ -325,8 +325,8 @@ pub fn run() {
                                 // 先把落后副本刷新成原件内容，再检查外部有没有新版本
                                 let central_root = core::central_repo::app_install_skills_dir();
                                 match core::stale_copies::startup_stale_refresh(&store, &central_root) {
-                                    Ok((refreshed, remaining)) => log::info!(
-                                        "manual copy refresh: refreshed={refreshed} remaining={remaining}"
+                                    Ok((refreshed, untouched)) => log::info!(
+                                        "manual copy refresh: {refreshed} 个已更新，{untouched} 个无需处理"
                                     ),
                                     Err(err) => log::warn!("manual copy refresh failed: {err:#}"),
                                 }
@@ -394,10 +394,10 @@ pub fn run() {
                     std::thread::sleep(std::time::Duration::from_secs(COPY_SYNC_INTERVAL_SECS));
                     let central_root = core::central_repo::app_install_skills_dir();
                     match core::stale_copies::startup_stale_refresh(&store, &central_root) {
-                        Ok((refreshed, remaining)) => {
-                            if refreshed > 0 || remaining > 0 {
+                        Ok((refreshed, untouched)) => {
+                            if refreshed > 0 {
                                 log::info!(
-                                    "periodic copy refresh: refreshed={refreshed} remaining={remaining}"
+                                    "periodic copy refresh: {refreshed} 个已更新，{untouched} 个无需处理"
                                 );
                             }
                         }
