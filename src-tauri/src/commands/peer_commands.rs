@@ -78,3 +78,40 @@ pub async fn get_peer_version_map(
     .map_err(|e| e.to_string())?
     .map_err(|e| e.to_string())
 }
+
+/// 以某个副本为准：推给所有其它副本并更新基线
+#[tauri::command]
+pub async fn adopt_target_as_latest(
+    skill_id: String,
+    tool: String,
+    instance: Option<String>,
+    store: State<'_, SkillStore>,
+) -> Result<usize, String> {
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || -> anyhow::Result<usize> {
+        let skill = store
+            .get_skill_by_id(&skill_id)?
+            .ok_or_else(|| anyhow::anyhow!("SKILL_NOT_FOUND|{skill_id}"))?;
+        let instance_ref = instance.as_deref();
+        let target = store
+            .list_skill_targets(&skill_id)?
+            .into_iter()
+            .find(|t| {
+                t.tool == tool && {
+                    match instance_ref {
+                        Some(want) => t.instance == want,
+                        None => t.instance.is_empty(),
+                    }
+                }
+            })
+            .ok_or_else(|| anyhow::anyhow!("TARGET_NOT_FOUND|{tool}"))?;
+        crate::core::peer_sync::adopt_from(
+            &store,
+            &skill,
+            std::path::Path::new(&target.target_path),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}

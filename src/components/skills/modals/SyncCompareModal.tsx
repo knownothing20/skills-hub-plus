@@ -116,6 +116,33 @@ export const SyncCompareModal = memo(({
     }
   }
 
+  // 以某个副本为准：把它推给所有其它工具（含原件）
+  const handleAdoptAsLatest = async (comp: SkillTargetComparisonDto) => {
+    const label = comp.instance ? `${comp.tool_label} · ${comp.instance}` : comp.tool_label
+    if (
+      !window.confirm(
+        `确定把【${label}】这份作为最新版吗？\n\n它会被复制到其它所有工具目录（包括原件），其它副本里的不同内容会被覆盖。`,
+      )
+    ) {
+      return
+    }
+    setOperatingTool(comp.tool)
+    try {
+      const updated = await invokeTauri<number>('adopt_target_as_latest', {
+        skillId: skill.id,
+        tool: comp.tool,
+        instance: comp.instance || null,
+      })
+      toast.success(`已用【${label}】作为最新版，更新了 ${updated} 个副本`)
+      await loadData()
+      onSuccess?.()
+    } catch (err) {
+      toast.error(`操作失败: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setOperatingTool(null)
+    }
+  }
+
   if (!open) return null
 
   const ownerComp = comparisons.find((c) => c.role === 'owner')
@@ -269,7 +296,6 @@ export const SyncCompareModal = memo(({
                 {copyRows.map((comp) => {
                   const key = `${comp.tool}-${comp.instance}`
                   const isOperating = operatingTool === comp.tool
-                  const bad = comp.status !== 'synced'
                   const tone =
                     comp.status === 'tool_newer'
                       ? { bg: 'rgba(245,158,11,.10)', border: '1px solid rgba(245,158,11,.45)' }
@@ -310,7 +336,31 @@ export const SyncCompareModal = memo(({
                           </span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {bad && (
+                          {comp.status === 'central_newer' && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              disabled={isOperating}
+                              onClick={() => void handleSyncDown(comp.tool, comp.tool_label)}
+                              title="原件更新了，用原件的内容覆盖这一个工具"
+                              style={{ fontSize: '11px', padding: '3px 9px', height: 'auto', borderRadius: '6px' }}
+                            >
+                              用原件覆盖此工具
+                            </button>
+                          )}
+                          {comp.status === 'tool_newer' && (
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              disabled={isOperating}
+                              onClick={() => void handleAdoptAsLatest(comp)}
+                              title="这一份更新，以它为准推给其它所有工具"
+                              style={{ fontSize: '11px', padding: '3px 9px', height: 'auto', borderRadius: '6px' }}
+                            >
+                              用这份作为最新
+                            </button>
+                          )}
+                          {comp.status === 'missing' && (
                             <button
                               type="button"
                               className="btn btn-secondary"
@@ -318,7 +368,7 @@ export const SyncCompareModal = memo(({
                               onClick={() => void handleSyncDown(comp.tool, comp.tool_label)}
                               style={{ fontSize: '11px', padding: '3px 9px', height: 'auto', borderRadius: '6px' }}
                             >
-                              同步此软件
+                              安装到此工具
                             </button>
                           )}
                           <button
@@ -327,9 +377,9 @@ export const SyncCompareModal = memo(({
                             disabled={isOperating}
                             onClick={() => void handlePromoteToCentral(comp.tool, comp.tool_label)}
                             style={{ fontSize: '11px', padding: '3px 9px', height: 'auto', borderRadius: '6px' }}
-                            title="把这个副本的内容更新到母库镜像"
+                            title="把这个副本的内容更新到母库镜像（只是备份，不改原件）"
                           >
-                            设为母版
+                            更新母库备份
                           </button>
                         </div>
                       </div>

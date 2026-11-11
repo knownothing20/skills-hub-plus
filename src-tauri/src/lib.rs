@@ -450,6 +450,7 @@ pub fn run() {
             commands::get_peer_version_map,
             commands::reconcile_skill_now,
             commands::reconcile_all_now,
+            commands::adopt_target_as_latest,
             commands::list_central_library,
             commands::list_library_files,
             commands::read_library_file,
