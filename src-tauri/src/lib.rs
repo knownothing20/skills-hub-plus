@@ -40,6 +40,45 @@ fn touch_activity() {
 }
 
 /// 显示主窗口；窗口若已被闲置销毁，就重新创建。
+/// 有副本需要处理时弹一条系统通知（窗口看不见的时候才有意义）。
+fn notify_sync_conflict<R: tauri::Runtime>(app: &tauri::AppHandle<R>, conflicts: usize) {
+    use tauri_plugin_notification::NotificationExt;
+    let visible = app
+        .get_webview_window("main")
+        .map(|w| w.is_visible().unwrap_or(false))
+        .unwrap_or(false);
+    if visible || conflicts == 0 {
+        return;
+    }
+    let _ = app
+        .notification()
+        .builder()
+        .title("Skills Hub")
+        .body(format!(
+            "{conflicts} 个技能的多份副本内容不同，需要你选一个版本"
+        ))
+        .show();
+}
+
+/// 托盘图标：有需要处理的问题时换成带感叹号的版本，正常时换回来。
+fn update_tray_alert<R: tauri::Runtime>(app: &tauri::AppHandle<R>, alert: bool) {
+    let Some(tray) = app.tray_by_id("main") else {
+        return;
+    };
+    if alert {
+        let bytes = include_bytes!("../icons/icon-alert-32.png");
+        if let Ok(image) = tauri::image::Image::from_bytes(bytes) {
+            let _ = tray.set_icon(Some(image));
+        }
+        let _ = tray.set_tooltip(Some("Skills Hub — 有副本需要处理"));
+    } else {
+        if let Some(icon) = app.default_window_icon() {
+            let _ = tray.set_icon(Some(icon.clone()));
+        }
+        let _ = tray.set_tooltip(Some("Skills Hub - Agent 技能管家"));
+    }
+}
+
 fn show_or_create_main_window<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Option<tauri::WebviewWindow<R>> {
@@ -174,6 +213,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = show_or_create_main_window(app);
         }))
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -307,6 +347,7 @@ pub fn run() {
 
             if let Some(app_icon) = app.default_window_icon() {
                 let _tray = TrayIconBuilder::new()
+                    .id("main")
                     .icon(app_icon.clone())
                     .tooltip("Skills Hub - Agent 技能管家")
                     .menu(&tray_menu)
@@ -391,9 +432,13 @@ pub fn run() {
                 std::thread::spawn(move || {
                     // 启动后先跑一次：为还没有基线的技能建立基线，顺便处理积压的改动
                     match core::peer_sync::reconcile_all(&store) {
-                        Ok((adopted, conflicts, unchanged)) => log::info!(
-                            "startup peer sync: 采纳 {adopted} 个，冲突 {conflicts} 个，无变化 {unchanged} 个"
-                        ),
+                        Ok((adopted, conflicts, unchanged)) => {
+                            log::info!(
+                                "startup peer sync: 采纳 {adopted} 个，冲突 {conflicts} 个，无变化 {unchanged} 个"
+                            );
+                            update_tray_alert(&handle, conflicts > 0);
+                            notify_sync_conflict(&handle, conflicts);
+                        }
                         Err(err) => log::warn!("startup peer sync failed: {err:#}"),
                     }
                     let _ = handle.emit("skills-updated", ());
@@ -406,6 +451,8 @@ pub fn run() {
                                     "peer sync: 采纳 {adopted} 个，冲突 {conflicts} 个，无变化 {unchanged} 个"
                                 );
                             }
+                            update_tray_alert(&handle, conflicts > 0);
+                            notify_sync_conflict(&handle, conflicts);
                         }
                         Err(err) => log::warn!("peer sync failed: {err:#}"),
                     }
