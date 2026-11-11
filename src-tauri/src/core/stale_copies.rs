@@ -121,24 +121,25 @@ fn classify_copy_target(source: &Path, target: &Path) -> Option<StaleVerdict> {
     if !source.is_dir() || !target.is_dir() {
         return None;
     }
+    // 内容为王：只要内容一致，mtime 谁新谁旧都不算问题。
+    // 拷贝文件、还原备份、编辑器保存都会刷新 mtime，按时间判断会大量误报。
+    let hashes = (hash_dir(source).ok(), hash_dir(target).ok());
+    match hashes {
+        (Some(a), Some(b)) if a == b => return None,
+        (None, None) => return None,
+        (None, _) | (_, None) => return Some(StaleVerdict::Conflict),
+        _ => {}
+    }
+
     let (source_mtime, _) = scan_dir_latest_mtime(source);
     let (target_mtime, _) = scan_dir_latest_mtime(target);
 
-    if source_mtime.abs_diff(target_mtime) <= MTIME_TOLERANCE_MS {
-        // 时间分不清：内容相同就不报，不同就按冲突标记。
-        let hashes = (hash_dir(source).ok(), hash_dir(target).ok());
-        return match hashes {
-            (Some(a), Some(b)) if a == b => None,
-            (None, None) => None,
-            _ => Some(StaleVerdict::Conflict),
-        };
-    }
-
-    if target_mtime > source_mtime {
+    // 内容确实不同，再判断方向：副本更新 → 手改，绝不自动覆盖。
+    if target_mtime > source_mtime + MTIME_TOLERANCE_MS {
         return Some(StaleVerdict::HandEdited);
     }
 
-    // 母版较新：先查副本是否含独有文件（手改铁证）。
+    // 母版较新：副本含独有文件，同样是手改铁证。
     let source_set = match relative_file_set(source) {
         Ok(set) => set,
         Err(_) => return Some(StaleVerdict::Conflict),
@@ -151,12 +152,7 @@ fn classify_copy_target(source: &Path, target: &Path) -> Option<StaleVerdict> {
         return Some(StaleVerdict::HandEdited);
     }
 
-    // 再用内容哈希排除 mtime 误报（拷贝保留时间戳等情形）。
-    match (hash_dir(source), hash_dir(target)) {
-        (Ok(a), Ok(b)) if a == b => None,
-        (Err(_), _) | (_, Err(_)) => Some(StaleVerdict::Conflict),
-        _ => Some(StaleVerdict::Behind),
-    }
+    Some(StaleVerdict::Behind)
 }
 
 /// 扫描全库的物理副本目标，返回所有「落后」条目。
