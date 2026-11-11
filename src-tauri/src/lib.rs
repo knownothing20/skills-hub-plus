@@ -19,8 +19,6 @@ static LAST_ACTIVITY_MS: AtomicU64 = AtomicU64::new(0);
 const IDLE_DESTROY_MS: u64 = 30 * 60 * 1000;
 /// 用户是否明确要求退出。只有它为 true 时才允许进程结束。
 static EXITING: AtomicBool = AtomicBool::new(false);
-/// 后台巡查间隔：一小时（检查外部源有没有新版本）。
-const SCAN_INTERVAL_SECS: u64 = 60 * 60;
 /// 副本同步间隔：原件改动后最多这么久就会推送到各工具。
 const COPY_SYNC_INTERVAL_SECS: u64 = 5 * 60;
 
@@ -283,7 +281,7 @@ pub fn run() {
             let sync_item = MenuItem::with_id(
                 app,
                 "sync_now",
-                "🔄 立即检查并同步技能",
+                "🔄 立即同步到所有工具",
                 true,
                 None::<&str>,
             )?;
@@ -318,19 +316,16 @@ pub fn run() {
                             open_folder_in_explorer(&central_skills_path);
                         }
                         "sync_now" => {
-                            let handle = app_handle.clone();
                             let store = app_handle.state::<SkillStore>().inner().clone();
                             tauri::async_runtime::spawn(async move {
-                                log::info!("manual sync triggered from system tray");
-                                // 先把落后副本刷新成原件内容，再检查外部有没有新版本
+                                log::info!("manual copy sync triggered from system tray");
                                 let central_root = core::central_repo::app_install_skills_dir();
                                 match core::stale_copies::startup_stale_refresh(&store, &central_root) {
                                     Ok((refreshed, untouched)) => log::info!(
-                                        "manual copy refresh: {refreshed} 个已更新，{untouched} 个无需处理"
+                                        "manual copy sync: {refreshed} 个已更新，{untouched} 个无需处理"
                                     ),
-                                    Err(err) => log::warn!("manual copy refresh failed: {err:#}"),
+                                    Err(err) => log::warn!("manual copy sync failed: {err:#}"),
                                 }
-                                let _ = core::auto_update::run_auto_update_now(&handle, &store);
                             });
                         }
                         "quit" => {
@@ -405,20 +400,6 @@ pub fn run() {
                     }
                     // 副本更新后让界面重新拉一次数据
                     let _ = handle.emit("skills-updated", ());
-                });
-            }
-
-            // 每小时静默巡查一次：比对各目标、需要时刷新副本
-            {
-                let handle = app.handle().clone();
-                let store = app.state::<SkillStore>().inner().clone();
-                std::thread::spawn(move || loop {
-                    std::thread::sleep(std::time::Duration::from_secs(SCAN_INTERVAL_SECS));
-                    log::info!("hourly scan: start");
-                    match core::auto_update::run_auto_update_now(&handle, &store) {
-                        Ok(_) => log::info!("hourly scan: done"),
-                        Err(err) => log::warn!("hourly scan failed: {err:#}"),
-                    }
                 });
             }
 
