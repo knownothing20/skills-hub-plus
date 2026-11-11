@@ -326,7 +326,7 @@ pub fn version_labels(
     }
 
     let mut ordered: Vec<(String, u64)> = by_fp.into_iter().collect();
-    ordered.sort_by(|a, b| b.1.cmp(&a.1));
+    ordered.sort_by_key(|entry| std::cmp::Reverse(entry.1));
     let mut label_of: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     for (index, (fp, _)) in ordered.iter().enumerate() {
         let letter = char::from(b'A' + (index as u8 % 26)).to_string();
