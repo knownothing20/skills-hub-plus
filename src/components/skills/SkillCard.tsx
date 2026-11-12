@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Copy, RefreshCw, Tag, Trash2, Link2, Box, ShieldOff, Crown, Share2 } from 'lucide-react'
+import { Copy, RefreshCw, Tag, Trash2, Box, ShieldOff, Crown, Share2 } from 'lucide-react'
 import { openPath } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
@@ -35,7 +35,7 @@ type SkillCardProps = {
   onIgnore?: (skillId: string) => void
   onToggleEnabled: (skill: ManagedSkill) => void
   onToggleTool: (skill: ManagedSkill, toolId: string) => void
-  onSyncToolWithMode?: (skill: ManagedSkill, toolId: string, mode: 'copy' | 'junction') => void
+  onSyncToolWithMode?: (skill: ManagedSkill, toolId: string) => void
   onUnsyncTool?: (skill: ManagedSkill, toolId: string) => void
   onPromoteToolToOwner?: (skill: ManagedSkill, toolId: string, instance?: string) => void
   onOpenScope: (skill: ManagedSkill) => void
@@ -370,10 +370,7 @@ const SkillCard = ({
               )
               // 没有 target 表示该工具尚未安装这个技能，不应算作异常角色
               const role = target ? roleOfTarget(target) : null
-              // 物理形态看 target 记录的 mode，不看 role：role 说的是「这个目录和原件/中心母版的关系」，
-              // 而原件自己（role='owner'）在磁盘上同样有 mode——codex 的实体目录就是 mode='copy'。
-              // 用 role 反推会把原件一律说成「软链接」，而它明明是实体。
-              const isCopy = target?.mode === 'copy'
+              // 2.0.1 起同步只有实体副本一种形态
               const roleLabel =
                 role === 'owner'
                   ? t('roleOwner')
@@ -384,11 +381,7 @@ const SkillCard = ({
                       : role === 'link_to_owner' || role === 'link_to_central'
                         ? t('roleLink')
                         : ''
-              const modeLabel = isCopy
-                ? '实体副本 (Copy)'
-                : target?.mode === 'junction'
-                  ? '软链接 (Junction)'
-                  : '软链接 (Symlink)'
+              const modeLabel = '实体副本 (Copy)'
               const staleInfo = target
                 ? staleBySkillTool?.get(`${skill.name}/${tool.id}`)
                 : undefined
@@ -412,12 +405,7 @@ const SkillCard = ({
               let stateLabel = ''
               if (synced) {
                 // 原件（主技能）不是「已同步的副本」：它本来就在这儿，绿色只表示就位。
-                finalClass =
-                  role === 'owner'
-                    ? 'synced is-owner'
-                    : isCopy
-                      ? 'synced is-copy'
-                      : 'synced is-symlink'
+                finalClass = role === 'owner' ? 'synced is-owner' : 'synced is-copy'
                 stateLabel = role === 'owner' ? '原件（本地源）' : `已同步 · ${modeLabel}`
               } else if (syncState === 'failed') {
                 finalClass = 'failed'
@@ -474,7 +462,6 @@ const SkillCard = ({
                       tool,
                       skill,
                       synced,
-                      isCopy,
                       isOwner: role === 'owner',
                       role: role ?? undefined,
                       instance: target?.instance,
@@ -537,10 +524,10 @@ const SkillCard = ({
                   )}
                   {synced && role !== 'owner' && (
                     <span
-                      className={`sync-mode-badge ${isCopy ? 'badge-copy' : 'badge-symlink'}`}
+                      className="sync-mode-badge badge-copy"
                       aria-hidden="true"
                     >
-                      {isCopy ? <Box size={8} /> : <Link2 size={8} />}
+                      <Box size={8} />
                     </span>
                   )}
                 </button>
@@ -592,8 +579,8 @@ const SkillCard = ({
         <ToolContextMenu
           state={contextMenu}
           onClose={() => setContextMenu(null)}
-          onSyncWithMode={(s, tId, mode) => {
-            onSyncToolWithMode?.(s, tId, mode)
+          onSync={(s, tId) => {
+            onSyncToolWithMode?.(s, tId)
           }}
           onUnsync={(s, tId) => {
             onUnsyncTool?.(s, tId)

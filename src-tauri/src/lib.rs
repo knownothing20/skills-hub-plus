@@ -524,8 +524,6 @@ pub fn run() {
             commands::set_discovery_scan_config,
             commands::get_ignored_tools,
             commands::set_ignored_tools,
-            commands::get_tool_sync_modes,
-            commands::set_tool_sync_mode,
             commands::get_shared_skill_dirs,
             commands::get_tool_root_instances,
             commands::sync_skill_to_tool_instances,
@@ -582,7 +580,6 @@ pub fn run() {
             commands::create_backup_now,
             commands::restore_backup_now,
             commands::get_default_sync_mode,
-            commands::set_default_sync_mode,
             commands::get_library_health,
             commands::export_skills_lock_cmd,
             commands::import_skills_lock_cmd

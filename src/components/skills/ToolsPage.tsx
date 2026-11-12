@@ -10,13 +10,10 @@ import {
   X,
 } from 'lucide-react'
 import type { TFunction } from 'i18next'
-import { toast } from 'sonner'
 import { invokeTauri } from '../../hooks/useTauriInvoke'
 import type {
   CustomToolConfigDto,
-  SyncMode,
   ToolConfigDto,
-  ToolInfoDto,
   ToolStatusDto,
   SkillRootInstanceDto,
 } from './types'
@@ -24,9 +21,6 @@ import ToolIcon from './ToolIcon'
 
 const AVATAR_INPUT_MAX_BYTES = 2 * 1024 * 1024
 const AVATAR_SIZE = 128
-
-/** 三档同步方式：自动（链接失败回退复制）/ 仅链接 / 仅复制 */
-type ToolMode = 'auto' | 'link' | 'copy'
 
 const createAvatarDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -74,7 +68,6 @@ type ToolsPageProps = {
   toolStatus: ToolStatusDto | null
   toolConfig: ToolConfigDto | null
   onToolConfigChange: (config: ToolConfigDto) => Promise<boolean>
-  onToolStatusRefresh?: () => Promise<void>
   embedded?: boolean
   onBack?: () => void
   t: TFunction
@@ -84,7 +77,6 @@ const ToolsPage = ({
   toolStatus,
   toolConfig,
   onToolConfigChange,
-  onToolStatusRefresh,
   embedded = false,
   onBack,
   t,
@@ -93,7 +85,6 @@ const ToolsPage = ({
   const [customToolAvatar, setCustomToolAvatar] = useState<string | null>(null)
   const [customToolSkillsDir, setCustomToolSkillsDir] = useState('')
   const [customToolProjectDir, setCustomToolProjectDir] = useState('')
-  const [customToolSyncMode, setCustomToolSyncMode] = useState<SyncMode>('auto')
   const [editingCustomToolKey, setEditingCustomToolKey] = useState<string | null>(null)
   const [rootInstances, setRootInstances] = useState<SkillRootInstanceDto[]>([])
   useEffect(() => {
@@ -120,7 +111,6 @@ const ToolsPage = ({
   const [savingCustomTool, setSavingCustomTool] = useState(false)
   const [avatarError, setAvatarError] = useState('')
   const [showMissingTools, setShowMissingTools] = useState(false)
-  const [savingModeToolKey, setSavingModeToolKey] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const customToolFormRef = useRef<HTMLElement>(null)
   const customToolNameInputRef = useRef<HTMLInputElement>(null)
@@ -132,32 +122,6 @@ const ToolsPage = ({
   const customToolsByKey = new Map(
     effectiveToolConfig.custom_tools.map((tool) => [tool.key, tool]),
   )
-
-  // 每个工具的同步方式：auto（先链接后复制）/ link（只链接）/ copy（只复制）。
-  // 后端把 junction、symlink 两种平台实现都归到 link 一档来展示。
-  const toolModeOf = (tool: ToolInfoDto): ToolMode => {
-    if (tool.sync_mode === 'copy') return 'copy'
-    if (tool.sync_mode === 'auto') return 'auto'
-    return 'link'
-  }
-
-  const changeToolMode = async (tool: ToolInfoDto, mode: ToolMode) => {
-    if (savingModeToolKey) return
-    if (mode === toolModeOf(tool)) return
-    setSavingModeToolKey(tool.key)
-    try {
-      await invokeTauri<Record<string, string>>('set_tool_sync_mode', {
-        toolKey: tool.key,
-        mode,
-      })
-      toast.success(t('toolManagement.toolModeSaved'), { duration: 3200 })
-      await onToolStatusRefresh?.()
-    } catch (err) {
-      toast.error(String(err), { duration: 3200 })
-    } finally {
-      setSavingModeToolKey(null)
-    }
-  }
 
   const makeCustomToolKey = (label: string) => {
     const slug = label
@@ -186,7 +150,6 @@ const ToolsPage = ({
     setCustomToolAvatar(null)
     setCustomToolSkillsDir('')
     setCustomToolProjectDir('')
-    setCustomToolSyncMode('auto')
     setAvatarError('')
   }
 
@@ -198,7 +161,6 @@ const ToolsPage = ({
     setCustomToolAvatar(tool.avatar ?? null)
     setCustomToolSkillsDir(tool.skills_dir)
     setCustomToolProjectDir(tool.project_skills_dir ?? '')
-    setCustomToolSyncMode(tool.sync_mode)
     setAvatarError('')
     window.requestAnimationFrame(() => {
       customToolFormRef.current?.scrollIntoView({ block: 'nearest' })
@@ -248,7 +210,8 @@ const ToolsPage = ({
       avatar: customToolAvatar,
       skills_dir: skillsDir,
       project_skills_dir: customToolProjectDir.trim() || null,
-      sync_mode: customToolSyncMode,
+      // 2.0.1 起同步只有复制一种方式
+      sync_mode: 'copy' as const,
     }
     const customTools = editingCustomToolKey
       ? effectiveToolConfig.custom_tools.map((tool) =>
@@ -361,32 +324,9 @@ const ToolsPage = ({
               {t('toolManagement.custom')}
             </span>
           ) : null}
-          {tool.is_custom ? null : (
-            <span
-              className={`tool-mode-select-wrap mode-${toolModeOf(tool)}${
-                savingModeToolKey === tool.key ? ' saving' : ''
-              }`}
-              title={t(`toolManagement.toolModeHints.${toolModeOf(tool)}`)}
-            >
-              <select
-                className="tool-mode-select"
-                aria-label={t('toolManagement.toolModeLabel')}
-                value={toolModeOf(tool)}
-                disabled={savingModeToolKey === tool.key}
-                onChange={(event) =>
-                  void changeToolMode(tool, event.target.value as ToolMode)
-                }
-              >
-                <option value="auto">{t('toolManagement.toolModes.auto')}</option>
-                <option value="link">{t('toolManagement.toolModes.link')}</option>
-                <option value="copy">{t('toolManagement.toolModes.copy')}</option>
-              </select>
-              <ChevronDown size={11} className="tool-mode-select-caret" aria-hidden="true" />
-            </span>
-          )}
           {tool.is_custom ? (
             <span className="tool-management-mode">
-              {t(`toolManagement.syncModes.${tool.sync_mode ?? 'auto'}`)}
+              {t('toolManagement.syncModes.copy')}
             </span>
           ) : null}
         </div>
@@ -635,31 +575,6 @@ const ToolsPage = ({
               aria-label={t('toolManagement.projectDirPlaceholder')}
               onChange={(event) => setCustomToolProjectDir(event.target.value)}
             />
-            <label className="custom-tool-mode-field">
-              <span>{t('toolManagement.syncModeLabel')}</span>
-              <div className="settings-select-wrap">
-                <select
-                  className="settings-select"
-                  value={customToolSyncMode}
-                  onChange={(event) =>
-                    setCustomToolSyncMode(event.target.value as SyncMode)
-                  }
-                >
-                  <option value="auto">{t('toolManagement.syncModes.auto')}</option>
-                  <option value="symlink">
-                    {t('toolManagement.syncModes.symlink')}
-                  </option>
-                  <option value="junction">
-                    {t('toolManagement.syncModes.junction')}
-                  </option>
-                  <option value="copy">{t('toolManagement.syncModes.copy')}</option>
-                </select>
-                <ChevronDown className="settings-select-caret" aria-hidden="true" />
-              </div>
-              <small>
-                {t(`toolManagement.syncModeHints.${customToolSyncMode}`)}
-              </small>
-            </label>
             {editingCustomToolKey ? (
               <div className="custom-tool-form-actions">
                 <button

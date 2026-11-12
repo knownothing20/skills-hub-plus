@@ -160,7 +160,9 @@ describe('SkillCard tool target description', () => {
     expect(markup).not.toContain('is-owner')
   })
 
-  it('keeps a junction target described as a symlink', () => {
+  it('renders a legacy junction target as a solid copy', () => {
+    // 2.0.1 起同步只有复制一种方式：历史链接记录在界面上按实体副本展示，
+    // 由对等同步在下一轮将其转为实体目录。
     const linked: ManagedSkill = {
       ...createSkill(false),
       targets: [
@@ -177,6 +179,7 @@ describe('SkillCard tool target description', () => {
 
     const markup = renderCard(linked, [codex])
 
-    expect(markup).toContain('is-symlink')
+    expect(markup).toContain('is-copy')
+    expect(markup).not.toContain('is-symlink')
   })
 })

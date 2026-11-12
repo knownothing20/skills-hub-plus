@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2026-11-12
+
+同步只留一种方式：**整目录复制**。软链接（symlink / junction / auto）全部移除。
+
+软链接和 2.0 的对等模型是矛盾的：链接让「N 份副本」退化成「1 份文件」，
+「谁改谁最新」、版本字母、基线比对全都失去意义。与其留一个会出怪状态的
+开关，不如彻底删掉。
+
+### Removed
+
+- **同步模式枚举**：`auto / symlink / junction` 三个变体删除，只保留 `copy`。
+  `SyncMode` 枚举保留（历史序列化数据仍可读），一律按复制处理。
+- **链接创建路径**：`sync_dir_hybrid*`、`try_link_dir`、`try_junction`、
+  `create_enable_staged_symlink/junction`、`create_directory_symlink/junction`
+  等函数全部删除；`junction` crate 依赖移除。
+- **Tauri 命令**：`set_tool_sync_mode`、`get_tool_sync_modes`、
+  `set_default_sync_mode` 删除；`get_default_sync_mode` 恒返回 `copy`。
+- **per-tool 默认模式表**（`tool_sync_mode_v1` 设置与 Antigravity/Cursor 特判）
+  整体删除——不再有需要特判的工具，因为链接路径已不存在。
+- **界面**：工具卡上的「软链接 · 复制」下拉、设置页「同步模式」面板、
+  自定义工具表单的同步方式选择、右键菜单的链接分支全部移除；
+  相关 i18n 文案与样式一并清理。
+
+### Compatibility
+
+- 数据库 `skill_targets.mode` 字段保留作历史记录；读到 `symlink` / `junction`
+  / `auto` 时一律按 `copy` 解释，下一轮对等同步会把旧链接换成实体目录。
+- 设置里的 `default_sync_mode`、`tool_sync_mode_v1` 键不再读取，可留在库里。
+
 ## [2.0.0] - 2026-11-12
 
 这一版把「一个原件 + 一堆副本」改成了「多份平级的副本 + 一份基线」，
@@ -44,16 +73,6 @@ All notable changes to this project will be documented in this file.
 - 忽略 `__pycache__`、`*.pyc`、`.DS_Store`、`~$*` 等生成物与临时文件；
   单文件超过 5 MB 或单技能超过 500 个文件则跳过自动同步。
 - 保留最近 5 版基线指纹；副本退回历史版本时判为回滚，不扩散。
-
-## [Unreleased]
-
-### Added
-
-- **Per-tool sync mode**: every built-in tool now stores its own `link · copy`, `link only` or `copy only` choice instead of a single "copy-only" flag. `link only` creates a link and fails loudly rather than quietly falling back to a copy (directory junction on Windows); `auto` keeps the historical link-first behaviour. Antigravity and Cursor keep copy as their default because their skill indexes skip reparse points. The mode is applied by manual sync, enable/restore and auto-reconcile, and the hardcoded Cursor rule now lives in that default table.
-
-### Fixed
-
-- **Custom tools keep their per-target mode**: the new per-tool setting applies to built-in tools only. Custom tools continue to replay each target's saved mode, so enabling a custom tool no longer overrides a previously recorded symlink with the tool-level setting.
 
 ## [1.0.0] - 2026-11-05
 

@@ -715,23 +715,9 @@ fn finalize_custom_tool_target_preflight(
 fn prepare_custom_tool_staged_target(
     plan: &CustomToolTargetMigrationPlan,
 ) -> Result<StagedCustomToolTarget> {
-    match plan.next_mode {
-        SyncMode::Copy => prepare_copy_staging(plan),
-        SyncMode::Symlink => try_prepare_symlink_staging(plan)?
-            .context("SYNC_MODE_UNAVAILABLE|Could not create the requested directory symlink"),
-        SyncMode::Junction => try_prepare_junction_staging(plan)?
-            .context("SYNC_MODE_UNAVAILABLE|Could not create the requested directory junction"),
-        SyncMode::Auto => {
-            if let Some(staged) = try_prepare_symlink_staging(plan)? {
-                return Ok(staged);
-            }
-            #[cfg(windows)]
-            if let Some(staged) = try_prepare_junction_staging(plan)? {
-                return Ok(staged);
-            }
-            prepare_copy_staging(plan)
-        }
-    }
+    // 2.0.1 起同步只有复制一种方式
+    let _ = plan.next_mode;
+    prepare_copy_staging(plan)
 }
 
 fn prepare_copy_staging(plan: &CustomToolTargetMigrationPlan) -> Result<StagedCustomToolTarget> {
@@ -763,115 +749,10 @@ fn prepare_copy_staging(plan: &CustomToolTargetMigrationPlan) -> Result<StagedCu
     anyhow::bail!("STAGING_COLLISION|Could not allocate custom tool transaction staging")
 }
 
-fn try_prepare_symlink_staging(
-    plan: &CustomToolTargetMigrationPlan,
-) -> Result<Option<StagedCustomToolTarget>> {
-    for _ in 0..8 {
-        let staged = unique_custom_tool_staging_path(&plan.next_root);
-        match create_directory_symlink(&plan.source, &staged) {
-            Ok(()) => {
-                let identity = TargetEntryIdentity::capture(&staged).with_context(|| {
-                    format!(
-                        "ROLLBACK_INCOMPLETE|Could not identify newly created symlink staging {staged:?}"
-                    )
-                })?;
-                return Ok(Some(StagedCustomToolTarget {
-                    path: staged,
-                    identity,
-                    mode_used: SyncMode::Symlink,
-                }));
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(err) => {
-                if path_entry_exists(&staged)? {
-                    anyhow::bail!(
-                        "ROLLBACK_INCOMPLETE|symlink staging failed ({err}); an unowned entry appeared at {staged:?}"
-                    );
-                }
-                log::debug!(
-                    "[tool_adapters] directory symlink unavailable for {:?}: {}",
-                    plan.next_target,
-                    err
-                );
-                return Ok(None);
-            }
-        }
-    }
-    anyhow::bail!("STAGING_COLLISION|Could not allocate symlink transaction staging")
-}
-
-fn try_prepare_junction_staging(
-    plan: &CustomToolTargetMigrationPlan,
-) -> Result<Option<StagedCustomToolTarget>> {
-    for _ in 0..8 {
-        let staged = unique_custom_tool_staging_path(&plan.next_root);
-        match create_directory_junction(&plan.source, &staged) {
-            Ok(()) => {
-                let identity = TargetEntryIdentity::capture(&staged).with_context(|| {
-                    format!(
-                        "ROLLBACK_INCOMPLETE|Could not identify newly created junction staging {staged:?}"
-                    )
-                })?;
-                return Ok(Some(StagedCustomToolTarget {
-                    path: staged,
-                    identity,
-                    mode_used: SyncMode::Junction,
-                }));
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(err) => {
-                if path_entry_exists(&staged)? {
-                    anyhow::bail!(
-                        "ROLLBACK_INCOMPLETE|junction staging failed ({err}); an unowned or partial entry remains at {staged:?}"
-                    );
-                }
-                log::debug!(
-                    "[tool_adapters] directory junction unavailable for {:?}: {}",
-                    plan.next_target,
-                    err
-                );
-                return Ok(None);
-            }
-        }
-    }
-    anyhow::bail!("STAGING_COLLISION|Could not allocate junction transaction staging")
-}
-
 fn unique_custom_tool_staging_path(root: &Path) -> PathBuf {
     root.join(format!(
         ".skills-hub-custom-tool-{}",
         Uuid::new_v4().simple()
-    ))
-}
-
-#[cfg(unix)]
-fn create_directory_symlink(source: &Path, target: &Path) -> std::io::Result<()> {
-    std::os::unix::fs::symlink(source, target)
-}
-
-#[cfg(windows)]
-fn create_directory_symlink(source: &Path, target: &Path) -> std::io::Result<()> {
-    std::os::windows::fs::symlink_dir(source, target)
-}
-
-#[cfg(not(any(unix, windows)))]
-fn create_directory_symlink(_source: &Path, _target: &Path) -> std::io::Result<()> {
-    Err(std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "directory symlinks are unsupported",
-    ))
-}
-
-#[cfg(windows)]
-fn create_directory_junction(source: &Path, target: &Path) -> std::io::Result<()> {
-    junction::create(source, target)
-}
-
-#[cfg(not(windows))]
-fn create_directory_junction(_source: &Path, _target: &Path) -> std::io::Result<()> {
-    Err(std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "directory junctions are unsupported",
     ))
 }
 
@@ -1312,9 +1193,6 @@ fn maybe_replace_applied_custom_tool_target_for_test() -> Result<()> {
 
 fn sync_mode_key(mode: SyncMode) -> &'static str {
     match mode {
-        SyncMode::Auto => "auto",
-        SyncMode::Symlink => "symlink",
-        SyncMode::Junction => "junction",
         SyncMode::Copy => "copy",
     }
 }

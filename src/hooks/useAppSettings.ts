@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
-import { isTauri, invokeTauri } from './useTauriInvoke'
+import { isTauri } from './useTauriInvoke'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 export type SystemTheme = 'light' | 'dark'
-export type SyncMode = 'junction' | 'copy'
 export type SkillViewMode = 'list' | 'cards'
 
 export const LANGUAGE_STORAGE_KEY = 'skills-language'
@@ -20,9 +18,6 @@ export interface AppSettingsHook {
   setThemePreference: Dispatch<SetStateAction<ThemePreference>>
   systemTheme: SystemTheme
   resolvedTheme: SystemTheme
-  defaultSyncMode: SyncMode
-  setDefaultSyncMode: Dispatch<SetStateAction<SyncMode>>
-  handleDefaultSyncModeChange: (nextMode: SyncMode) => Promise<void>
   appVersion: string
   skillViewMode: SkillViewMode
   setSkillViewMode: Dispatch<SetStateAction<SkillViewMode>>
@@ -31,7 +26,7 @@ export interface AppSettingsHook {
 }
 
 export function useAppSettings(): AppSettingsHook {
-  const { t, i18n } = useTranslation()
+  const { i18n } = useTranslation()
   const language = i18n.resolvedLanguage ?? i18n.language ?? 'en'
 
   const toggleLanguage = useCallback(() => {
@@ -56,7 +51,6 @@ export function useAppSettings(): AppSettingsHook {
 
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')
   const [systemTheme, setSystemTheme] = useState<SystemTheme>('light')
-  const [defaultSyncMode, setDefaultSyncMode] = useState<SyncMode>('copy')
   const [appVersion, setAppVersion] = useState('')
 
   const [skillViewMode, setSkillViewMode] = useState<SkillViewMode>(() => {
@@ -160,34 +154,6 @@ export function useAppSettings(): AppSettingsHook {
     }
   }, [resolvedTheme, themePreference])
 
-  useEffect(() => {
-    if (!isTauri) return
-    invokeTauri<string>('get_default_sync_mode')
-      .then((mode) => {
-        if (mode === 'copy' || mode === 'junction') {
-          setDefaultSyncMode(mode)
-        }
-      })
-      .catch((err) => {
-        console.warn('Failed to load default_sync_mode', err)
-      })
-  }, [])
-
-  const handleDefaultSyncModeChange = useCallback(
-    async (nextMode: SyncMode) => {
-      setDefaultSyncMode(nextMode)
-      if (isTauri) {
-        try {
-          await invokeTauri('set_default_sync_mode', { mode: nextMode })
-          toast.success(t('syncModeUpdatedToast'))
-        } catch (err) {
-          toast.error(err instanceof Error ? err.message : String(err))
-        }
-      }
-    },
-    [t],
-  )
-
   return {
     language,
     toggleLanguage,
@@ -195,9 +161,6 @@ export function useAppSettings(): AppSettingsHook {
     setThemePreference,
     systemTheme,
     resolvedTheme,
-    defaultSyncMode,
-    setDefaultSyncMode,
-    handleDefaultSyncModeChange,
     appVersion,
     skillViewMode,
     setSkillViewMode,

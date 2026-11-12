@@ -1,14 +1,13 @@
 use std::fs;
 
-use crate::core::safe_fs::set_test_restore_collision_after_precheck;
 use crate::core::skill_store::{SkillRecord, SkillStore, SkillTargetRecord};
 use crate::core::sync_engine::SyncMode;
 use crate::core::tool_adapters::{
     adapter_by_key, adapters_sharing_project_skills_dir, adapters_sharing_skills_dir,
     default_tool_adapters, load_tool_config, project_relative_skills_dir, resolve_project_path,
     save_tool_config, scan_tool_dir, set_test_custom_tool_migration_failure,
-    set_test_custom_tool_post_apply_replacement, set_test_custom_tool_publish_race,
-    supports_project_scope, CustomToolConfig, ToolAdapter, ToolConfig, ToolId,
+    set_test_custom_tool_publish_race, supports_project_scope, CustomToolConfig, ToolAdapter,
+    ToolConfig, ToolId,
 };
 
 fn make_custom_tool(key: &str, label: &str, skills_dir: &str) -> CustomToolConfig {
@@ -205,34 +204,6 @@ fn saving_changed_custom_tool_migrates_existing_targets_and_preserves_key() {
     let config = load_tool_config(&store).unwrap();
     assert_eq!(config.custom_tools[0].key, "custom_casey");
     assert_eq!(config.custom_tools[0].label, "Casey Updated");
-
-    #[cfg(unix)]
-    {
-        let mut edited = make_custom_tool(
-            "custom_casey",
-            "Casey Updated",
-            new_root.to_string_lossy().as_ref(),
-        );
-        edited.sync_mode = SyncMode::Symlink;
-        save_tool_config(
-            &store,
-            ToolConfig {
-                disabled_builtin_tools: Vec::new(),
-                custom_tools: vec![edited],
-            },
-        )
-        .unwrap();
-
-        assert!(fs::symlink_metadata(&new_target)
-            .unwrap()
-            .file_type()
-            .is_symlink());
-        let target = store
-            .get_skill_target("skill-a", "custom_casey", "global", None)
-            .unwrap()
-            .unwrap();
-        assert_eq!(target.mode, "symlink");
-    }
 }
 
 #[test]
@@ -351,156 +322,6 @@ fn config_database_failure_rolls_back_target_rows_and_files() {
     assert!(format!("{err:#}").contains("blocked config update"));
     assert_target_and_config_unchanged(&store, "skill-a", &old_target, &old_config);
     assert!(!new_parent.exists());
-}
-
-#[cfg(unix)]
-#[test]
-fn post_apply_replacement_is_preserved_when_database_failure_rolls_back() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = SkillStore::new(dir.path().join("test.db"));
-    store.ensure_schema().unwrap();
-    let root = dir.path().join("tools");
-    let central_root = dir.path().join("central");
-    let old_config = save_single_custom_tool(&store, "Casey", &root);
-    let (_, live_target) =
-        register_managed_copy_target(&store, &central_root, &root, "skill-a", "target-a");
-
-    let connection = rusqlite::Connection::open(store.db_path()).unwrap();
-    connection
-        .execute_batch(
-            "CREATE TRIGGER fail_post_apply_config_update
-             BEFORE UPDATE OF value ON settings
-             WHEN OLD.key = 'tool_config_v1'
-             BEGIN SELECT RAISE(ABORT, 'blocked post-apply config update'); END;",
-        )
-        .unwrap();
-    drop(connection);
-
-    let preserved_published_target = dir.path().join("preserved-published-target");
-    set_test_custom_tool_post_apply_replacement(&live_target, &preserved_published_target);
-    let mut edited = make_custom_tool(
-        "custom_casey",
-        "Casey Updated",
-        root.to_string_lossy().as_ref(),
-    );
-    edited.sync_mode = SyncMode::Symlink;
-    let err = save_tool_config(
-        &store,
-        ToolConfig {
-            disabled_builtin_tools: Vec::new(),
-            custom_tools: vec![edited],
-        },
-    )
-    .unwrap_err();
-    let message = format!("{err:#}");
-    assert!(message.contains("ROLLBACK_INCOMPLETE"));
-    assert!(message.contains("ROLLBACK_SKIPPED_FOREIGN_ENTRY"));
-    assert!(message.contains("RESTORE_COLLISION"));
-
-    assert_eq!(
-        fs::read_to_string(live_target.join("COMPETITOR_SENTINEL")).unwrap(),
-        "external owner"
-    );
-    assert!(!live_target.join("SKILL.md").exists());
-    assert!(fs::symlink_metadata(&preserved_published_target)
-        .unwrap()
-        .file_type()
-        .is_symlink());
-
-    let saved = store
-        .get_skill_target("skill-a", "custom_casey", "global", None)
-        .unwrap()
-        .unwrap();
-    assert_eq!(saved.target_path, live_target.to_string_lossy());
-    assert_eq!(saved.mode, "copy");
-    assert_eq!(saved.synced_at, Some(7));
-    assert_eq!(load_tool_config(&store).unwrap(), old_config);
-
-    let trash_root = root.join(".skills-hub-test-trash");
-    let receipts = fs::read_dir(&trash_root)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .collect::<Vec<_>>();
-    assert_eq!(receipts.len(), 1);
-    assert_eq!(
-        fs::read_to_string(receipts[0].join("SKILL.md")).unwrap(),
-        "original target content for skill-a"
-    );
-}
-
-#[cfg(unix)]
-#[test]
-fn restore_race_after_empty_precheck_preserves_competitor_and_receipt() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = SkillStore::new(dir.path().join("test.db"));
-    store.ensure_schema().unwrap();
-    let root = dir.path().join("tools");
-    let central_root = dir.path().join("central");
-    let old_config = save_single_custom_tool(&store, "Casey", &root);
-    let (_, live_target) =
-        register_managed_copy_target(&store, &central_root, &root, "skill-a", "target-a");
-
-    let connection = rusqlite::Connection::open(store.db_path()).unwrap();
-    connection
-        .execute_batch(
-            "CREATE TRIGGER fail_restore_race_config_update
-             BEFORE UPDATE OF value ON settings
-             WHEN OLD.key = 'tool_config_v1'
-             BEGIN SELECT RAISE(ABORT, 'blocked restore-race config update'); END;",
-        )
-        .unwrap();
-    drop(connection);
-
-    set_test_restore_collision_after_precheck(Some(&live_target));
-    let mut edited = make_custom_tool(
-        "custom_casey",
-        "Casey Updated",
-        root.to_string_lossy().as_ref(),
-    );
-    edited.sync_mode = SyncMode::Symlink;
-    let err = save_tool_config(
-        &store,
-        ToolConfig {
-            disabled_builtin_tools: Vec::new(),
-            custom_tools: vec![edited],
-        },
-    )
-    .unwrap_err();
-    let message = format!("{err:#}");
-    assert!(message.contains("ROLLBACK_INCOMPLETE"));
-    assert!(message.contains("RESTORE_COLLISION"));
-
-    assert_eq!(
-        fs::read_to_string(live_target.join("COMPETITOR_SENTINEL")).unwrap(),
-        "external owner"
-    );
-    assert!(!live_target.join("SKILL.md").exists());
-    let saved = store
-        .get_skill_target("skill-a", "custom_casey", "global", None)
-        .unwrap()
-        .unwrap();
-    assert_eq!(saved.target_path, live_target.to_string_lossy());
-    assert_eq!(saved.mode, "copy");
-    assert_eq!(saved.synced_at, Some(7));
-    assert_eq!(load_tool_config(&store).unwrap(), old_config);
-
-    let trash_root = root.join(".skills-hub-test-trash");
-    let receipts = fs::read_dir(&trash_root)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .collect::<Vec<_>>();
-    assert_eq!(receipts.len(), 2);
-    let previous_receipt = receipts
-        .iter()
-        .find(|path| fs::symlink_metadata(path).unwrap().file_type().is_dir())
-        .unwrap();
-    assert_eq!(
-        fs::read_to_string(previous_receipt.join("SKILL.md")).unwrap(),
-        "original target content for skill-a"
-    );
-    assert!(receipts
-        .iter()
-        .any(|path| fs::symlink_metadata(path).unwrap().file_type().is_symlink()));
 }
 
 #[test]
@@ -728,7 +549,7 @@ fn legacy_custom_tool_config_defaults_avatar_and_sync_mode() {
 
     let tool = &config.custom_tools[0];
     assert_eq!(tool.avatar, None);
-    assert_eq!(tool.sync_mode, SyncMode::Auto);
+    assert_eq!(tool.sync_mode, SyncMode::Copy);
 }
 
 #[test]
@@ -1013,56 +834,4 @@ fn scan_tool_dir_skips_codex_plugin_cache_symlink() {
 
     let out = scan_tool_dir(&tool, &scan_root).unwrap();
     assert!(out.is_empty());
-}
-
-#[test]
-fn tool_sync_mode_defaults_and_overrides() {
-    use crate::core::onboarding::{
-        load_tool_sync_modes, resolve_tool_sync_mode, save_tool_sync_mode,
-    };
-
-    let dir = tempfile::tempdir().unwrap();
-    let store = SkillStore::new(dir.path().join("test.db"));
-    store.ensure_schema().unwrap();
-
-    // No stored value: tools that skip reparse points default to copies,
-    // everything else keeps the historical link-then-copy behaviour.
-    let modes = load_tool_sync_modes(&store).unwrap();
-    assert_eq!(
-        resolve_tool_sync_mode(&modes, "antigravity", SyncMode::Auto),
-        SyncMode::Copy
-    );
-    assert_eq!(
-        resolve_tool_sync_mode(&modes, "cursor", SyncMode::Auto),
-        SyncMode::Copy
-    );
-    assert_eq!(
-        resolve_tool_sync_mode(&modes, "codex", SyncMode::Auto),
-        SyncMode::Auto
-    );
-
-    // Explicit choices win, including turning the default copy back to auto,
-    // and a forced link mode is a link mode, never a copy.
-    save_tool_sync_mode(&store, "Antigravity", "auto").unwrap();
-    let modes = load_tool_sync_modes(&store).unwrap();
-    assert_eq!(
-        resolve_tool_sync_mode(&modes, "antigravity", SyncMode::Auto),
-        SyncMode::Auto
-    );
-
-    save_tool_sync_mode(&store, "codex", "copy").unwrap();
-    save_tool_sync_mode(&store, "workbuddy_ai", "link").unwrap();
-    let modes = load_tool_sync_modes(&store).unwrap();
-    assert_eq!(
-        resolve_tool_sync_mode(&modes, "CODEX", SyncMode::Auto),
-        SyncMode::Copy
-    );
-    let link_mode = crate::core::onboarding::platform_link_mode();
-    assert_eq!(
-        resolve_tool_sync_mode(&modes, "workbuddy_ai", SyncMode::Auto),
-        link_mode
-    );
-
-    // Unknown values are rejected instead of being silently stored.
-    assert!(save_tool_sync_mode(&store, "codex", "bogus").is_err());
 }

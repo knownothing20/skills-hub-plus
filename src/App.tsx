@@ -89,7 +89,6 @@ function App() {
     toggleLanguage,
     themePreference,
     setThemePreference,
-    defaultSyncMode,
     skillViewMode,
     setSkillViewMode,
     sidebarCollapsed,
@@ -311,8 +310,6 @@ function App() {
       label: t(`tools.${info.key}`, { defaultValue: info.label }),
       avatar: info.avatar,
       supports_project_scope: info.supports_project_scope,
-      supports_junction: info.supports_junction ?? true,
-      supports_copy: info.supports_copy ?? true,
     }))
   }, [t, enabledToolInfos])
 
@@ -668,7 +665,6 @@ function App() {
     uniqueToolIdsBySkillsDir,
     uniqueToolIdsByProjectSkillsDir,
     isInstalled,
-    defaultSyncMode,
     setActionMessage,
     setError,
     setRecentProjects,
@@ -700,7 +696,6 @@ function App() {
     sharedToolIdsByToolId,
     uniqueToolIdsBySkillsDir,
     isInstalled,
-    defaultSyncMode,
   })
 
   const {
@@ -1116,18 +1111,6 @@ function App() {
 
 
 
-
-  // 工具属性（如「仅复制」）改动后，重新拉取一次状态，让列表、右键菜单和
-  // 导入流程立刻看到新能力，而不用等下次启动。
-  const reloadToolStatus = useCallback(async () => {
-    if (!isTauri) return
-    try {
-      const status = await invokeTauri<ToolStatusDto>('get_tool_status')
-      setToolStatus(status)
-    } catch (err) {
-      console.warn(err)
-    }
-  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -1628,7 +1611,6 @@ function App() {
                   toolStatus={toolStatus}
                   toolConfig={toolConfig}
                   onToolConfigChange={handleToolConfigChange}
-                  onToolStatusRefresh={reloadToolStatus}
                   t={t}
                 />
               )}

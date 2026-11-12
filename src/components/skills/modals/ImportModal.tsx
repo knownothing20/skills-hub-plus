@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react'
-import { Download, Search, Box, ShieldOff } from 'lucide-react'
+import { Download, Search, ShieldOff } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import type { OnboardingPlan } from '../types'
 
@@ -13,7 +13,7 @@ type ImportModalProps = {
   onToggleGroup: (groupName: string, checked: boolean) => void
   onSelectVariant: (groupName: string, path: string) => void
   onIgnoreGroup?: (groupName: string) => void
-  onImport: (mode: 'junction' | 'copy') => void
+  onImport: () => void
   t: TFunction
 }
 
@@ -210,20 +210,10 @@ const ImportModal = ({
           </div>
         </div>
         <div className="modal-footer import-modal-footer">
-          <div className="sync-mode-selector">
-            <span className="sync-mode-label">{t('syncModeLabel')}:</span>
-            <div className="sync-mode-toggle-group">
-              {/* 软链接已停用：导入一律创建实体副本 */}
-              <span className="sync-mode-toggle-btn active" title={t('syncModeCopyDesc')}>
-                <Box size={13} />
-                <span>{t('syncModeCopy')}</span>
-              </span>
-            </div>
-          </div>
           <div className="import-modal-actions">
             <button
               className="btn btn-primary"
-              onClick={() => onImport('copy')}
+              onClick={onImport}
               disabled={loading || selectedCount === 0}
             >
               <Download size={14} />

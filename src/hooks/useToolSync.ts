@@ -66,7 +66,6 @@ export function useToolSync({
       toolId: string,
       options?: {
         targetAction?: 'sync' | 'unsync'
-        syncMode?: 'copy' | 'junction'
       },
     ) => {
       if (loading) return
@@ -100,7 +99,6 @@ export function useToolSync({
       const shouldUnsync = options?.targetAction
         ? options.targetAction === 'unsync'
         : synced
-      const isSwitchingMode = synced && !shouldUnsync && options?.syncMode != null
 
       setLoading(true)
       setLoadingStartAt(Date.now())
@@ -134,11 +132,7 @@ export function useToolSync({
             })
           }
         } else {
-          setActionMessage(
-            isSwitchingMode
-              ? `正在切换「${skill.name}」在 ${toolLabel} 的同步模式...`
-              : t('actions.syncing', { name: skill.name, tool: toolLabel }),
-          )
+          setActionMessage(t('actions.syncing', { name: skill.name, tool: toolLabel }))
           if (skillScope === 'project') {
             for (const projectPath of projects) {
               await invokeTauri('sync_skill_to_tool', {
@@ -147,10 +141,9 @@ export function useToolSync({
                 tool: toolId,
                 name: skill.name,
                 overwriteIfSameContent: true,
-                overwrite: Boolean(isSwitchingMode),
+                overwrite: false,
                 scope: 'project',
                 projectPath,
-                syncMode: options?.syncMode,
               })
             }
           } else {
@@ -160,17 +153,12 @@ export function useToolSync({
               tool: toolId,
               name: skill.name,
               overwriteIfSameContent: true,
-              overwrite: Boolean(isSwitchingMode),
+              overwrite: false,
               scope: 'global',
-              syncMode: options?.syncMode,
             })
           }
         }
-        const statusText = shouldUnsync
-          ? t('status.syncDisabled')
-          : isSwitchingMode
-            ? `已切换为${options?.syncMode === 'copy' ? '实体副本' : '软链接'}`
-            : t('status.syncEnabled')
+        const statusText = shouldUnsync ? t('status.syncDisabled') : t('status.syncEnabled')
         setActionMessage(statusText)
         setSuccessToastMessage(statusText)
         setActionMessage(null)
@@ -195,7 +183,6 @@ export function useToolSync({
                     overwrite: true,
                     scope: 'project',
                     projectPath,
-                    syncMode: options?.syncMode,
                   })
                 }
               } else {
@@ -206,7 +193,6 @@ export function useToolSync({
                   name: skill.name,
                   overwrite: true,
                   scope: 'global',
-                  syncMode: options?.syncMode,
                 })
               }
               const statusText = t('status.syncEnabled')
@@ -275,11 +261,8 @@ export function useToolSync({
   )
 
   const handleSyncToolWithMode = useCallback(
-    (skill: ManagedSkill, toolId: string, mode: 'copy' | 'junction') => {
-      void runToggleToolForSkill(skill, toolId, {
-        targetAction: 'sync',
-        syncMode: mode,
-      })
+    (skill: ManagedSkill, toolId: string) => {
+      void runToggleToolForSkill(skill, toolId, { targetAction: 'sync' })
     },
     [runToggleToolForSkill],
   )

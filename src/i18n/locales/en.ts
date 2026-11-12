@@ -315,15 +315,6 @@ export default {
   localInstallHelp: 'Choose a folder containing SKILL.md, or a parent folder containing multiple Skills.',
   importSummary: 'Select Skills to import into the fixed managed directory.',
   importAndSync: 'Import selected Skills',
-  syncModeSectionTitle: 'Default Sync Mode',
-  syncModeSectionDesc: 'Configure the default sync mechanism for client tools (junction link or physical copy).',
-  defaultSyncMode: 'Default Sync Mode',
-  syncModeLabel: 'Sync Mode',
-  syncModeJunction: 'Junction Link',
-  syncModeCopy: 'Physical Copy',
-  syncModeJunctionDesc: 'Junction link: Real-time two-way synchronization between Hub and tool client, zero disk duplication.',
-  syncModeCopyDesc: 'Physical copy: Independent file copy; changes in client will not overwrite the Hub master directly.',
-  syncModeUpdatedToast: 'Default sync mode preference updated.',
   close: 'Close',
   selectAll: 'Select all',
   selectedCount: '{{selected}} / {{total}} selected',
@@ -417,18 +408,6 @@ export default {
   },
   toolManagement: {
     title: 'Tool Management',
-    toolModeLabel: 'Sync mode',
-    toolModes: {
-      auto: 'Link · Copy',
-      link: 'Link only',
-      copy: 'Copy only',
-    },
-    toolModeHints: {
-      auto: 'Try a link first and fall back to a physical copy when that fails.',
-      link: 'Only create a link. Sync fails instead of falling back to a copy.',
-      copy: 'Only write physical copies, never create links.',
-    },
-    toolModeSaved: 'Sync mode updated. Future syncs use the new mode.',
     hint:
       'Choose which tools can receive skills. Custom tools can point to any skills directory.',
     pageHint:
@@ -466,18 +445,8 @@ export default {
     namePlaceholder: 'Custom tool name',
     skillsDirPlaceholder: 'Global skills directory, e.g. ~/.claude_xxx/skills',
     projectDirPlaceholder: 'Project directory, optional, e.g. .agents/skills',
-    syncModeLabel: 'Sync mode',
     syncModes: {
-      auto: 'Automatic',
-      symlink: 'Symbolic link',
-      junction: 'Junction (Windows)',
       copy: 'Copy',
-    },
-    syncModeHints: {
-      auto: 'Try a symbolic link, then a Windows junction, then copy as a fallback.',
-      symlink: 'Always create a symbolic link. Sync fails if the system rejects it.',
-      junction: 'Always create a Windows directory junction. Windows only.',
-      copy: 'Copy each Skill into the tool directory and refresh it after updates.',
     },
     addCustom: 'Add custom tool',
     editCustom: 'Edit custom tool',

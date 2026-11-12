@@ -16,8 +16,8 @@ use crate::core::safe_fs::{
 };
 use crate::core::skill_store::{SkillRecord, SkillStore, SkillTargetRecord};
 use crate::core::sync_engine::{
-    copy_dir_recursive, sync_dir_hybrid_with_overwrite, sync_dir_with_mode_with_overwrite,
-    SyncMode, SyncOutcome,
+    copy_dir_recursive, sync_dir_copy_with_overwrite, sync_dir_with_mode_with_overwrite, SyncMode,
+    SyncOutcome,
 };
 use crate::core::tool_adapters::{
     adapter_by_key, adapters_sharing_project_skills_dir, is_tool_installed,
@@ -51,7 +51,7 @@ pub struct SkillTargetComparisonDto {
     pub tool_file_count: usize,
     pub status: String,
     pub diff_description: String,
-    /// 物理形态：copy / junction / symlink。前端据此把「副本」和「链接」分开。
+    /// 物理形态：2.0.1 起恒为 copy；历史 junction / symlink 记录在读取时已折算。
     pub mode: String,
     /// 与原件的关系：owner / copy / link_to_owner / link_to_central / link_other / missing
     pub role: String,
@@ -82,19 +82,14 @@ pub fn resolve_skill_source(skill: &SkillRecord) -> std::path::PathBuf {
 
 pub fn sync_mode_name(mode: SyncMode) -> &'static str {
     match mode {
-        SyncMode::Auto => "auto",
-        SyncMode::Symlink => "symlink",
-        SyncMode::Junction => "junction",
         SyncMode::Copy => "copy",
     }
 }
 
 pub fn saved_sync_mode(mode: &str) -> anyhow::Result<SyncMode> {
     match mode {
-        "auto" => Ok(SyncMode::Auto),
-        "symlink" => Ok(SyncMode::Symlink),
-        "junction" => Ok(SyncMode::Junction),
-        "copy" => Ok(SyncMode::Copy),
+        // 2.0.1 起只有复制；历史数据里的链接模式一律按 copy 处理
+        "auto" | "symlink" | "junction" | "copy" => Ok(SyncMode::Copy),
         _ => anyhow::bail!("UNSAFE_PATH|Unknown saved sync mode {mode}"),
     }
 }
@@ -220,11 +215,7 @@ pub fn auto_reconcile_skill_targets(
             }
 
             if target_has_same_content(&central_path, &target_path) {
-                let mode = if target_path.is_symlink() {
-                    "junction".to_string()
-                } else {
-                    "copy".to_string()
-                };
+                let mode = "copy".to_string();
 
                 let record = SkillTargetRecord {
                     id: existing
@@ -378,31 +369,18 @@ pub fn sync_skill_to_tool_impl(
         .ok()
         .flatten()
         .unwrap_or_else(|| "copy".to_string());
+    // 2.0.1 起同步只有复制一种方式；历史设置里的链接模式一律按 copy 处理
     let effective_mode_str = sync_mode.unwrap_or(&default_mode);
-    let mut requested_mode = match effective_mode_str {
-        "copy" => Some(crate::core::sync_engine::SyncMode::Copy),
-        "junction" => Some(crate::core::sync_engine::SyncMode::Junction),
-        "symlink" => Some(crate::core::sync_engine::SyncMode::Symlink),
+    let requested_mode = match effective_mode_str {
+        "copy" | "auto" | "junction" | "symlink" => Some(crate::core::sync_engine::SyncMode::Copy),
         _ => None,
     };
-    // 内置工具的同步方式由工具设置决定：auto 保持默认（链接优先），link 只建
-    // 链接，copy 只写副本。自定义工具沿用它自己配置里的 sync_mode。
-    if !runtime_tool.is_custom {
-        match runtime_tool.sync_mode {
-            crate::core::sync_engine::SyncMode::Auto => {}
-            forced => requested_mode = Some(forced),
-        }
-    }
 
     if let Some(existing) =
         store.get_skill_target(skill_id, tool, scope, project_path_for_record.as_deref())?
     {
         let matches_requested_mode = match requested_mode {
-            Some(crate::core::sync_engine::SyncMode::Copy) => existing.mode == "copy",
-            Some(crate::core::sync_engine::SyncMode::Junction)
-            | Some(crate::core::sync_engine::SyncMode::Symlink) => {
-                existing.mode == "junction" || existing.mode == "symlink"
-            }
+            Some(_) => existing.mode == "copy",
             _ => true,
         };
         if existing.status == "ok"
@@ -430,11 +408,7 @@ pub fn sync_skill_to_tool_impl(
     // 2. 或者该目录本身就是技能被发现导入时的原始来源物理路径（is_source_path）：
     // 绝不将原实体替换为软链接，直接保持软件原有的实体物理目录，登记为实体副本。
     let is_target_physical_dir = target.is_dir() && !target.is_symlink();
-    let is_copy_mode = match requested_mode {
-        Some(crate::core::sync_engine::SyncMode::Copy) => true,
-        None => default_mode == "copy",
-        _ => false,
-    };
+    let is_copy_mode = true;
     let should_keep_entity_as_copy =
         can_adopt_existing && is_target_physical_dir && (is_copy_mode || is_source_path);
 
@@ -464,7 +438,7 @@ pub fn sync_skill_to_tool_impl(
             )
         } else {
             // auto：先尝试链接，失败再回退为物理副本
-            sync_dir_hybrid_with_overwrite(&managed_source, &target, overwrite)
+            sync_dir_copy_with_overwrite(&managed_source, &target, overwrite)
         };
         match sync_res {
             Ok(result) => result,
@@ -523,13 +497,7 @@ pub fn sync_skill_to_tool_impl(
             scope: scope.to_string(),
             project_path: project_path_for_record.clone(),
             target_path: result.target_path.to_string_lossy().to_string(),
-            mode: match result.mode_used {
-                SyncMode::Auto => "auto",
-                SyncMode::Symlink => "symlink",
-                SyncMode::Junction => "junction",
-                SyncMode::Copy => "copy",
-            }
-            .to_string(),
+            mode: sync_mode_name(result.mode_used).to_string(),
             status: "ok".to_string(),
             last_error: None,
             synced_at: Some(now_ms()),
@@ -539,13 +507,7 @@ pub fn sync_skill_to_tool_impl(
     }
 
     Ok(SyncResultDto {
-        mode_used: match result.mode_used {
-            SyncMode::Auto => "auto",
-            SyncMode::Symlink => "symlink",
-            SyncMode::Junction => "junction",
-            SyncMode::Copy => "copy",
-        }
-        .to_string(),
+        mode_used: sync_mode_name(result.mode_used).to_string(),
         target_path: result.target_path.to_string_lossy().to_string(),
     })
 }
@@ -843,14 +805,8 @@ pub fn preflight_enable_targets<R: tauri::Runtime>(
         }
         // auto 沿用已保存的记录；内置工具的 link / copy 是用户指定的强制方式。
         // 自定义工具保持既有行为：按每条 target 记录的模式恢复。
-        let mode = if runtime_tool.is_custom {
-            saved_sync_mode(&target.mode)?
-        } else {
-            match runtime_tool.sync_mode {
-                crate::core::sync_engine::SyncMode::Auto => saved_sync_mode(&target.mode)?,
-                forced => forced,
-            }
-        };
+        // 2.0.1 起只有复制；历史记录里的链接模式按 copy 恢复
+        let mode = saved_sync_mode(&target.mode)?;
 
         if let Some(existing) = plans_by_path.get_mut(&path) {
             if existing.root != root || existing.mode != mode {
@@ -991,71 +947,18 @@ pub fn stage_enable_copy(
 }
 
 #[cfg(unix)]
-pub fn create_enable_staged_symlink(
-    source: &std::path::Path,
-    staged: &std::path::Path,
-) -> anyhow::Result<()> {
-    std::os::unix::fs::symlink(source, staged)
-        .with_context(|| format!("create enable staging symlink {:?}", staged))
-}
-
 #[cfg(windows)]
-pub fn create_enable_staged_symlink(
-    source: &std::path::Path,
-    staged: &std::path::Path,
-) -> anyhow::Result<()> {
-    std::os::windows::fs::symlink_dir(source, staged)
-        .with_context(|| format!("create enable staging symlink {:?}", staged))
-}
-
 #[cfg(not(any(unix, windows)))]
-pub fn create_enable_staged_symlink(
-    _source: &std::path::Path,
-    _staged: &std::path::Path,
-) -> anyhow::Result<()> {
-    anyhow::bail!("UNSUPPORTED_PLATFORM|Directory symlinks are unavailable")
-}
-
 #[cfg(windows)]
-pub fn create_enable_staged_junction(
-    source: &std::path::Path,
-    staged: &std::path::Path,
-) -> anyhow::Result<()> {
-    junction::create(source, staged)
-        .with_context(|| format!("create enable staging junction {:?}", staged))
-}
-
 #[cfg(not(windows))]
-pub fn create_enable_staged_junction(
-    _source: &std::path::Path,
-    _staged: &std::path::Path,
-) -> anyhow::Result<()> {
-    anyhow::bail!("UNSUPPORTED_PLATFORM|Directory junctions are only available on Windows")
-}
-
 pub fn stage_enable_target(
     source: &std::path::Path,
     plan: &EnableTargetPlan,
 ) -> anyhow::Result<OwnedEnableTarget> {
-    if matches!(plan.mode, SyncMode::Auto | SyncMode::Copy) {
-        // Auto deliberately selects its safe Copy fallback here. The staged
-        // directory is claimed before copying, so a competing process can
-        // neither receive our files nor be mistaken for our partial output.
-        return stage_enable_copy(source, &plan.root);
-    }
-
-    let staged = unique_enable_staging_path(&plan.root)?;
-    match plan.mode {
-        SyncMode::Symlink => create_enable_staged_symlink(source, &staged)?,
-        SyncMode::Junction => create_enable_staged_junction(source, &staged)?,
-        SyncMode::Auto | SyncMode::Copy => unreachable!("copy modes returned above"),
-    }
-    Ok(OwnedEnableTarget {
-        root: plan.root.clone(),
-        path: staged.clone(),
-        identity: capture_enable_path_identity(&staged)?,
-        mode_used: plan.mode,
-    })
+    // 2.0.1 起启用一律复制：The staged directory is claimed before copying, so a
+    // competing process can neither receive our files nor be mistaken for our
+    // partial output.
+    stage_enable_copy(source, &plan.root)
 }
 
 pub fn restore_enable_target_staged_with<B>(
@@ -1820,7 +1723,11 @@ pub async fn promote_target_to_owner(
                     _ => false,
                 };
                 if resolves_to_old && std::fs::remove_dir(&other_path).is_ok() {
-                    let _ = create_enable_staged_junction(&target_path, &other_path);
+                    // 2.0.1 起不再重建链接：旧链接移除后由对等同步在下一轮补上实体副本
+                    log::info!(
+                        "[central migrate] removed a stale link at {:?}; a copy will be restored by peer sync",
+                        other_path
+                    );
                 }
             }
         }

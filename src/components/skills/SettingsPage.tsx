@@ -9,7 +9,6 @@ import {
   FileUp,
   FolderOpen,
   Github,
-  Link2,
   Palette,
   Radar,
   RefreshCw,
@@ -408,10 +407,6 @@ const SettingsPage = ({
               <strong>{t(`themeOptions.${themePreference}`)}</strong>
             </div>
             <div className="settings-summary-item">
-              <span>{t('syncModeLabel')}</span>
-              <strong>{t('syncModeCopy')}</strong>
-            </div>
-            <div className="settings-summary-item">
               <span>{t('appVersion')}</span>
               <strong>{APP_VERSION_LABEL}</strong>
             </div>
@@ -722,26 +717,6 @@ const SettingsPage = ({
 
           <div className="settings-column">
             <section className="settings-card">
-              <div className="settings-card-head">
-                <span className="settings-card-icon">
-                  <Link2 size={18} />
-                </span>
-                <div>
-                  <h2>{t('syncModeSectionTitle')}</h2>
-                  <p>{t('syncModeSectionDesc')}</p>
-                </div>
-              </div>
-              <div className="settings-card-body">
-                <div className="settings-field">
-                  <label className="settings-label" id="settings-sync-mode-label">
-                    {t('defaultSyncMode')}
-                  </label>
-                  {/* 软链接已停用：各工具一律使用独立的实体副本，避免链接被实体化时连带清空原件 */}
-                  <div className="settings-helper">
-                    📦 {t('syncModeCopy')} —— {t('syncModeCopyDesc')}
-                  </div>
-                </div>
-              </div>
               <div className="settings-field">
                 <label className="settings-label">{t('stale.autoRefreshLabel')}</label>
                 <button

@@ -1420,9 +1420,9 @@ fn update_managed_skill_from_source_inner<R: tauri::Runtime>(
     }
     *source_updated = true;
 
-    // Copy-mode targets need a real refresh; symlink and junction targets already
-    // follow the central Skill. Every copy target is re-derived from the enabled
-    // tool configuration and validated as one direct Skill child before mutation.
+    // 2.0.1 起所有 target 都是实体副本，更新后都要真正重刷。Every copy target
+    // is re-derived from the enabled tool configuration and validated as one
+    // direct Skill child before mutation.
     let updated_targets =
         refresh_copy_targets_after_update(store, &updated, &central_parent, &central_path, now)?;
 

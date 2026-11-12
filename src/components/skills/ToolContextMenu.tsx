@@ -10,7 +10,6 @@ export type ToolContextMenuState = {
   tool: ToolOption
   skill: ManagedSkill
   synced: boolean
-  isCopy: boolean
   isOwner?: boolean
   /** 后端判定的角色：owner / copy / link_to_owner / link_to_central / link_other / missing */
   role?: string
@@ -22,7 +21,7 @@ export type ToolContextMenuState = {
 type ToolContextMenuProps = {
   state: ToolContextMenuState
   onClose: () => void
-  onSyncWithMode: (skill: ManagedSkill, toolId: string, mode: 'copy' | 'junction') => void
+  onSync: (skill: ManagedSkill, toolId: string) => void
   onUnsync: (skill: ManagedSkill, toolId: string) => void
   onPromoteToOwner?: (skill: ManagedSkill, toolId: string, instance?: string) => void
   onOpenFolder?: (path: string) => void
@@ -31,13 +30,13 @@ type ToolContextMenuProps = {
 export default function ToolContextMenu({
   state,
   onClose,
-  onSyncWithMode,
+  onSync,
   onUnsync,
   onPromoteToOwner,
   onOpenFolder,
 }: ToolContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
-  const { tool, skill, synced, isCopy, isOwner, instance, targetPath, x, y } = state
+  const { tool, skill, synced, isOwner, instance, targetPath, x, y } = state
 
   useEffect(() => {
     const handlePointerDown = (e: MouseEvent) => {
@@ -102,17 +101,9 @@ export default function ToolContextMenu({
         <div className="tool-context-header-info">
           <div className="tool-context-title">{tool.label}</div>
           <div
-            className={`tool-context-badge ${
-              synced ? (isOwner ? 'owner' : isCopy ? 'copy' : 'junction') : 'none'
-            }`}
+            className={`tool-context-badge ${synced ? (isOwner ? 'owner' : 'copy') : 'none'}`}
           >
-            {synced
-              ? isOwner
-                ? '原件（本地源）'
-                : isCopy
-                  ? '已同步 · 实体副本'
-                  : '已同步 · 软链接'
-              : '未同步'}
+            {synced ? (isOwner ? '原件（本地源）' : '已同步 · 实体副本') : '未同步'}
           </div>
         </div>
       </div>
@@ -127,7 +118,7 @@ export default function ToolContextMenu({
             className="tool-context-item"
             onClick={() => {
               onClose()
-              onSyncWithMode(skill, tool.id, 'copy')
+              onSync(skill, tool.id)
             }}
           >
             <Box size={14} className="icon-copy" />
@@ -139,41 +130,8 @@ export default function ToolContextMenu({
         </>
       )}
 
-      {/* 已同步为软链接：提供转为实体副本、取消同步 */}
-      {synced && !isCopy && !isOwner && (
-        <>
-          <button
-            type="button"
-            className="tool-context-item"
-            onClick={() => {
-              onClose()
-              onSyncWithMode(skill, tool.id, 'copy')
-            }}
-          >
-            <Box size={14} className="icon-copy" />
-            <div className="item-text">
-              <span>切换为 实体副本 (Copy)</span>
-              <small>解绑软链，生成独立物理文件夹</small>
-            </div>
-          </button>
-          <button
-            type="button"
-            className="tool-context-item danger"
-            onClick={() => {
-              onClose()
-              onUnsync(skill, tool.id)
-            }}
-          >
-            <Trash2 size={14} />
-            <div className="item-text">
-              <span>取消同步 (移除该软件技能)</span>
-            </div>
-          </button>
-        </>
-      )}
-
-      {/* 已同步为实体副本：提供转为软链接、取消同步 */}
-      {synced && isCopy && !isOwner && (
+      {/* 已同步为实体副本：提供取消同步 */}
+      {synced && !isOwner && (
         <>
           <button
             type="button"
@@ -216,9 +174,7 @@ export default function ToolContextMenu({
               <div className="item-text">
                 <span>设为主 skill</span>
                 <small>
-                  {isCopy
-                    ? '直接以这个实体副本为原件，文件不动'
-                    : '把内容复制到此并作为原件，旧链接进回收站'}
+                  直接以这个实体副本为原件，文件不动
                 </small>
               </div>
             </button>

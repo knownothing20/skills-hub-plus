@@ -17,7 +17,6 @@ export interface UseImportPlanProps {
   sharedToolIdsByToolId: Record<string, string[]>
   uniqueToolIdsBySkillsDir: (toolIds: string[]) => string[]
   isInstalled: (toolId: string) => boolean
-  defaultSyncMode: 'junction' | 'copy'
 }
 
 export function useImportPlan({
@@ -34,7 +33,6 @@ export function useImportPlan({
   sharedToolIdsByToolId,
   uniqueToolIdsBySkillsDir,
   isInstalled,
-  defaultSyncMode,
 }: UseImportPlanProps) {
   const { t } = useTranslation()
 
@@ -141,7 +139,7 @@ export function useImportPlan({
   )
 
   const handleImport = useCallback(
-    async (mode: 'junction' | 'copy' = defaultSyncMode) => {
+    async () => {
       if (!plan) return
       if (!plan.groups.some((group) => selected[group.name])) {
         setError(t('errors.selectAtLeastOneSkill'))
@@ -224,8 +222,7 @@ export function useImportPlan({
                     sharedToolIds.includes(chosenVariantTool))) ||
                   hasSameContentVariant,
               )
-              // 新发现技能：对来源软件原有目录固定保持为实体副本，绝不转为软链接
-              const targetSyncMode = isSourceTool ? 'copy' : mode
+              // 2.0.1 起同步只有复制一种方式（新发现技能对来源目录保持实体副本）
               await invokeTauri('sync_skill_to_tool', {
                 sourcePath: installResult.central_path,
                 skillId: installResult.skill_id,
@@ -234,7 +231,7 @@ export function useImportPlan({
                 // 自动接管：来源目录或内容一致的已发现目录保持其已有实体副本
                 overwrite: isSourceTool,
                 overwriteIfSameContent: true,
-                syncMode: targetSyncMode,
+                syncMode: 'copy',
               })
             } catch (err) {
               const raw = err instanceof Error ? err.message : String(err)
@@ -280,7 +277,6 @@ export function useImportPlan({
       }
     },
     [
-      defaultSyncMode,
       isInstalled,
       loadManagedSkills,
       loadPlan,

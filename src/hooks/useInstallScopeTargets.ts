@@ -32,7 +32,6 @@ export interface UseInstallScopeTargetsProps {
   uniqueToolIdsBySkillsDir: (toolIds: string[]) => string[]
   uniqueToolIdsByProjectSkillsDir: (toolIds: string[]) => string[]
   isInstalled: (id: string) => boolean
-  defaultSyncMode: 'junction' | 'copy'
   setActionMessage: (msg: string | null) => void
   setError: (error: string | null) => void
   setRecentProjects: React.Dispatch<React.SetStateAction<string[]>>
@@ -50,7 +49,6 @@ export function useInstallScopeTargets({
   uniqueToolIdsBySkillsDir,
   uniqueToolIdsByProjectSkillsDir,
   isInstalled,
-  defaultSyncMode,
   setActionMessage,
   setError,
   setRecentProjects,
@@ -131,7 +129,8 @@ export function useInstallScopeTargets({
               ? { projectPath: job.projectPath }
               : {}),
             overwriteIfSameContent: true,
-            syncMode: defaultSyncMode,
+            // 2.0.1 起同步只有复制一种方式
+            syncMode: 'copy',
           })
         } catch (err) {
           collectedErrors.push({
@@ -147,7 +146,6 @@ export function useInstallScopeTargets({
       return collectedErrors
     },
     [
-      defaultSyncMode,
       installProjects,
       installScope,
       installedToolIds,

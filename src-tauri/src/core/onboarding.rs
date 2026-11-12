@@ -282,114 +282,11 @@ pub fn is_tool_ignored(store: &SkillStore, tool_key: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Tools whose own skill index skips reparse points, so a linked Skill never
-/// shows up in their UI. They default to physical copies; the user can still
-/// change any tool in the tools page.
-pub const DEFAULT_COPY_ONLY_TOOLS: &[&str] = &["antigravity", "cursor"];
-
-/// Per-tool sync mode, stored as a JSON object `{"tool_key": "auto|link|copy"}`.
-/// - `auto`: try a link first, fall back to a physical copy (historical default)
-/// - `link`: only ever create a link, fail loudly when the OS refuses
-/// - `copy`: only ever write physical copies
-///
-/// Absent keys fall back to `auto`, except the tools in
-/// `DEFAULT_COPY_ONLY_TOOLS`, which fall back to `copy`.
-pub const TOOL_SYNC_MODE_SETTING: &str = "tool_sync_mode_v1";
-
-/// Previous two-state setting (`["tool_key", ...]`). Read once so an existing
-/// choice survives the upgrade, then never written again.
-const LEGACY_COPY_ONLY_TOOLS_SETTING: &str = "copy_only_tools_v1";
-
-pub type ToolSyncModes = HashMap<String, String>;
-
-fn normalize_tool_sync_modes(input: ToolSyncModes) -> ToolSyncModes {
-    input
-        .into_iter()
-        .filter_map(|(key, mode)| {
-            let key = key.trim().to_lowercase();
-            let mode = mode.trim().to_lowercase();
-            if key.is_empty() || !is_valid_sync_mode(&mode) {
-                return None;
-            }
-            Some((key, mode))
-        })
-        .collect()
-}
-
-fn is_valid_sync_mode(mode: &str) -> bool {
-    matches!(mode, "auto" | "link" | "copy")
-}
-
-pub fn default_tool_sync_modes() -> ToolSyncModes {
-    DEFAULT_COPY_ONLY_TOOLS
-        .iter()
-        .map(|key| ((*key).to_string(), "copy".to_string()))
-        .collect()
-}
-
-pub fn load_tool_sync_modes(store: &SkillStore) -> Result<ToolSyncModes> {
-    if let Some(raw) = store.get_setting(TOOL_SYNC_MODE_SETTING)? {
-        // 存储损坏时退回默认值，而不是把所有工具悄悄改成 auto
-        let parsed: ToolSyncModes =
-            serde_json::from_str(&raw).unwrap_or_else(|_| default_tool_sync_modes());
-        return Ok(normalize_tool_sync_modes(parsed));
-    }
-
-    let mut modes = default_tool_sync_modes();
-    // A user who already picked something under the old setting keeps it.
-    if let Some(raw) = store.get_setting(LEGACY_COPY_ONLY_TOOLS_SETTING)? {
-        let legacy: Vec<String> = serde_json::from_str(&raw).unwrap_or_default();
-        modes.retain(|key, _| DEFAULT_COPY_ONLY_TOOLS.contains(&key.as_str()));
-        for key in legacy {
-            let key = key.trim().to_lowercase();
-            if !key.is_empty() {
-                modes.insert(key, "copy".to_string());
-            }
-        }
-    }
-    Ok(modes)
-}
-
-pub fn save_tool_sync_mode(
-    store: &SkillStore,
-    tool_key: &str,
-    mode: &str,
-) -> Result<ToolSyncModes> {
-    let key = tool_key.trim().to_lowercase();
-    let mode = mode.trim().to_lowercase();
-    if key.is_empty() {
-        anyhow::bail!("INVALID_TOOL_KEY");
-    }
-    if !is_valid_sync_mode(&mode) {
-        anyhow::bail!("INVALID_SYNC_MODE|{}", mode);
-    }
-    let mut modes = load_tool_sync_modes(store)?;
-    modes.insert(key, mode);
-    store.set_setting(TOOL_SYNC_MODE_SETTING, &serde_json::to_string(&modes)?)?;
-    Ok(modes)
-}
-
-/// 软链接已停用：界面上的同步方式固定为实体副本。
-///
-/// 这个函数保留下来只为兼容 onboarding 里旧的 "link" 策略——它现在一律返回
-/// Copy，因为 junction 被第三方工具实体化时会连带清空原件（2026-11-10 事故）。
+/// 软链接同步已移除（2.0.1）：对等同步要求每份副本是真实目录，链接会让
+/// 副本退化为同一份文件，「谁改谁最新」无从谈起。保留此函数仅为兼容旧引用，
+/// 一律返回 Copy。
 pub fn platform_link_mode() -> SyncMode {
     SyncMode::Copy
-}
-
-pub fn resolve_tool_sync_mode(
-    modes: &ToolSyncModes,
-    tool_key: &str,
-    default: SyncMode,
-) -> SyncMode {
-    match modes
-        .get(&tool_key.trim().to_lowercase())
-        .map(String::as_str)
-    {
-        Some("copy") => SyncMode::Copy,
-        Some("link") => platform_link_mode(),
-        _ => default,
-    }
 }
 
 /// Per-Skill exceptions to a blocked tool. Entries use the form

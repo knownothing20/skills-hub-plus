@@ -131,7 +131,7 @@ fn classify_target_accepts_link_pointing_at_owner_folder() {
 
     let target_dir = dir.path().join("tool").join("skill-a");
     std::fs::create_dir_all(target_dir.parent().unwrap()).unwrap();
-    junction::create(&owner, &target_dir).expect("junction");
+    std::os::windows::fs::symlink_dir(&owner, &target_dir).expect("symlink");
 
     let record = make_target(
         "t1",

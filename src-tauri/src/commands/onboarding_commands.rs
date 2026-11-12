@@ -78,35 +78,6 @@ pub async fn set_ignored_tools(
 }
 
 #[tauri::command]
-pub async fn get_tool_sync_modes(
-    store: State<'_, SkillStore>,
-) -> Result<std::collections::HashMap<String, String>, String> {
-    let store = store.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::core::onboarding::load_tool_sync_modes(&store)
-    })
-    .await
-    .map_err(|err| err.to_string())?
-    .map_err(format_anyhow_error)
-}
-
-#[tauri::command]
-#[allow(non_snake_case)]
-pub async fn set_tool_sync_mode(
-    store: State<'_, SkillStore>,
-    toolKey: String,
-    mode: String,
-) -> Result<std::collections::HashMap<String, String>, String> {
-    let store = store.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::core::onboarding::save_tool_sync_mode(&store, &toolKey, &mode)
-    })
-    .await
-    .map_err(|err| err.to_string())?
-    .map_err(format_anyhow_error)
-}
-
-#[tauri::command]
 pub async fn get_tool_skill_whitelist(store: State<'_, SkillStore>) -> Result<Vec<String>, String> {
     let store = store.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {

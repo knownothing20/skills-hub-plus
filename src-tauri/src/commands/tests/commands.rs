@@ -11,120 +11,6 @@ fn make_store() -> (tempfile::TempDir, SkillStore) {
     (dir, store)
 }
 
-struct EnableFixture {
-    _dir: tempfile::TempDir,
-    store: SkillStore,
-    db_path: std::path::PathBuf,
-    target_paths: Vec<std::path::PathBuf>,
-}
-
-fn make_enable_fixture(target_count: usize) -> EnableFixture {
-    let dir = tempfile::tempdir().expect("tempdir");
-    let db_path = dir.path().join("test.db");
-    let store = SkillStore::new(db_path.clone());
-    store.ensure_schema().expect("ensure_schema");
-
-    let central_root = dir.path().join("central");
-    let managed_skill = central_root.join("atomic-enable");
-    std::fs::create_dir_all(&managed_skill).unwrap();
-    std::fs::write(
-        managed_skill.join("SKILL.md"),
-        "---\nname: atomic-enable\n---\n",
-    )
-    .unwrap();
-    store
-        .set_setting("central_repo_path", central_root.to_string_lossy().as_ref())
-        .unwrap();
-    store
-        .upsert_skill(&SkillRecord {
-            id: "atomic-enable".to_string(),
-            name: "atomic-enable".to_string(),
-            description: None,
-            source_type: "managed".to_string(),
-            source_ref: None,
-            source_subpath: None,
-            source_revision: None,
-            central_path: managed_skill.to_string_lossy().to_string(),
-            content_hash: None,
-            created_at: 1,
-            updated_at: 2,
-            last_sync_at: None,
-            last_seen_at: 1,
-            enabled: false,
-            status: "ok".to_string(),
-        })
-        .unwrap();
-
-    let mut custom_tools = Vec::new();
-    let mut target_paths = Vec::new();
-    for index in 0..target_count {
-        let tool_root = dir.path().join(format!("tool-{index}-skills"));
-        std::fs::create_dir_all(&tool_root).unwrap();
-        let tool_key = format!("custom_{index}");
-        custom_tools.push(CustomToolConfig {
-            key: tool_key.clone(),
-            label: format!("Custom {index}"),
-            avatar: None,
-            skills_dir: tool_root.to_string_lossy().to_string(),
-            project_skills_dir: None,
-            sync_mode: SyncMode::Copy,
-            enabled: true,
-        });
-        let target_path = tool_root.join("atomic-enable");
-        store
-            .upsert_skill_target(&SkillTargetRecord {
-                id: format!("target-{index}"),
-                instance: String::new(),
-                skill_id: "atomic-enable".to_string(),
-                tool: tool_key,
-                scope: "global".to_string(),
-                project_path: None,
-                target_path: target_path.to_string_lossy().to_string(),
-                mode: "copy".to_string(),
-                status: "disabled".to_string(),
-                last_error: Some("saved-disabled-state".to_string()),
-                synced_at: None,
-            })
-            .unwrap();
-        target_paths.push(target_path);
-    }
-    save_tool_config(
-        &store,
-        ToolConfig {
-            disabled_builtin_tools: Vec::new(),
-            custom_tools,
-        },
-    )
-    .unwrap();
-
-    EnableFixture {
-        _dir: dir,
-        store,
-        db_path,
-        target_paths,
-    }
-}
-
-fn assert_enable_fixture_database_rolled_back(fixture: &EnableFixture) {
-    let skill = fixture
-        .store
-        .get_skill_by_id("atomic-enable")
-        .unwrap()
-        .unwrap();
-    assert!(!skill.enabled);
-    let targets = fixture.store.list_skill_targets("atomic-enable").unwrap();
-    assert!(targets.iter().all(|target| target.status == "disabled"));
-    assert!(targets
-        .iter()
-        .all(|target| target.last_error.as_deref() == Some("saved-disabled-state")));
-    assert!(targets.iter().all(|target| target.synced_at.is_none()));
-}
-
-fn assert_enable_fixture_rolled_back(fixture: &EnableFixture) {
-    assert_enable_fixture_database_rolled_back(fixture);
-    assert!(fixture.target_paths.iter().all(|path| !path.exists()));
-}
-
 #[test]
 fn format_anyhow_error_passthrough_prefixes() {
     for message in [
@@ -184,7 +70,7 @@ fn saving_custom_tool_config_creates_enabled_skills_dir() {
                     avatar: Some("data:image/png;base64,AA==".to_string()),
                     skills_dir: existing.to_string_lossy().to_string(),
                     project_skills_dir: None,
-                    sync_mode: SyncMode::Auto,
+                    sync_mode: SyncMode::Copy,
                     enabled: true,
                 },
                 CustomToolConfig {
@@ -218,7 +104,7 @@ fn saving_custom_tool_config_creates_enabled_skills_dir() {
         existing_tool.avatar.as_deref(),
         Some("data:image/png;base64,AA==")
     );
-    assert_eq!(existing_tool.sync_mode, SyncMode::Auto);
+    assert_eq!(existing_tool.sync_mode, SyncMode::Copy);
     assert!(created_tool.enabled);
     assert!(created_tool.installed);
     assert_eq!(created_tool.sync_mode, SyncMode::Copy);
@@ -598,196 +484,6 @@ fn record_skill_target_failure_persists_error_status() {
 }
 
 #[test]
-fn atomic_enable_restores_every_target_before_enabling() {
-    let fixture = make_enable_fixture(2);
-    let app = tauri::test::mock_app();
-
-    let result =
-        enable_skill_and_restore_targets_impl(app.handle(), &fixture.store, "atomic-enable")
-            .unwrap();
-
-    assert_eq!(result.restored_targets, 2);
-    assert!(
-        fixture
-            .store
-            .get_skill_by_id("atomic-enable")
-            .unwrap()
-            .unwrap()
-            .enabled
-    );
-    let targets = fixture.store.list_skill_targets("atomic-enable").unwrap();
-    assert!(targets.iter().all(|target| target.status == "ok"));
-    assert!(targets.iter().all(|target| target.last_error.is_none()));
-    assert!(targets.iter().all(|target| target.synced_at.is_some()));
-    for path in &fixture.target_paths {
-        assert_eq!(
-            std::fs::read_to_string(path.join("SKILL.md")).unwrap(),
-            "---\nname: atomic-enable\n---\n"
-        );
-    }
-}
-
-#[cfg(unix)]
-#[test]
-fn atomic_enable_stages_and_atomically_publishes_saved_symlink_mode() {
-    let fixture = make_enable_fixture(1);
-    let app = tauri::test::mock_app();
-    let mut target = fixture
-        .store
-        .list_skill_targets("atomic-enable")
-        .unwrap()
-        .remove(0);
-    target.mode = "symlink".to_string();
-    fixture.store.upsert_skill_target(&target).unwrap();
-
-    enable_skill_and_restore_targets_impl(app.handle(), &fixture.store, "atomic-enable").unwrap();
-
-    assert!(std::fs::symlink_metadata(&fixture.target_paths[0])
-        .unwrap()
-        .file_type()
-        .is_symlink());
-    assert_eq!(
-        fixture.store.list_skill_targets("atomic-enable").unwrap()[0].mode,
-        "symlink"
-    );
-}
-
-#[test]
-fn atomic_enable_rolls_back_when_the_nth_target_restore_fails() {
-    let fixture = make_enable_fixture(3);
-    let app = tauri::test::mock_app();
-    let mut attempt = 0usize;
-
-    let err = enable_skill_and_restore_targets_with(
-        app.handle(),
-        &fixture.store,
-        "atomic-enable",
-        |_source, plan| {
-            attempt += 1;
-            if attempt == 2 {
-                anyhow::bail!("injected nth target failure");
-            }
-            std::fs::create_dir(&plan.path)?;
-            std::fs::write(plan.path.join("created"), format!("attempt {attempt}"))?;
-            Ok(OwnedEnableTarget {
-                root: plan.root.clone(),
-                path: plan.path.clone(),
-                identity: capture_enable_path_identity(&plan.path)?,
-                mode_used: SyncMode::Copy,
-            })
-        },
-    )
-    .unwrap_err();
-
-    assert!(format!("{err:#}").contains("injected nth target failure"));
-    assert_eq!(attempt, 2);
-    assert_enable_fixture_rolled_back(&fixture);
-}
-
-#[test]
-fn atomic_enable_preserves_competing_copy_target_created_after_preflight() {
-    let fixture = make_enable_fixture(1);
-    let app = tauri::test::mock_app();
-
-    let err = enable_skill_and_restore_targets_with(
-        app.handle(),
-        &fixture.store,
-        "atomic-enable",
-        |source, plan| {
-            restore_enable_target_staged_with(source, plan, |plan, _staged| {
-                std::fs::create_dir(&plan.path)?;
-                std::fs::write(plan.path.join("owner"), "competing-process")?;
-                Ok(())
-            })
-        },
-    )
-    .unwrap_err();
-
-    assert!(format!("{err:#}").contains("SKILL_EXISTS"));
-    assert_eq!(
-        std::fs::read_to_string(fixture.target_paths[0].join("owner")).unwrap(),
-        "competing-process"
-    );
-    assert!(!fixture.target_paths[0].join("SKILL.md").exists());
-    assert_enable_fixture_database_rolled_back(&fixture);
-}
-
-#[test]
-fn atomic_enable_rollback_preserves_a_replaced_journal_target() {
-    let fixture = make_enable_fixture(2);
-    let app = tauri::test::mock_app();
-    let first_target = fixture.target_paths[0].clone();
-    let displaced_target = first_target
-        .parent()
-        .unwrap()
-        .join("operation-created-displaced");
-    let mut attempt = 0usize;
-
-    let err = enable_skill_and_restore_targets_with(
-        app.handle(),
-        &fixture.store,
-        "atomic-enable",
-        |_source, plan| {
-            attempt += 1;
-            if attempt == 2 {
-                std::fs::rename(&first_target, &displaced_target)?;
-                std::fs::create_dir(&first_target)?;
-                std::fs::write(first_target.join("owner"), "competing-process")?;
-                anyhow::bail!("injected later target failure");
-            }
-            std::fs::create_dir(&plan.path)?;
-            Ok(OwnedEnableTarget {
-                root: plan.root.clone(),
-                path: plan.path.clone(),
-                identity: capture_enable_path_identity(&plan.path)?,
-                mode_used: SyncMode::Copy,
-            })
-        },
-    )
-    .unwrap_err();
-
-    let message = format!("{err:#}");
-    assert!(message.contains("ROLLBACK_INCOMPLETE"));
-    assert!(message.contains("OWNERSHIP_CHANGED"));
-    assert_eq!(
-        std::fs::read_to_string(first_target.join("owner")).unwrap(),
-        "competing-process"
-    );
-    assert!(displaced_target.is_dir());
-    assert_enable_fixture_database_rolled_back(&fixture);
-}
-
-#[test]
-fn atomic_enable_rolls_back_files_rows_and_enabled_on_db_failure() {
-    let fixture = make_enable_fixture(2);
-    let app = tauri::test::mock_app();
-    let connection = rusqlite::Connection::open(&fixture.db_path).unwrap();
-    connection
-        .execute_batch(
-            "CREATE TRIGGER fail_second_target_restore
-             BEFORE UPDATE OF status ON skill_targets
-             WHEN NEW.id = 'target-1' AND NEW.status = 'ok'
-             BEGIN
-               SELECT RAISE(FAIL, 'injected target row failure');
-             END;
-             CREATE TRIGGER reject_compensating_target_write
-             BEFORE UPDATE OF status ON skill_targets
-             WHEN NEW.id = 'target-0' AND NEW.status = 'disabled'
-             BEGIN
-               SELECT RAISE(FAIL, 'compensating writes are forbidden');
-             END;",
-        )
-        .unwrap();
-    drop(connection);
-
-    let err = enable_skill_and_restore_targets_impl(app.handle(), &fixture.store, "atomic-enable")
-        .unwrap_err();
-
-    assert!(format!("{err:#}").contains("injected target row failure"));
-    assert_enable_fixture_rolled_back(&fixture);
-}
-
-#[test]
 fn test_discovered_skill_preserves_physical_entity_without_converting_to_link() {
     let (dir, store) = make_store();
 
@@ -807,7 +503,7 @@ fn test_discovered_skill_preserves_physical_entity_without_converting_to_link() 
                 avatar: None,
                 skills_dir: tool_skills.to_string_lossy().to_string(),
                 project_skills_dir: None,
-                sync_mode: SyncMode::Junction,
+                sync_mode: SyncMode::Copy,
                 enabled: true,
             }],
         },
@@ -884,8 +580,6 @@ fn test_discovered_skill_preserves_physical_entity_without_converting_to_link() 
     assert_eq!(res.mode_used, "copy");
     assert!(client_skill_dir.is_dir());
     assert!(!client_skill_dir.is_symlink());
-    #[cfg(windows)]
-    assert!(!junction::exists(&client_skill_dir).unwrap_or(false));
     assert_eq!(
         std::fs::read_to_string(client_skill_dir.join("logic.py")).unwrap(),
         "print('original physical content')\n"
@@ -920,6 +614,4 @@ fn test_discovered_skill_preserves_physical_entity_without_converting_to_link() 
     assert_eq!(res2.mode_used, "copy");
     assert!(client_skill_dir.is_dir());
     assert!(!client_skill_dir.is_symlink());
-    #[cfg(windows)]
-    assert!(!junction::exists(&client_skill_dir).unwrap_or(false));
 }

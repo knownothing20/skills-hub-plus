@@ -13,7 +13,6 @@ import {
   Globe2,
   RefreshCw,
   ShieldAlert,
-  Link2,
   Box,
   ExternalLink,
 } from 'lucide-react'
@@ -747,20 +746,9 @@ const SkillDetailView = ({
                         isActiveSkillTarget(t),
                     )
                     const role = roleOfTarget(target)
-                    // 物理形态看记录的 mode：原件（role='owner'）也有一条 mode，它照样是实体目录。
-                    const isCopy = target?.mode === 'copy'
-                    const modeText =
-                      role === 'owner'
-                        ? t('roleOwner')
-                        : isCopy
-                          ? t('roleCopy')
-                          : t('roleLink')
-                    const modeClass =
-                      role === 'owner'
-                        ? 'mode-owner'
-                        : isCopy
-                          ? 'mode-copy'
-                          : 'mode-symlink'
+                    // 2.0.1 起同步只有实体副本一种形态
+                    const modeText = role === 'owner' ? t('roleOwner') : t('roleCopy')
+                    const modeClass = role === 'owner' ? 'mode-owner' : 'mode-copy'
                     const pathInfo = target?.target_path ? ` · 路径: ${target.target_path}` : ''
 
                     return (
@@ -776,7 +764,7 @@ const SkillDetailView = ({
                         />
                         <span>{tool.label}</span>
                         <span className={`detail-sync-mode-pill ${modeClass}`}>
-                          {isCopy ? <Box size={10} /> : <Link2 size={10} />}
+                          <Box size={10} />
                           <span>{modeText}</span>
                         </span>
                       </span>

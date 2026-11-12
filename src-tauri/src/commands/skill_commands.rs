@@ -497,7 +497,7 @@ pub async fn ignore_managed_skill(
                 let is_junction = {
                     #[cfg(windows)]
                     {
-                        junction::exists(&target_path).unwrap_or(false)
+                        target_path.is_symlink()
                     }
                     #[cfg(not(windows))]
                     {
