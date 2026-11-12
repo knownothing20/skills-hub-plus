@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **技能列表新增「来源」列**：母库徽章和主 skill 所在软件的图标并排放在同一列
+  （左边母库、右边主 skill，带皇冠与版本字母），一眼能看出这份技能的原件在哪。
+  卡片视图同样显示这两个图标。
+
 ## [2.0.1] - 2026-11-12
 
 同步只留一种方式：**整目录复制**。软链接（symlink / junction / auto）全部移除。
