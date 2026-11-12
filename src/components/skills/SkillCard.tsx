@@ -106,9 +106,22 @@ const SkillCard = ({
   const scopeTargets = skill.targets.filter(
     (target) => (target.scope ?? 'global') === scope,
   )
-  const ownerToolId = scopeTargets.find(
+  const ownerTarget = scopeTargets.find(
     (target) => roleOfTarget(target) === 'owner',
-  )?.tool
+  )
+  const ownerToolId = ownerTarget?.tool
+  // 主 skill 所在的软件：整份技能的「原点」，列在母库图标右边
+  const ownerTool = ownerToolId
+    ? installedTools.find((tool) => tool.id === ownerToolId)
+    : undefined
+  const ownerVersionKey = ownerTarget
+    ? ownerTarget.instance
+      ? `${ownerTarget.tool}#${ownerTarget.instance}`
+      : ownerTarget.tool
+    : null
+  const ownerVersionLabel = ownerVersionKey
+    ? versionLabels?.[ownerVersionKey]
+    : undefined
 
   // 共享目录曝光：技能登记了 agents 目标 → 内容同时对所有读取者生效
   const normalizePath = (value: string) =>
@@ -224,91 +237,129 @@ const SkillCard = ({
       </div>
 
       <div className="skill-card-meta">
-        <div className="skill-tags-inline">
-          {skill.tags.length > 0 ? skill.tags.slice(0, 2).map((tag) => (
-            <button key={tag.id} className="skill-tag-pill" type="button" onClick={() => onEditTags(skill)}>
-              {tag.name}
-            </button>
-          )) : <span className="table-empty">{t('untagged')}</span>}
-        </div>
+        <div className="skill-meta-group">
+          <div className="skill-tags-inline">
+            {skill.tags.length > 0 ? skill.tags.slice(0, 2).map((tag) => (
+              <button key={tag.id} className="skill-tag-pill" type="button" onClick={() => onEditTags(skill)}>
+                {tag.name}
+              </button>
+            )) : <span className="table-empty">{t('untagged')}</span>}
+          </div>
 
-        <button className={`scope-badge ${scope}`} type="button" onClick={() => onOpenScope(skill)}>
-          {scope === 'project' ? t('scope.projectCount', { count: projectCount }) : t('scope.globalBadge')}
-        </button>
+          <button className={`scope-badge ${scope}`} type="button" onClick={() => onOpenScope(skill)}>
+            {scope === 'project' ? t('scope.projectCount', { count: projectCount }) : t('scope.globalBadge')}
+          </button>
 
-        {health && health.broken.length > 0 ? (
-          <span
-            className="skill-health-badge is-broken"
-            title={health.broken
-              .map((broken) =>
-                `${broken.tool}: ${broken.path} (${t(`health.reason.${broken.reason}`, { defaultValue: broken.reason })})`,
-              )
-              .join('\n')}
-          >
-            {t('health.cardBroken', { count: health.broken.length })}
-          </span>
-        ) : null}
-
-        {health?.idle ? (
-          <span className="skill-health-badge is-idle" title={t('health.idleHint')}>
-            {t('health.cardIdle')}
-          </span>
-        ) : null}
-
-        <button
-          className={`skill-central-badge${mirrorStale ? ' is-stale' : ''}`}
-          type="button"
-          aria-label={centralBadgeLabel}
-          title={centralBadgeTitle}
-          onClick={(e) => {
-            e.stopPropagation()
-            if (skill.central_path) {
-              openPath(skill.central_path).catch(() => {
-                toast.error(t('openMasterFolderFailed'))
-              })
-            }
-          }}
-        >
-          <img src={logoMark} alt={centralBadgeLabel} className="central-badge-logo" />
-          {versionLabels?.['central'] ? (
+          {health && health.broken.length > 0 ? (
             <span
-              className={`central-alert is-version${
-                versionLabels['central'] === 'A' ? ' is-latest' : ''
-              }`}
-              title={`母库停在版本 ${versionLabels['central']}${
-                versionLabels['central'] === 'A' ? '（最新）' : ''
-              }`}
+              className="skill-health-badge is-broken"
+              title={health.broken
+                .map((broken) =>
+                  `${broken.tool}: ${broken.path} (${t(`health.reason.${broken.reason}`, { defaultValue: broken.reason })})`,
+                )
+                .join('\n')}
             >
-              {versionLabels['central']}
-            </span>
-          ) : mirrorStale ? (
-            <span className="central-alert" aria-hidden="true">
-              !
+              {t('health.cardBroken', { count: health.broken.length })}
             </span>
           ) : null}
-        </button>
 
-        {sharedDir ? (
+          {health?.idle ? (
+            <span className="skill-health-badge is-idle" title={t('health.idleHint')}>
+              {t('health.cardIdle')}
+            </span>
+          ) : null}
+
+          {sharedDir ? (
+            <button
+              className="skill-shared-badge"
+              type="button"
+              aria-label={t('shared.badgeLabel')}
+              title={`${t('shared.badgeLabel')}\n${sharedDir.path}\n${t('shared.readersTitle', {
+                readers: sharedReadersLabel,
+              })}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                toast.info(t('shared.badgeLabel'), {
+                  description: `${sharedDir.path}\n${t('shared.readersTitle', {
+                    readers: sharedReadersLabel,
+                  })}`,
+                  duration: 5000,
+                })
+              }}
+            >
+              <Share2 size={10} />
+            </button>
+          ) : null}
+        </div>
+
+        {/* 来源列：左边是母库，右边是主 skill 所在软件的图标 */}
+        <div className="skill-origin-cell">
           <button
-            className="skill-shared-badge"
+            className={`skill-central-badge${mirrorStale ? ' is-stale' : ''}`}
             type="button"
-            aria-label={t('shared.badgeLabel')}
-            title={`${t('shared.badgeLabel')}\n${sharedDir.path}\n${t('shared.readersTitle', {
-              readers: sharedReadersLabel,
-            })}`}
+            aria-label={centralBadgeLabel}
+            title={centralBadgeTitle}
             onClick={(e) => {
               e.stopPropagation()
-              toast.info(t('shared.badgeLabel'), {
-                description: `${sharedDir.path}\n${t('shared.readersTitle', {
-                  readers: sharedReadersLabel,
-                })}`,
-                duration: 5000,
-              })
+              if (skill.central_path) {
+                openPath(skill.central_path).catch(() => {
+                  toast.error(t('openMasterFolderFailed'))
+                })
+              }
             }}
           >
-            <Share2 size={10} />
+            <img src={logoMark} alt={centralBadgeLabel} className="central-badge-logo" />
+            {versionLabels?.['central'] ? (
+              <span
+                className={`central-alert is-version${
+                  versionLabels['central'] === 'A' ? ' is-latest' : ''
+                }`}
+                title={`母库停在版本 ${versionLabels['central']}${
+                  versionLabels['central'] === 'A' ? '（最新）' : ''
+                }`}
+              >
+                {versionLabels['central']}
+              </span>
+            ) : mirrorStale ? (
+              <span className="central-alert" aria-hidden="true">
+                !
+              </span>
+            ) : null}
           </button>
-        ) : null}
+
+          {ownerTool ? (
+            <button
+              className="skill-owner-icon"
+              type="button"
+              aria-label={t('roleOwnerAt', { tool: ownerTool.label })}
+              title={`${t('roleOwnerAt', { tool: ownerTool.label })}${
+                ownerVersionLabel ? ` · 版本 ${ownerVersionLabel}` : ''
+              }`}
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpenDetail(skill)
+              }}
+            >
+              <ToolIcon
+                toolKey={ownerTool.id}
+                label={ownerTool.label}
+                avatar={ownerTool.avatar}
+              />
+              {ownerVersionLabel ? (
+                <span
+                  className={`version-badge${
+                    ownerVersionLabel === 'A' ? ' is-latest' : ' is-older'
+                  }`}
+                >
+                  {ownerVersionLabel}
+                </span>
+              ) : null}
+              <span className="owner-crown" aria-hidden="true">
+                <Crown size={9} />
+              </span>
+            </button>
+          ) : null}
+        </div>
 
         <div className="skill-updated">{formatRelative(skill.updated_at)}</div>
       </div>

@@ -183,3 +183,49 @@ describe('SkillCard tool target description', () => {
     expect(markup).not.toContain('is-symlink')
   })
 })
+
+describe('SkillCard origin column', () => {
+  // 「来源列」：左边母库，右边主 skill 所在软件的图标
+  const ownedSkill: ManagedSkill = {
+    ...createSkill(false),
+    source_type: 'local',
+    source_ref: 'C:/Users/leon/.codex/skills/example',
+    targets: [
+      {
+        tool: 'codex',
+        scope: 'global',
+        mode: 'copy',
+        status: 'ok',
+        target_path: 'C:/Users/leon/.codex/skills/example',
+        role: 'owner',
+      },
+    ],
+  }
+
+  const codex: ToolOption = { id: 'codex', label: 'Codex' }
+
+  it('shows the master badge and the owning tool icon in one column', () => {
+    const markup = renderCard(ownedSkill, [codex])
+
+    expect(markup).toContain('skill-origin-cell')
+    expect(markup).toContain('skill-central-badge')
+    expect(markup).toContain('skill-owner-icon')
+    // 主 skill 的软件图标必须排在母库徽章右边
+    expect(markup.indexOf('skill-central-badge')).toBeLessThan(
+      markup.indexOf('skill-owner-icon'),
+    )
+  })
+
+  it('marks the owning tool as the owner of the skill', () => {
+    const markup = renderCard(ownedSkill, [codex])
+
+    expect(markup).toContain('roleOwnerAt')
+  })
+
+  it('omits the owner icon when the owning tool is not installed', () => {
+    const markup = renderCard(ownedSkill, [])
+
+    expect(markup).toContain('skill-origin-cell')
+    expect(markup).not.toContain('skill-owner-icon')
+  })
+})

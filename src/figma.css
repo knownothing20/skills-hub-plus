@@ -622,6 +622,60 @@
 .skill-description { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 11px; line-height: 16px; }
 .skill-description.empty { color: var(--text-tertiary); }
 .skill-card-meta { min-width: 0; min-height: 24px; display: flex; align-items: center; gap: 7px; }
+/* 标签 / 范围 / 健康徽章 / 共享标记归为一组，右侧留给「来源列」和更新时间 */
+.skill-meta-group { min-width: 0; display: flex; align-items: center; gap: 7px; overflow: hidden; }
+/* 来源列：左边母库，右边主 skill 所在软件的图标 */
+.skill-origin-cell { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; }
+.skill-owner-icon {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  padding: 1px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-element);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform .15s ease, border-color .15s ease, background .15s ease;
+}
+.skill-owner-icon .tool-brand-icon { width: 18px; height: 18px; border-radius: 5px; }
+.skill-owner-icon:hover { transform: translateY(-1px); border-color: var(--border-strong); background: var(--bg-hover, var(--bg-element)); }
+.skill-owner-icon .version-badge {
+  position: absolute;
+  bottom: -4px;
+  left: -4px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 2px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  border: 1.5px solid var(--bg-panel, #fff);
+  z-index: 3;
+  pointer-events: none;
+}
+.skill-owner-icon .version-badge.is-latest { background: #e24b4a; color: #fff; }
+.skill-owner-icon .version-badge.is-older { background: #9ca3af; color: #fff; }
+.skill-owner-icon .owner-crown {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #854F0B;
+  color: #FAC775;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--bg-panel, #fff);
+  z-index: 3;
+  pointer-events: none;
+}
 .skill-tags-inline {
   min-width: 0;
   padding-right: 0;
@@ -1051,8 +1105,8 @@
   display: grid;
   /* 前两列取固定宽度：名称列曾经吃掉近一半屏宽，meta 列 auto 时各行起点还会漂移。
      工具区拿剩下的空间，并在放不下时横向滚动（9 个图标在窄窗口里放不开）。 */
-  grid-template-columns: minmax(150px, 210px) minmax(150px, 200px) minmax(160px, 1fr) 42px 116px 18px;
-  grid-template-areas: 'identity meta tools toggle actions arrow';
+  grid-template-columns: minmax(150px, 210px) minmax(120px, 200px) 50px 70px minmax(160px, 1fr) 42px 116px 18px;
+  grid-template-areas: 'identity meta origin time tools toggle actions arrow';
   align-items: center;
   column-gap: 8px;
   padding: 8px 16px;
@@ -1077,7 +1131,8 @@
   color: var(--text-secondary);
   line-height: 15px;
 }
-.list-view .skill-card-meta {
+.list-view .skill-card-meta { display: contents; }
+.list-view .skill-meta-group {
   grid-area: meta;
   min-width: 0;
   overflow: hidden;
@@ -1086,6 +1141,8 @@
   gap: 4px;
   white-space: nowrap;
 }
+.list-view .skill-origin-cell { grid-area: origin; justify-content: flex-start; }
+.list-view .skill-updated { grid-area: time; margin-left: 0; }
 .list-view .skill-card { cursor: pointer; }
 /* 行尾常驻的入口提示：平时很淡，指向这一行时变深并右移一点 */
 .list-view .skill-open-hint {
@@ -1197,7 +1254,7 @@
 .list-view .skill-card-footer { min-height: 0; margin: 0; padding: 0; border: 0; }
 .list-view .bulk-skill-check { top: 50%; left: 12px; transform: translateY(-50%); }
 .list-view .skill-icon { width: 32px; height: 32px; flex-basis: 32px; }
-.list-view .skill-updated { margin-left: auto; font-size: 11px; min-width: 62px; text-align: right; }
+.list-view .skill-updated { font-size: 11px; min-width: 0; text-align: right; }
 .list-view .skill-tag-pill { max-width: 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .bulk-action-bar {
