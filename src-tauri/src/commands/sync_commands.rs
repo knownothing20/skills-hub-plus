@@ -946,11 +946,6 @@ pub fn stage_enable_copy(
     anyhow::bail!("STAGING_COLLISION|Could not claim an enable staging path")
 }
 
-#[cfg(unix)]
-#[cfg(windows)]
-#[cfg(not(any(unix, windows)))]
-#[cfg(windows)]
-#[cfg(not(windows))]
 pub fn stage_enable_target(
     source: &std::path::Path,
     plan: &EnableTargetPlan,

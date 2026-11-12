@@ -1,7 +1,6 @@
 use tauri::State;
 
 use crate::core::skill_store::SkillStore;
-use crate::core::sync_engine::SyncMode;
 use crate::core::tool_adapters::{load_tool_config, save_tool_config};
 
 use super::common::{

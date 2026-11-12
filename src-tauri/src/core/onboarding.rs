@@ -282,13 +282,6 @@ pub fn is_tool_ignored(store: &SkillStore, tool_key: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// 软链接同步已移除（2.0.1）：对等同步要求每份副本是真实目录，链接会让
-/// 副本退化为同一份文件，「谁改谁最新」无从谈起。保留此函数仅为兼容旧引用，
-/// 一律返回 Copy。
-pub fn platform_link_mode() -> SyncMode {
-    SyncMode::Copy
-}
-
 /// Per-Skill exceptions to a blocked tool. Entries use the form
 /// `"tool_key/skill_name"`, so blocking a software still lets a single Skill
 /// inside it stay managed. Empty by default.

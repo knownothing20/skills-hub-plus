@@ -4,8 +4,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use super::safe_fs::{
-    move_skill_to_trash, path_entry_exists, restore_skill_from_trash, validate_direct_skill_path,
-    TrashReceipt,
+    move_skill_to_trash, path_entry_exists, restore_skill_from_trash, TrashReceipt,
 };
 
 /// 2.0.1 起同步只有一种方式：整目录复制。
@@ -90,7 +89,6 @@ fn rollback_sync_failure<T>(
     Err(original)
 }
 
-#[cfg(windows)]
 fn should_skip_copy(entry: &walkdir::DirEntry) -> bool {
     entry.file_name() == ".git"
 }
