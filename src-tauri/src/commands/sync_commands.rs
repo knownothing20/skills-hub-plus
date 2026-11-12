@@ -420,7 +420,6 @@ pub fn sync_skill_to_tool_impl(
         SyncOutcome {
             mode_used: SyncMode::Copy,
             target_path: target.clone(),
-            replaced: false,
         }
     } else {
         let overwrite = overwrite.unwrap_or(false)
@@ -452,7 +451,6 @@ pub fn sync_skill_to_tool_impl(
                     SyncOutcome {
                         mode_used: SyncMode::Copy,
                         target_path: target.clone(),
-                        replaced: false,
                     }
                 } else {
                     let msg = err.to_string();

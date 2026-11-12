@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use super::central_repo::resolve_central_repo_path;
 use super::content_hash::hash_dir;
 use super::skill_store::SkillStore;
-use super::sync_engine::SyncMode;
 use super::tool_adapters::{
     default_tool_adapters, resolve_default_path_in_home, resolve_detect_path_in_home,
     scan_tool_dir, DetectedSkill,

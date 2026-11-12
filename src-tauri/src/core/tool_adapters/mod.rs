@@ -214,11 +214,6 @@ pub fn save_tool_config(store: &SkillStore, config: ToolConfig) -> Result<ToolCo
         }
     }
 
-    if let Err(err) = maybe_replace_applied_custom_tool_target_for_test() {
-        return rollback_migration_error(&applied, &created_roots, err)
-            .context("custom tool post-apply test hook failed");
-    }
-
     if let Err(err) = store.set_setting_and_skill_targets_atomically(
         TOOL_CONFIG_SETTING,
         &serialized,
@@ -1101,7 +1096,6 @@ fn rollback_result_label(result: Result<()>) -> String {
 thread_local! {
     static TEST_FAIL_CUSTOM_TOOL_TARGET: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
     static TEST_RACE_CUSTOM_TOOL_TARGET: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
-    static TEST_REPLACE_APPLIED_CUSTOM_TOOL_TARGET: std::cell::RefCell<Option<(PathBuf, PathBuf)>> = const { std::cell::RefCell::new(None) };
 }
 
 #[cfg(test)]
@@ -1115,13 +1109,6 @@ pub(crate) fn set_test_custom_tool_migration_failure(target_id: Option<&str>) {
 pub(crate) fn set_test_custom_tool_publish_race(target_id: Option<&str>) {
     TEST_RACE_CUSTOM_TOOL_TARGET.with(|slot| {
         *slot.borrow_mut() = target_id.map(str::to_string);
-    });
-}
-
-#[cfg(test)]
-pub(crate) fn set_test_custom_tool_post_apply_replacement(live: &Path, preserved: &Path) {
-    TEST_REPLACE_APPLIED_CUSTOM_TOOL_TARGET.with(|slot| {
-        *slot.borrow_mut() = Some((live.to_path_buf(), preserved.to_path_buf()));
     });
 }
 
@@ -1156,23 +1143,6 @@ fn maybe_create_competing_custom_tool_target_for_test(
     })
 }
 
-#[cfg(test)]
-fn maybe_replace_applied_custom_tool_target_for_test() -> Result<()> {
-    TEST_REPLACE_APPLIED_CUSTOM_TOOL_TARGET.with(|slot| {
-        let Some((live, preserved)) = slot.borrow_mut().take() else {
-            return Ok(());
-        };
-        std::fs::rename(&live, &preserved).with_context(|| {
-            format!("TEST_POST_APPLY_RACE_FAILED|preserve published target {live:?}")
-        })?;
-        std::fs::create_dir(&live)
-            .with_context(|| format!("TEST_POST_APPLY_RACE_FAILED|create competitor {live:?}"))?;
-        std::fs::write(live.join("COMPETITOR_SENTINEL"), "external owner")
-            .context("TEST_POST_APPLY_RACE_FAILED|write competitor sentinel")?;
-        Ok(())
-    })
-}
-
 #[cfg(not(test))]
 fn maybe_fail_custom_tool_target_for_test(_target_id: &str) -> Result<()> {
     Ok(())
@@ -1183,11 +1153,6 @@ fn maybe_create_competing_custom_tool_target_for_test(
     _target_id: &str,
     _target: &Path,
 ) -> Result<()> {
-    Ok(())
-}
-
-#[cfg(not(test))]
-fn maybe_replace_applied_custom_tool_target_for_test() -> Result<()> {
     Ok(())
 }
 

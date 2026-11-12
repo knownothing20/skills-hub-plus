@@ -20,7 +20,6 @@ pub enum SyncMode {
 pub struct SyncOutcome {
     pub mode_used: SyncMode,
     pub target_path: PathBuf,
-    pub replaced: bool,
 }
 
 pub fn sync_dir_copy_with_overwrite(
@@ -46,7 +45,6 @@ pub fn sync_dir_copy_with_overwrite(
     Ok(SyncOutcome {
         mode_used: SyncMode::Copy,
         target_path: target.to_path_buf(),
-        replaced: trashed_previous.is_some(),
     })
 }
 
