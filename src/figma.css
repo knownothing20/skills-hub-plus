@@ -1105,7 +1105,10 @@
   display: grid;
   /* 前两列取固定宽度：名称列曾经吃掉近一半屏宽，meta 列 auto 时各行起点还会漂移。
      工具区拿剩下的空间，并在放不下时横向滚动（9 个图标在窄窗口里放不开）。 */
-  grid-template-columns: minmax(150px, 210px) minmax(120px, 200px) 50px 70px minmax(160px, 1fr) 42px 116px 18px;
+  /* meta 轨道用 fit-content(150px) 贴合内容：minmax(120px, 200px) 在宽屏下会顶到
+     200px 上限，而实际徽章只有 ~77px，中间会空出 120px 的大片空白。
+     fit-content 既按内容收缩，又给长标签名留 150px 上限（超出部分由徽章组裁切）。 */
+  grid-template-columns: minmax(150px, 210px) fit-content(150px) 50px 70px minmax(160px, 1fr) 42px 116px 18px;
   grid-template-areas: 'identity meta origin time tools toggle actions arrow';
   align-items: center;
   column-gap: 8px;
