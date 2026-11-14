@@ -16,7 +16,7 @@ use tauri_plugin_log::{Target, TargetKind};
 /// 最后一次「有人在用界面」的毫秒时间戳。前端节流上报，窗口显示/隐藏时也会刷新。
 static LAST_ACTIVITY_MS: AtomicU64 = AtomicU64::new(0);
 /// 界面隐藏后闲置这么久就销毁 WebView，把内存还给系统。
-const IDLE_DESTROY_MS: u64 = 30 * 60 * 1000;
+const IDLE_DESTROY_MS: u64 = 5 * 60 * 1000;
 /// 用户是否明确要求退出。只有它为 true 时才允许进程结束。
 static EXITING: AtomicBool = AtomicBool::new(false);
 /// 副本同步间隔：原件改动后最多这么久就会推送到各工具。
@@ -466,7 +466,7 @@ pub fn run() {
                 });
             }
 
-            // 界面隐藏后闲置 30 分钟：销毁 WebView，把内存还给系统。
+            // 界面隐藏后闲置 5 分钟：销毁 WebView，把内存还给系统。
             // 只销毁隐藏的窗口——可见时突然消失太突兀。
             {
                 let handle = app.handle().clone();
@@ -588,7 +588,7 @@ pub fn run() {
         .expect("error while running tauri application")
         .run(|_app, event| {
             // 闲置回收销毁了主窗口，不能顺带把进程也结束掉：
-            // 托盘还得活着，否则「30 分钟省内存」变成「30 分钟自己退出」。
+            // 托盘还得活着，否则「闲置销毁 WebView」会变成「应用自己退出」。
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
                 if !EXITING.load(Ordering::Relaxed) {
                     api.prevent_exit();
