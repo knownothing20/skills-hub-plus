@@ -81,6 +81,16 @@ fn matches_rule(pattern: &str, relative_norm: &str, file_name: &str) -> bool {
     false
 }
 
+/// 按「相对路径 + 文件名」判定是否命中忽略清单。
+///
+/// 和 `is_entry_ignored` 同一套规则，但不需要真实的 `DirEntry`——同步引擎在
+/// 删除/保护本地私有内容时手里只有路径。
+pub(crate) fn is_rel_ignored(relative_norm: &str, file_name: &str, rules: &[String]) -> bool {
+    rules
+        .iter()
+        .any(|rule| matches_rule(rule, relative_norm, file_name))
+}
+
 pub(crate) fn is_entry_ignored(root: &Path, entry: &DirEntry, rules: &[String]) -> bool {
     let relative = match entry.path().strip_prefix(root) {
         Ok(rel) => rel,

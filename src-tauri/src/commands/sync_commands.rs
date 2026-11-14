@@ -504,6 +504,17 @@ pub fn sync_skill_to_tool_impl(
         store.upsert_skill_target(&record)?;
     }
 
+    // 同步成功不等于能运行：带依赖的技能如果 node_modules 缺失，这里必须留痕，
+    // 否则「文件一致」会被误当成「可正常启动」（2026-11 AgentPort 事故的检查缺口）。
+    if let Some(warning) = crate::core::sync_engine::check_runtime_dependencies(&result.target_path)
+    {
+        log::warn!(
+            "[sync] {} → {} 同步完成但依赖不完整：{warning}",
+            name,
+            result.target_path.display()
+        );
+    }
+
     Ok(SyncResultDto {
         mode_used: sync_mode_name(result.mode_used).to_string(),
         target_path: result.target_path.to_string_lossy().to_string(),
