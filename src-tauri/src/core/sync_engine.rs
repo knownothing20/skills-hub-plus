@@ -108,14 +108,14 @@ fn rollback_sync_failure<T>(
     Err(original)
 }
 
+/// 暂存目录（可能为空）与 (原位路径, 暂存路径) 列表。
+type PreservedEntries = (Option<PathBuf>, Vec<(PathBuf, PathBuf)>);
+
 /// 把目标目录里的「本地私有内容」挪到同级暂存目录，等整目录替换完成后再搬回。
 ///
 /// 只处理顶层条目：忽略规则里 `local` 这样的名字同时命中 `local/**`，
 /// 所以顶层命中即可整棵子树一起保护。
-fn preserve_private_entries(
-    target: &Path,
-    rules: &[String],
-) -> Result<(Option<PathBuf>, Vec<(PathBuf, PathBuf)>)> {
+fn preserve_private_entries(target: &Path, rules: &[String]) -> Result<PreservedEntries> {
     let parent = target
         .parent()
         .ok_or_else(|| anyhow::anyhow!("UNSAFE_PATH|Sync target has no parent"))?;
