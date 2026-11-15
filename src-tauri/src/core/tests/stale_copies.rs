@@ -308,3 +308,48 @@ fn startup_refresh_respects_the_setting_and_keeps_hand_edited() {
         "old"
     );
 }
+
+/// 自动刷新落后副本时，副本自己的私有内容（.skillignore 声明的 local/、
+/// node_modules）必须留着。旧实现直接 remove_dir_all 再复制，会连依赖一起永久删掉。
+#[test]
+fn refresh_keeps_private_content_of_the_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = make_store(dir.path());
+    let central_root = dir.path().join("central");
+    fs::create_dir_all(&central_root).unwrap();
+
+    let source = dir.path().join("source-skill");
+    fs::create_dir_all(&source).unwrap();
+    fs::write(source.join("SKILL.md"), b"old").unwrap();
+
+    let target = dir.path().join("copy-skill");
+    fs::create_dir_all(target.join("local")).unwrap();
+    fs::create_dir_all(target.join("node_modules/axios")).unwrap();
+    fs::write(target.join("SKILL.md"), b"old").unwrap();
+    fs::write(target.join("local/connections.json"), b"secret").unwrap();
+    fs::write(target.join("node_modules/axios/index.js"), b"dep").unwrap();
+    fs::write(target.join(".skillignore"), b"local\n").unwrap();
+
+    seed_skill(&store, "s2", &source);
+    seed_target(&store, "s2", "antigravity", &target, "copy");
+
+    std::thread::sleep(std::time::Duration::from_millis(2100));
+    fs::write(source.join("SKILL.md"), b"newer content").unwrap();
+
+    refresh_stale_copy(&store, &central_root, "s2", "antigravity").unwrap();
+
+    assert_eq!(
+        fs::read_to_string(target.join("SKILL.md")).unwrap(),
+        "newer content"
+    );
+    assert_eq!(
+        fs::read_to_string(target.join("local/connections.json")).unwrap(),
+        "secret",
+        "刷新把私有配置删了"
+    );
+    assert!(
+        target.join("node_modules/axios/index.js").exists(),
+        "刷新把依赖删了"
+    );
+    assert!(target.join(".skillignore").exists(), "屏蔽清单被删了");
+}

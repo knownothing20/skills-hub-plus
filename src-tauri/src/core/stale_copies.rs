@@ -255,9 +255,10 @@ pub fn refresh_stale_copy(
     }
     backup::copy_dir_all(target_path, &backup_root);
 
-    std::fs::remove_dir_all(target_path)
-        .with_context(|| format!("replace stale copy {:?}", target_path))?;
-    sync_engine::copy_dir_recursive(&source, target_path)
+    // 替换必须走统一的同步路径：忽略清单内的私有内容（local/、node_modules…）
+    // 原地保留，旧目录进回收站。这里曾经直接 remove_dir_all + copy，
+    // 会把副本的依赖和私有配置一起永久删掉（2026-11 的 AgentPort 事故同源）。
+    sync_engine::sync_dir_copy_with_overwrite(&source, target_path, true)
         .with_context(|| format!("refresh stale copy {:?}", target_path))?;
 
     let mut record = target;
