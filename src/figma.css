@@ -1203,16 +1203,19 @@
   /* 占满工具区的剩余宽度，否则图标容器只按内容撑开、余量白白空着还会溢出 */
   flex: 1 1 auto;
   min-width: 0;
-  gap: 7px;
+  /* gap / padding 与基础规则保持一致（5px / 6px 4px），否则这里会再盖一次。
+     padding 上下各 6px 是为角标留空间；徽标已收在按钮框内，不需要越界。 */
+  gap: 5px;
   align-items: center;
   /* 图标再多也不裁切：横向滚动查看。
-     上下 padding 留出角标越界的空间，负 margin 保持视觉位置。 */
+     注意 overflow-y 不能写 hidden —— 那会把角标（版本字母 / 感叹号）
+     在垂直方向硬裁掉，正是「字母只剩半截」的直接原因。 */
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   /* 不要用 scrollbar-width: 一旦设成 thin，Chromium 会忽略下面的
      ::-webkit-scrollbar 自定义样式，退回系统默认的灰色滚动条。 */
-  padding: 5px 4px 5px 2px;
-  margin: -5px 0;
+  padding: 6px 4px;
+  margin: -6px 0;
 }
 .list-view .skill-tool-avatars::-webkit-scrollbar {
   height: 4px;
@@ -1231,12 +1234,12 @@
 .list-view .skill-tool-avatars:hover::-webkit-scrollbar-thumb {
   background: #d8dde4;
 }
+/* 图标尺寸只在基础规则 .skill-tool-avatars button 里定义一次（24px）。
+   这里原先又写了一遍 28px，特异性多一级（.list-view），把基础规则整条盖掉，
+   导致「改小了图标却看不出变化」——尺寸和间距都以此处为准的旧值。
+   只保留列表视图真正需要的差异：定位上下文与悬停层级。 */
 .list-view .skill-tool-avatars button {
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
   margin-left: 0;
-  padding: 3px;
   position: relative;
 }
 .list-view .skill-tool-avatars button:first-child {
