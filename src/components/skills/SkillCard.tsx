@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Copy, RefreshCw, Tag, Trash2, Box, ShieldOff, Crown, Share2 } from 'lucide-react'
+import { Copy, RefreshCw, Tag, Trash2, Box, ShieldOff, Crown, Share2, AlertTriangle } from 'lucide-react'
 import { openPath } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
@@ -196,16 +196,19 @@ const SkillCard = ({
                 {skill.name}
               </button>
               {mirrorStale ? (
+                // 只放一个图标徽标：完整文案塞进标题行会把技能名挤成 "ag..."，
+                // 反而看不到是哪个技能。文案走 title 与 aria-label。
                 <button
                   type="button"
                   className="skill-mirror-stale"
                   title="母库镜像落后于原件。点一下用原件刷新母库备份"
+                  aria-label="母库镜像落后于原件，点击用原件刷新母库备份"
                   onClick={(e) => {
                     e.stopPropagation()
                     onRefreshMirror?.(skill.id)
                   }}
                 >
-                  母库落后 · 点击修复
+                  <AlertTriangle size={10} />
                 </button>
               ) : null}
               <button
