@@ -83,3 +83,39 @@ describe('getToolSyncState', () => {
     ])
   })
 })
+
+describe('targets whose copy is gone', () => {
+  // 卸载软件后，数据库仍留着 status=ok，但后端已把 role 标成 missing。
+  // 这类记录绝不能再显示成「已同步」，否则用户看不到问题、也点不掉它。
+  const missingTarget = (tool: string): Target => ({
+    tool,
+    scope: 'global',
+    mode: 'copy',
+    status: 'ok',
+    role: 'missing',
+    target_path: `/gone/${tool}`,
+  })
+
+  it('does not count a vanished copy as synced', () => {
+    const skill = { targets: [missingTarget('doubao')] }
+    expect(getToolSyncState(skill, 'doubao', 'global')).toBe('failed')
+  })
+
+  it('keeps a skill with only vanished copies out of the healthy bucket', () => {
+    expect(
+      getSkillSyncState({ enabled: true, status: 'ok', targets: [missingTarget('doubao')] }),
+    ).toBe('failed')
+  })
+
+  it('still reports a live copy as synced', () => {
+    const live: Target = {
+      tool: 'codex',
+      scope: 'global',
+      mode: 'copy',
+      status: 'ok',
+      role: 'copy',
+      target_path: '/live/codex',
+    }
+    expect(getSkillSyncState({ enabled: true, status: 'ok', targets: [live] })).toBe('healthy')
+  })
+})

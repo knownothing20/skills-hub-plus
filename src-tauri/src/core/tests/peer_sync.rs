@@ -210,3 +210,75 @@ fn too_many_files_is_skipped() {
         "超过文件上限应跳过，实际是 {outcome:?}"
     );
 }
+
+/// 各软件的私有目录（`.skillignore` 命中项）不能被算成「另一个版本」。
+///
+/// 真实场景：agentport 在每个软件副本里有自己的 `local/` 配置目录，内容各不
+/// 相同。如果指纹把它们算进去，同一份技能会在版本表里裂成 A/B/C/D…，
+/// 版本字母彻底失去参考价值。
+#[test]
+fn version_labels_ignore_private_dirs_excluded_by_skillignore() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let store = make_store(root);
+
+    let owner = root.join("owner");
+    write_skill(&owner, "same body\n");
+    fs::write(owner.join(".skillignore"), "local\nlogs\n").unwrap();
+    fs::create_dir_all(owner.join("local")).unwrap();
+    fs::write(owner.join("local/connections.json"), "{\"a\":1}").unwrap();
+
+    let peer = root.join("peer");
+    write_skill(&peer, "same body\n");
+    fs::write(peer.join(".skillignore"), "local\nlogs\n").unwrap();
+    fs::create_dir_all(peer.join("local")).unwrap();
+    // 内容明显不同：这是软件自己的私有配置，不是技能内容。
+    fs::write(
+        peer.join("local/connections.json"),
+        "{\"completely\":\"different\"}",
+    )
+    .unwrap();
+
+    seed_skill(&store, "agentport", &owner);
+    seed_target(&store, "agentport", "tool_a", &owner);
+    seed_target(&store, "agentport", "tool_b", &peer);
+    let skill = store.get_skill_by_id("agentport").unwrap().unwrap();
+
+    let labels = crate::core::peer_sync::version_labels(&store, &skill).unwrap();
+    assert!(
+        labels.is_empty(),
+        "私有目录差异不该产生版本分组，实际拿到 {labels:?}"
+    );
+}
+
+/// 反过来：真正的技能内容差异仍然必须分组，别把功能改瞎。
+#[test]
+fn version_labels_still_split_on_real_content_differences() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let store = make_store(root);
+
+    let newest = root.join("newest");
+    write_skill(&newest, "newer body\n");
+    let older = root.join("older");
+    write_skill(&older, "older body\n");
+    fs::write(older.join("SKILL.md"), "older body\n").unwrap();
+
+    // 明确拉开修改时间，保证排序有依据。
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    fs::write(newest.join("SKILL.md"), "newer body\n").unwrap();
+
+    seed_skill(&store, "demo", &newest);
+    seed_target(&store, "demo", "tool_new", &newest);
+    seed_target(&store, "demo", "tool_old", &older);
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+
+    let labels = crate::core::peer_sync::version_labels(&store, &skill).unwrap();
+    assert_eq!(
+        labels.len(),
+        2,
+        "两个不同版本应各有一个字母，实际 {labels:?}"
+    );
+    assert_eq!(labels.get("tool_new").map(String::as_str), Some("A"));
+    assert!(labels.get("tool_old").is_some_and(|label| label != "A"));
+}

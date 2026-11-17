@@ -290,6 +290,62 @@ pub fn validate_direct_skill_path(root: &Path, path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Compare two paths as text: normalise separators, drop the Windows verbatim
+/// prefix, fold case, and ignore a trailing separator.
+fn lexical_path_key(path: &Path) -> String {
+    let text = path.to_string_lossy().replace('/', "\\");
+    let trimmed = text.trim_end_matches('\\');
+    let stripped = trimmed.strip_prefix(r"\\?\").unwrap_or(trimmed);
+    stripped.to_lowercase()
+}
+
+/// Do two paths name the same location when compared purely as text?
+///
+/// Used for roots that may no longer exist: a vanished ancestor makes
+/// `canonicalize` unusable, but the stored strings still have to agree before
+/// anything destructive is allowed to touch them.
+///
+/// Multi-instance tool roots are only modelled on Windows today, so this is
+/// scoped accordingly rather than tripping `dead_code` elsewhere.
+#[cfg(target_os = "windows")]
+pub(crate) fn lexical_paths_agree(left: &Path, right: &Path) -> bool {
+    lexical_path_key(left) == lexical_path_key(right)
+}
+
+/// Prove a *lexical* direct-child relationship for a target that is gone.
+///
+/// `validate_direct_skill_path` canonicalizes both sides, so it fails with
+/// `os error 3` once the owning app is uninstalled and its root vanished with
+/// it. Those records still have to be removable — this variant stays inside
+/// the string domain and only reports a direct-child relationship when both
+/// sides can be resolved, or when their stored text agrees.
+pub fn validate_vanished_direct_skill_path(root: &Path, path: &Path) -> Result<()> {
+    let name = path
+        .file_name()
+        .and_then(OsStr::to_str)
+        .ok_or_else(|| anyhow::anyhow!("UNSAFE_PATH|Skill target has no UTF-8 file name"))?;
+    validate_skill_name(name)?;
+    if name == ".system" {
+        anyhow::bail!("UNSAFE_PATH|Refusing to operate on a protected Skill path");
+    }
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("UNSAFE_PATH|Skill target has no parent"))?;
+
+    // Both sides are compared under the same rule: use resolved identities
+    // when the filesystem can still answer, otherwise compare the stored text.
+    let (root_key, parent_key) = match (root.canonicalize(), parent.canonicalize()) {
+        (Ok(root_real), Ok(parent_real)) => {
+            (lexical_path_key(&root_real), lexical_path_key(&parent_real))
+        }
+        _ => (lexical_path_key(root), lexical_path_key(parent)),
+    };
+    if root_key != parent_key {
+        anyhow::bail!("UNSAFE_PATH|Skill target is not a direct child of its configured root");
+    }
+    Ok(())
+}
+
 /// Compare paths by identity. Both paths must exist; symlinks are resolved.
 pub fn paths_have_same_identity(left: &Path, right: &Path) -> Result<bool> {
     let left = left
@@ -309,6 +365,25 @@ pub fn ensure_distinct_roots(left: &Path, right: &Path) -> Result<()> {
         .canonicalize()
         .with_context(|| format!("resolve protected root {:?}", right))?;
     if left == right {
+        anyhow::bail!("UNSAFE_PATH|The central Skill source cannot also be a sync target");
+    }
+    Ok(())
+}
+
+/// `ensure_distinct_roots` for a target whose root may already be gone.
+///
+/// A vanished tool root still has to be proven different from the central
+/// repo, otherwise a stale record could be used to aim a destructive operation
+/// at the library. Resolved identities are preferred; when either side can no
+/// longer be canonicalized the comparison falls back to normalised text.
+pub fn ensure_distinct_roots_tolerant(left: &Path, right: &Path) -> Result<()> {
+    let (left_key, right_key) = match (left.canonicalize(), right.canonicalize()) {
+        (Ok(left_real), Ok(right_real)) => {
+            (lexical_path_key(&left_real), lexical_path_key(&right_real))
+        }
+        _ => (lexical_path_key(left), lexical_path_key(right)),
+    };
+    if left_key == right_key {
         anyhow::bail!("UNSAFE_PATH|The central Skill source cannot also be a sync target");
     }
     Ok(())
@@ -539,16 +614,19 @@ fn move_checked_to_local_trash_at(
     trash_root: &Path,
     internal: bool,
 ) -> Result<Option<TrashReceipt>> {
-    if internal {
-        validate_internal_direct_child(root, path)?;
-    } else {
-        validate_direct_skill_path(root, path)?;
-    }
-
+    // Same ordering as the system-Trash variant: absence first, containment
+    // second, so a vanished target reports "nothing to move" instead of an
+    // unrelated canonicalize error.
     match std::fs::symlink_metadata(path) {
         Ok(_) => {}
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(err) => return Err(err).with_context(|| format!("stat Skill path {:?}", path)),
+    }
+
+    if internal {
+        validate_internal_direct_child(root, path)?;
+    } else {
+        validate_direct_skill_path(root, path)?;
     }
 
     let destination = unique_local_trash_destination(trash_root, path)?;
@@ -721,15 +799,19 @@ fn move_checked_to_system_trash(
     path: &Path,
     internal: bool,
 ) -> Result<Option<TrashReceipt>> {
-    if internal {
-        validate_internal_direct_child(root, path)?;
-    } else {
-        validate_direct_skill_path(root, path)?;
-    }
+    // Absence is checked first: a record whose owning app was uninstalled has
+    // no directory left to validate, and canonicalizing its parent would fail
+    // with an OS error instead of reporting "nothing to move".
     match std::fs::symlink_metadata(path) {
         Ok(_) => {}
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(err) => return Err(err).with_context(|| format!("stat Trash source {:?}", path)),
+    }
+
+    if internal {
+        validate_internal_direct_child(root, path)?;
+    } else {
+        validate_direct_skill_path(root, path)?;
     }
 
     // Every operation gets a unique original path before the system Trash API
@@ -1193,6 +1275,67 @@ mod tests {
         assert!(
             validate_direct_skill_path(root.path(), &outside.path().join("safe-name")).is_err()
         );
+    }
+
+    /// An uninstalled app takes its whole Skill root with it. The stored target
+    /// record still points below that vanished root, and cleaning it up must not
+    /// depend on the filesystem being able to resolve the path.
+    #[test]
+    fn vanished_target_still_validates_as_direct_child() {
+        let base = tempfile::tempdir().unwrap();
+        let vanished_root = base.path().join("UninstalledApp/skills");
+        let target = vanished_root.join("some-skill");
+        assert!(!vanished_root.exists());
+
+        // The strict variant is exactly what used to fail with `os error 3`.
+        assert!(validate_direct_skill_path(&vanished_root, &target).is_err());
+        // The lexical variant must accept a genuine direct child...
+        validate_vanished_direct_skill_path(&vanished_root, &target).unwrap();
+    }
+
+    #[test]
+    fn vanished_target_rejects_non_child_and_unsafe_names() {
+        let base = tempfile::tempdir().unwrap();
+        let root = base.path().join("UninstalledApp/skills");
+        // A sibling directory is not a direct child, even lexically.
+        assert!(validate_vanished_direct_skill_path(
+            &root,
+            &base.path().join("elsewhere/some-skill")
+        )
+        .is_err());
+        // Escaping names stay rejected.
+        assert!(validate_vanished_direct_skill_path(&root, &root.join("../escape")).is_err());
+        assert!(validate_vanished_direct_skill_path(&root, &root.join(".system")).is_err());
+        // ...and a real direct child is accepted.
+        validate_vanished_direct_skill_path(&root, &root.join("fine")).unwrap();
+    }
+
+    #[test]
+    fn tolerant_distinct_roots_separates_vanished_tool_root_from_library() {
+        let base = tempfile::tempdir().unwrap();
+        let central = base.path().join("central");
+        std::fs::create_dir_all(&central).unwrap();
+        let vanished_tool_root = base.path().join("UninstalledApp/skills");
+
+        // Distinct when one side no longer exists...
+        ensure_distinct_roots_tolerant(&vanished_tool_root, &central).unwrap();
+        // ...and still caught when both sides name the same place.
+        assert!(ensure_distinct_roots_tolerant(&central, &central).is_err());
+        let echo = base.path().join("central").join(".");
+        assert!(ensure_distinct_roots_tolerant(&echo, &central).is_err());
+    }
+
+    #[test]
+    fn trashing_a_vanished_target_reports_nothing_to_move() {
+        let base = tempfile::tempdir().unwrap();
+        let trash = tempfile::tempdir().unwrap();
+        let root = base.path().join("UninstalledApp/skills");
+        let target = root.join("some-skill");
+        assert!(!target.exists());
+
+        // Previously this surfaced a canonicalize error instead of "nothing here".
+        let moved = move_checked_to_local_trash_at(&root, &target, trash.path(), false).unwrap();
+        assert!(moved.is_none());
     }
 
     #[cfg(unix)]

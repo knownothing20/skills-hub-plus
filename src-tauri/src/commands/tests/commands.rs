@@ -615,3 +615,117 @@ fn test_discovered_skill_preserves_physical_entity_without_converting_to_link() 
     assert!(client_skill_dir.is_dir());
     assert!(!client_skill_dir.is_symlink());
 }
+
+/// 软件被卸载后，它的目标记录仍然存在，但目录已经不在了。
+///
+/// 这是 2026-11 豆包卸载后的真实状态：`status` 还是 ok，`target_path` 指向
+/// 一个随软件消失的目录。校验必须放行这种记录，否则用户既取消不掉、也删
+/// 不掉，会一直卡在「断链 N」里。
+#[test]
+fn vanished_target_is_validated_for_cleanup_instead_of_failing_on_canonicalize() {
+    let (_dir, store) = make_store();
+    let central = tempfile::tempdir().unwrap();
+
+    // 用真实的工具根，这样「记录里的父目录」与「解析出的根」一致——
+    // 与生产环境里那条豆包记录的结构完全相同。
+    let tool = runtime_tools(&store, true)
+        .unwrap()
+        .into_iter()
+        .find(|candidate| candidate.key == "codex")
+        .expect("codex 应出现在运行时工具列表里");
+    let gone_target = tool.skills_dir.join("demo-skill");
+    assert!(!gone_target.exists(), "测试前提：目标目录必须不存在");
+
+    store
+        .upsert_skill(&SkillRecord {
+            id: "demo".to_string(),
+            name: "demo-skill".to_string(),
+            description: None,
+            source_type: "managed".to_string(),
+            source_ref: None,
+            source_subpath: None,
+            source_revision: None,
+            central_path: central.path().to_string_lossy().to_string(),
+            content_hash: None,
+            created_at: 1,
+            updated_at: 1,
+            last_sync_at: None,
+            last_seen_at: 1,
+            enabled: true,
+            status: "ok".to_string(),
+        })
+        .unwrap();
+    let target = SkillTargetRecord {
+        id: "t1".to_string(),
+        instance: String::new(),
+        skill_id: "demo".to_string(),
+        tool: "codex".to_string(),
+        scope: "global".to_string(),
+        project_path: None,
+        target_path: gone_target.to_string_lossy().to_string(),
+        mode: "copy".to_string(),
+        status: "ok".to_string(),
+        last_error: None,
+        synced_at: Some(1),
+    };
+
+    // 关键断言：校验通过，且返回的路径与记录一致（不会被悄悄改成别处）。
+    let (root, path) =
+        validated_managed_target(&store, &target, "demo-skill").expect("失效目标应可校验");
+    assert_eq!(path, gone_target, "返回的目标路径必须与记录一致");
+    assert_eq!(root, tool.skills_dir, "根目录应为该工具的真实技能根");
+}
+
+/// 名字对不上的记录仍要被拒——放宽只针对「目录不存在」，不放过张冠李戴。
+#[test]
+fn vanished_target_with_mismatched_name_is_still_rejected() {
+    let (_dir, store) = make_store();
+    let central = tempfile::tempdir().unwrap();
+    store
+        .upsert_skill(&SkillRecord {
+            id: "demo".to_string(),
+            name: "demo-skill".to_string(),
+            description: None,
+            source_type: "managed".to_string(),
+            source_ref: None,
+            source_subpath: None,
+            source_revision: None,
+            central_path: central.path().to_string_lossy().to_string(),
+            content_hash: None,
+            created_at: 1,
+            updated_at: 1,
+            last_sync_at: None,
+            last_seen_at: 1,
+            enabled: true,
+            status: "ok".to_string(),
+        })
+        .unwrap();
+    let tool = runtime_tools(&store, true)
+        .unwrap()
+        .into_iter()
+        .find(|candidate| candidate.key == "codex")
+        .expect("codex 应出现在运行时工具列表里");
+    let target = SkillTargetRecord {
+        id: "t1".to_string(),
+        instance: String::new(),
+        skill_id: "demo".to_string(),
+        tool: "codex".to_string(),
+        scope: "global".to_string(),
+        project_path: None,
+        // 磁盘上的名字与记录里的技能名不一致。
+        target_path: tool
+            .skills_dir
+            .join("other-skill")
+            .to_string_lossy()
+            .to_string(),
+        mode: "copy".to_string(),
+        status: "ok".to_string(),
+        last_error: None,
+        synced_at: Some(1),
+    };
+
+    assert!(
+        validated_managed_target(&store, &target, "demo-skill").is_err(),
+        "名字不匹配的记录必须继续被拒绝"
+    );
+}

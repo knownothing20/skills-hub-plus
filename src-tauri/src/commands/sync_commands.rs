@@ -9,10 +9,11 @@ use crate::core::central_repo::{
 };
 use crate::core::content_hash::hash_dir;
 use crate::core::safe_fs::{
-    direct_skill_child, ensure_distinct_roots, lock_central_mutation, move_internal_to_trash,
-    move_skill_to_trash, path_entry_exists, paths_have_same_identity,
-    publish_staged_entry_no_replace, restore_skill_from_trash, validate_direct_skill_path,
-    validate_skill_name, TrashReceipt,
+    direct_skill_child, ensure_distinct_roots, ensure_distinct_roots_tolerant,
+    lock_central_mutation, move_internal_to_trash, move_skill_to_trash, path_entry_exists,
+    paths_have_same_identity, publish_staged_entry_no_replace, restore_skill_from_trash,
+    validate_direct_skill_path, validate_skill_name, validate_vanished_direct_skill_path,
+    TrashReceipt,
 };
 use crate::core::skill_store::{SkillRecord, SkillStore, SkillTargetRecord};
 use crate::core::sync_engine::{
@@ -646,11 +647,6 @@ pub fn validated_managed_target(
     } else {
         anyhow::bail!("UNSAFE_PATH|Unknown target scope {}", target.scope);
     };
-    let root = resolve_runtime_tool_root(&runtime_tool, project_root.as_deref())?;
-    let fixed_central = fixed_central_repo_path()?;
-    if fixed_central.is_dir() {
-        ensure_distinct_roots(&root, &fixed_central)?;
-    }
     let path = std::path::PathBuf::from(&target.target_path);
     let actual_name = path
         .file_name()
@@ -659,8 +655,90 @@ pub fn validated_managed_target(
     if actual_name != expected_name {
         anyhow::bail!("UNSAFE_PATH|Managed target name does not match the Skill record");
     }
-    validate_direct_skill_path(&root, &path)?;
+
+    // 多账号记录的主根是该账号自己的技能目录，不是工具的默认账号目录；
+    // 用默认根去校验 Profile N 的路径会误判成「不是直属子项」。
+    let root = if target.instance.is_empty() || project_root.is_some() {
+        resolve_runtime_tool_root(&runtime_tool, project_root.as_deref())?
+    } else {
+        resolve_instance_skills_root(&runtime_tool, &target.instance, &path)?
+    };
+
+    let fixed_central = fixed_central_repo_path()?;
+    if fixed_central.is_dir() {
+        // 目标可能随卸载的软件一起消失，此时不能要求根目录可规范化。
+        ensure_distinct_roots_tolerant(&root, &fixed_central)?;
+    }
+    if path_entry_exists(&path)? {
+        validate_direct_skill_path(&root, &path)?;
+    } else {
+        // 记录还在、目录已被软件卸载带走：只做词法校验，绝不因「路径不存在」
+        // 把一条该被清理的失效记录永久卡住。
+        validate_vanished_direct_skill_path(&root, &path)?;
+    }
     Ok((root, path))
+}
+
+/// 解析多账号工具某个账号自己的技能根目录。
+///
+/// 优先用实例发现结果（目录还在时最准确）。软件被卸载、账号目录已经不
+/// 存在时，按多账号规则**推导**出该账号应有的根目录，而不是随手拿记录
+/// 路径的父目录顶上——后者等于承认任意目录，安全边界会被掏空。
+fn resolve_instance_skills_root(
+    tool: &super::common::RuntimeTool,
+    instance: &str,
+    path: &std::path::Path,
+) -> anyhow::Result<std::path::PathBuf> {
+    let Some(adapter) = adapter_by_key(&tool.key) else {
+        anyhow::bail!("UNSAFE_PATH|Unknown configured tool {}", tool.key);
+    };
+    let Some(rule) = adapter.instance_rule else {
+        anyhow::bail!(
+            "UNSAFE_PATH|Tool {} has no multi-instance rule for instance {}",
+            tool.key,
+            instance
+        );
+    };
+
+    if let Some(found) = crate::core::tool_adapters::discover_root_instances(&adapter)
+        .into_iter()
+        .find(|candidate| candidate.label.eq_ignore_ascii_case(instance))
+    {
+        return Ok(std::path::PathBuf::from(found.path));
+    }
+
+    // 目录已随软件消失：按规则推回「这个账号本该在哪」。
+    // 多账号目录通过 %LOCALAPPDATA% 定位，其它平台没有这套布局。
+    #[cfg(target_os = "windows")]
+    {
+        let local_app_data = dirs::data_local_dir().ok_or_else(|| {
+            anyhow::anyhow!("UNSAFE_PATH|Cannot resolve the local app data directory")
+        })?;
+        let expected = local_app_data
+            .join(rule.base_relative.replace('/', "\\"))
+            .join(instance)
+            .join(rule.skills_suffix.replace('/', "\\"));
+        let parent = path
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("UNSAFE_PATH|Managed target has no parent directory"))?;
+        if !crate::core::safe_fs::lexical_paths_agree(&expected, parent) {
+            anyhow::bail!(
+                "UNSAFE_PATH|Instance {} target {:?} does not live under its configured root {:?}",
+                instance,
+                path,
+                expected
+            );
+        }
+        return Ok(expected);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (rule, instance, path);
+        anyhow::bail!(
+            "UNSAFE_PATH|Multi-instance targets are resolved through %LOCALAPPDATA% on Windows only"
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -1171,35 +1249,39 @@ pub async fn unsync_skill_from_tool(
         };
 
         // Some tools share the same skills directory; unsync should update all of them.
+        //
+        // 注意：`runtime_tools_sharing_dir` 只保留 `installed=true` 的工具，所以软件
+        // 一旦被卸载，这个组就会是空的。空组绝不能当成「无事可做」直接返回成功——
+        // 那样失效记录会永远留在库里（2026-11 豆包卸载后的现象）。组为空时退回到
+        // 请求的那个工具本身，让它的记录仍然走清理流程。
         let group_tool_keys: Vec<String> =
             if let Ok(runtime_tool) = runtime_tool_by_key(&store, &tool) {
-                runtime_tools_sharing_dir(&store, &runtime_tool, scope)?
+                let shared: Vec<String> = runtime_tools_sharing_dir(&store, &runtime_tool, scope)?
                     .into_iter()
                     .map(|tool| tool.key)
-                    .collect()
+                    .collect();
+                if shared.is_empty() {
+                    vec![runtime_tool.key]
+                } else {
+                    shared
+                }
             } else if let Some(adapter) = adapter_by_key(&tool) {
                 let group = if scope == "project" {
                     adapters_sharing_project_skills_dir(&adapter)
                 } else {
                     crate::core::tool_adapters::adapters_sharing_skills_dir(&adapter)
                 };
-                // If none of the group tools are installed, do nothing (treat as already not effective).
-                if scope == "global" {
-                    let mut any_installed = false;
-                    for a in &group {
-                        if is_tool_installed(a)? {
-                            any_installed = true;
-                            break;
-                        }
-                    }
-                    if !any_installed {
-                        return Ok::<_, anyhow::Error>(());
-                    }
-                }
-                group
-                    .into_iter()
+                let installed: Vec<String> = group
+                    .iter()
+                    .filter(|a| is_tool_installed(a).unwrap_or(false))
                     .map(|a| a.id.as_key().to_string())
-                    .collect()
+                    .collect();
+                if installed.is_empty() {
+                    // 同一条理由：软件已卸载时组为空，仍要清理这个工具自己的记录。
+                    vec![tool.clone()]
+                } else {
+                    installed
+                }
             } else {
                 vec![tool.clone()]
             };

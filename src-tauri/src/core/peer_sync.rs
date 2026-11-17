@@ -501,11 +501,17 @@ fn target_key(tool: &str, instance: &str) -> String {
 }
 
 /// 目录指纹（不含逐文件明细）与最新文件时间
+///
+/// `.skillignore` 命中的条目同时被排除在指纹之外：这些路径是各软件自己的
+/// 私有配置（agentport 的 `local/`、`node_modules` 等），本来就不参与同步，
+/// 也不该被当成「另一个版本」。否则同一个技能会因为私有配置差异在版本表里
+/// 裂成 A/B/C/D… 一串毫无意义的字母。
 fn snapshot_with_time(root: &Path) -> (String, u64) {
     let mut hasher = Sha256::new();
     let mut newest = 0u64;
     let mut found = false;
     let mut entries: Vec<(String, PathBuf)> = Vec::new();
+    let ignore_rules = crate::core::content_hash::load_ignore_patterns(root);
     for entry in walkdir::WalkDir::new(root)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -519,6 +525,10 @@ fn snapshot_with_time(root: &Path) -> (String, u64) {
             .map(|p| p.to_string_lossy().replace('\\', "/"))
             .unwrap_or_default();
         if is_ignored_rel(&rel) {
+            continue;
+        }
+        let file_name = entry.file_name().to_string_lossy();
+        if crate::core::content_hash::is_rel_ignored(&rel, &file_name, &ignore_rules) {
             continue;
         }
         entries.push((rel, entry.path().to_path_buf()));

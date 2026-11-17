@@ -15,8 +15,14 @@ type SkillTarget = ManagedSkill['targets'][number]
 export const isActiveSkillTarget = (target: SkillTarget) =>
   target.status !== 'disabled'
 
+/**
+ * A target only counts as "synced" when the database says so *and* the copy
+ * still exists. The backend already reports `role: 'missing'` for a path that
+ * disappeared (typically because the owning app was uninstalled); trusting
+ * `status` alone leaves those rows looking healthy and impossible to remove.
+ */
 export const isSuccessfulSkillTarget = (target: SkillTarget) =>
-  target.status === 'ok'
+  target.status === 'ok' && target.role !== 'missing'
 
 export function getSkillSyncState(
   skill: Pick<ManagedSkill, 'enabled' | 'status' | 'targets'>,
