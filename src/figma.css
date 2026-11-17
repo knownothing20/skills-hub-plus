@@ -597,7 +597,11 @@
 .skill-card-head { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .skill-identity { min-width: 0; flex: 1 1 auto; overflow: hidden; display: flex; align-items: center; gap: 10px; padding-right: 0; }
 .skill-icon { width: 36px; height: 36px; flex: 0 0 36px; border: 1px solid var(--border-subtle); border-radius: 9px; background: var(--bg-element); }
-.skill-identity-copy { min-width: 0; }
+/* identity-copy 必须吃掉 identity 的剩余宽度：它是 flex 项，原先只写了 min-width:0，
+   于是按内容宽度收缩（实测 154px，而容器有 256px），名称列放宽多少都白给 ——
+   列宽从 240 加到 256，名称仍是 130px 不动，正是卡在这一层。
+   flex:1 + min-width:0 让 copy 撑满，title-line 才有余量分给名称。 */
+.skill-identity-copy { flex: 1 1 auto; min-width: 0; }
 .skill-title-line { min-width: 0; display: flex; align-items: center; gap: 4px; }
 .skill-source-copy {
   width: 20px;
@@ -1112,14 +1116,20 @@
   display: grid;
   /* 名称列原本是 minmax(150px,210px) 的固定上限：长技能名放不下时，
      被同行 102px 的「母库落后」文案挤到只剩 32px（显示成 "ag..."），
-     用户看不出是哪个技能。现在名称列放宽到 200–240px，
-     column-gap 从 8 收到 7、时间/操作列略收窄，把省下的宽度让给名称与工具区。 */
+     用户看不出是哪个技能。现在名称列放宽到 200–256px，
+     column-gap 从 8 收到 7、时间/操作列略收窄，把省下的宽度让给名称与工具区。
+
+     256px 是实测出来的：名称实际可用宽度 = 列宽 - 66px（图标 + 复制按钮 + 间距），
+     最长的 browser-headless-ui-verify 需要 181px，200–240px 时只给到 174px，还差 7px。
+     列宽上限提到 256 之后可用宽度 190px，三个残留截断（差 3~7px）全部消除。
+     代价是工具区最小宽度从 200 收到 184 —— 8 个图标本来就需要 227px，
+     无论 200 还是 184 都要横向滚动，让给名称更划算。 */
   grid-template-columns:
-    minmax(200px, 240px)
+    minmax(200px, 256px)
     fit-content(150px)
     46px
     64px
-    minmax(200px, 1fr)
+    minmax(184px, 1fr)
     42px
     110px
     16px;
@@ -2014,10 +2024,12 @@
 
 @media (max-width: 1080px) {
   /* 与主规则保持同一套弹性区间：以前这里用 minmax(90px, auto)，
-     meta 内容一多就自己撑宽，把工具区挤爆、行与行还对不齐。 */
+     meta 内容一多就自己撑宽，把工具区挤爆、行与行还对不齐。
+     名称列上限同步放宽到 240px：这一档窗口本来就窄，名称最先被牺牲，
+     但 200px 只够显示到 134px 可用宽度，"browser-headless-ui-verify" 这类名字会整段只剩省略号。 */
   .list-view .skill-card {
-    grid-template-columns: minmax(140px, 200px) minmax(140px, 200px) minmax(140px, 1fr) 40px 112px 18px;
-    gap: 8px;
+    grid-template-columns: minmax(140px, 240px) minmax(120px, 160px) minmax(120px, 1fr) 40px 112px 18px;
+    gap: 6px;
     padding: 8px 10px;
   }
   .list-view .skill-tools-block { padding-left: 6px; }

@@ -11,6 +11,18 @@ ws.addEventListener('message', e => { const m = JSON.parse(e.data); const s = pe
 await new Promise((r, j) => { ws.addEventListener('open', r); ws.addEventListener('error', j) })
 const ev = async (x) => { const r = await send('Runtime.evaluate', { expression: x, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? JSON.stringify(r.exceptionDetails)); return r.result.value }
 
+// 页面刚加载完时 React 还没把技能列表画出来（后端 invoke 有延迟），
+// 直接测量会得到 0 行、随后 querySelector 取到 null 而抛错。
+// 这里先轮询等卡片出现，最多等 30 秒。
+let waited = 0
+for (;;) {
+  const n = await ev(`document.querySelectorAll('.list-view .skill-card').length`)
+  if (n > 0) { console.log(`已渲染 ${n} 行（等待 ${waited} 秒）`); break }
+  if (waited >= 30) { console.error('等待超时：技能列表始终是空的，请确认应用已加载数据'); process.exit(1) }
+  await new Promise(r => setTimeout(r, 1000))
+  waited++
+}
+
 const out = await ev(`(() => {
   const R = el => { const b = el.getBoundingClientRect(); return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) } }
   const cards = Array.from(document.querySelectorAll('.list-view .skill-card'))
@@ -34,21 +46,37 @@ const out = await ev(`(() => {
     }
   })
 
-  // 徽标越界检测（含水平与垂直）
+  // 徽标越界检测：必须区分两个方向。
+  //   垂直越界 = 真裁切（overflow-x:auto 会把另一轴也算成 auto），这是要修的 bug。
+  //   水平越界 = 图标横向滚出可视区，属于正常滚动，不是裁切，不能算缺陷。
+  // 早先把两者混在一起报，导致「修好了」之后仍显示 clippedWraps: 7，误判为没修好。
   const clip = []
   document.querySelectorAll('.list-view .skill-tool-avatars').forEach(wrap => {
     const wr = R(wrap)
     const sel = '.version-badge, .stale-badge, .instance-badge, .owner-crown, .sync-mode-badge'
     const bad = Array.from(wrap.querySelectorAll(sel)).filter(b => {
       const r = R(b)
-      return r.y < wr.y - 1 || r.y + r.h > wr.y + wr.h + 1 || r.x < wr.x - 1 || r.x + r.w > wr.x + wr.w + 1
+      const vertOut = r.y < wr.y - 1 || r.y + r.h > wr.y + wr.h + 1
+      const horizOut = r.x < wr.x - 1 || r.x + r.w > wr.x + wr.w + 1
+      return vertOut || horizOut
     })
-    if (bad.length) clip.push({ count: bad.length, sample: bad.slice(0,2).map(b => b.className) })
+    if (bad.length) {
+      clip.push({
+        count: bad.length,
+        sample: bad.slice(0, 2).map(b => {
+          const r = R(b)
+          const vertOut = r.y < wr.y - 1 || r.y + r.h > wr.y + wr.h + 1
+          return { cls: b.className, vertOut, horizOut: !vertOut }
+        }),
+      })
+    }
   })
+  const vertClippedWraps = clip.filter(c => c.sample.some(s => s.vertOut)).length
 
   return {
     totalRows: cards.length,
     truncatedRows: rows.filter(r => r.truncated).map(r => ({ name: r.name, w: r.nameW, need: r.need })),
+    vertClippedWraps,
     clippedWraps: clip.length,
     clipSample: clip.slice(0, 3),
     sample: rows.slice(0, 7),
@@ -57,8 +85,11 @@ const out = await ev(`(() => {
 console.log(JSON.stringify(out, null, 2))
 
 const detail = await ev(`(() => {
-  const card = document.querySelector('.list-view .skill-card')
-  const wrap = card.querySelector('.skill-tool-avatars')
+  // 有的行可能没有工具图标（wrap 为 null），跳到第一个有图标区的行再测量。
+  const wrapEl = Array.from(document.querySelectorAll('.list-view .skill-tool-avatars'))[0]
+  if (!wrapEl) return { error: '任何一行都没有工具图标区' }
+  const card = wrapEl.closest('.skill-card')
+  const wrap = wrapEl
   const blk = card.querySelector('.skill-tools-block')
   const cs = getComputedStyle(wrap)
   const btns = Array.from(wrap.querySelectorAll('button'))
