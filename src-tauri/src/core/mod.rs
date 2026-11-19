@@ -24,4 +24,5 @@ pub mod skills_search;
 pub mod stale_copies;
 pub mod sync_engine;
 pub mod system_scheduler;
+pub mod temp_cleanup;
 pub mod tool_adapters;

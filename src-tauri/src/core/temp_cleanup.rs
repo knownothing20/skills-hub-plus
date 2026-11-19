@@ -20,6 +20,10 @@ pub fn mark_temp_dir(dir: &Path) -> Result<()> {
     Ok(())
 }
 
+// 这个模块此前从未在 `core/mod.rs` 里声明过，一直没被编译，所以这些旧函数
+// 的 dead_code 到最近才暴露。保留实现、显式放行，避免顺手删掉别人将来要接的
+// 清理逻辑；模块内新增的 `cleanup_central_residue` 是有真实调用方的。
+#[allow(dead_code)]
 pub fn cleanup_old_git_temp_dirs<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     max_age: Duration,
@@ -32,6 +36,7 @@ pub fn cleanup_old_git_temp_dirs<R: tauri::Runtime>(
     cleanup_old_git_temp_dirs_in(&cache_dir, max_age)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn cleanup_old_git_temp_dirs_in(cache_dir: &Path, max_age: Duration) -> Result<usize> {
     if !cache_dir.exists() {
         return Ok(0);
