@@ -360,18 +360,21 @@ const ToolsPage = ({
                   instance.label
                 const signedIn = instance.account?.signed_in === true
                 const userId = instance.account?.user_id?.trim() || ''
+                // 实例键与 skill_targets.instance 同口径（主实例为空串），
+                // 用它做 key 比拼 label+path 更能对齐同一条目标记录。
+                const instanceKey = instance.instance || instance.label
                 const hint = [
                   `目录：${instance.label}`,
                   accountName && accountName !== instance.label ? `账号：${accountName}` : '',
                   userId ? `ID：${userId}` : '',
-                  signedIn ? '状态：已登录' : '状态：未登录（仍占用目录）',
+                  signedIn ? '状态：已登录' : '状态：未登录（仍占用目录、仍接收同步）',
                   instance.path,
                 ]
                   .filter(Boolean)
                   .join('\n')
                 return (
                   <li
-                    key={`${instance.label}-${instance.path}`}
+                    key={instanceKey}
                     className={`${instance.exists ? '' : 'is-missing'}${
                       signedIn ? '' : ' is-signed-out'
                     }`}

@@ -835,3 +835,97 @@ fn scan_tool_dir_skips_codex_plugin_cache_symlink() {
     let out = scan_tool_dir(&tool, &scan_root).unwrap();
     assert!(out.is_empty());
 }
+
+/// 回归用例：`Local State` 与各 profile 目录同级，都在 `<User Data>` 之下。
+/// 早期实现读的是 `base.parent()`，少找一层，`profile.info_cache` 从未命中，
+/// 账号名全部退回飞书租户名。
+#[cfg(target_os = "windows")]
+#[test]
+fn account_identity_reads_local_state_from_profile_base() {
+    use std::collections::HashMap;
+    use std::path::Path;
+
+    let user_data = tempfile::tempdir().unwrap();
+    let base: &Path = user_data.path();
+
+    // 真实布局：<User Data>/Local State 与 <User Data>/Profile 4 同级
+    fs::write(
+        base.join("Local State"),
+        br#"{"profile":{"info_cache":{"Profile 4":{"name":"account-nickname"}}}}"#,
+    )
+    .unwrap();
+    fs::create_dir_all(base.join("Profile 4")).unwrap();
+    fs::write(
+        base.join("Profile 4").join("Preferences"),
+        br#"{"saman":{"last_user":{"name":"real-name","user_id":"123456","tenant":{"username":"tenant-x"}}}}"#,
+    )
+    .unwrap();
+
+    let names = super::read_profile_names(base);
+    assert_eq!(
+        names.get("Profile 4").map(String::as_str),
+        Some("account-nickname"),
+        "Local State 必须从 base 自己这一层读，不能读 base.parent()"
+    );
+
+    let ident = super::read_account_identity(base, "Profile 4", &names);
+    assert_eq!(ident.display_name, "real-name");
+    assert_eq!(ident.user_id, "123456");
+    assert!(ident.signed_in);
+    assert_eq!(ident.best_name(), "real-name", "真名优先于 nickname");
+}
+
+/// 登出后真名被清空，显示名要退回 `profile_name`，而不是飞书租户名。
+#[cfg(target_os = "windows")]
+#[test]
+fn signed_out_account_falls_back_to_profile_name_not_tenant() {
+    use std::collections::HashMap;
+    use std::path::Path;
+
+    let user_data = tempfile::tempdir().unwrap();
+    let base: &Path = user_data.path();
+
+    fs::write(
+        base.join("Local State"),
+        br#"{"profile":{"info_cache":{"Default":{"name":"home"}}}}"#,
+    )
+    .unwrap();
+    fs::create_dir_all(base.join("Default")).unwrap();
+    fs::write(
+        base.join("Default").join("Preferences"),
+        br#"{"saman":{"last_user":{"tenant":{"username":"tenant-name"}}}}"#,
+    )
+    .unwrap();
+
+    let names = super::read_profile_names(base);
+    let ident = super::read_account_identity(base, "Default", &names);
+    assert!(ident.display_name.is_empty(), "登出后真名应为空");
+    assert!(!ident.signed_in, "user_id 为空即未登录");
+    assert_eq!(ident.best_name(), "home", "应显示 nickname，不是租户名");
+}
+
+/// 未登录账号不接收同步；但读不到任何身份线索时按可同步处理，避免误判。
+#[test]
+fn instance_accepts_sync_policy() {
+    use crate::core::tool_adapters::{instance_accepts_sync, AccountIdentity};
+
+    let signed_in = AccountIdentity {
+        signed_in: true,
+        ..Default::default()
+    };
+    assert!(instance_accepts_sync(&signed_in));
+
+    let signed_out = AccountIdentity {
+        signed_in: false,
+        display_name: "someone".to_string(),
+        ..Default::default()
+    };
+    assert!(
+        !instance_accepts_sync(&signed_out),
+        "已登出账号不该再灌副本"
+    );
+
+    // 完全读不到身份：无法判断，保守地允许同步。
+    let unknown = AccountIdentity::default();
+    assert!(instance_accepts_sync(&unknown));
+}

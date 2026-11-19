@@ -105,6 +105,33 @@ pub fn target_has_same_content(source: &std::path::Path, target: &std::path::Pat
     }
 }
 
+/// 某个多账号工具当前存在（目录还在）的全部实例。
+fn existing_instances_of(tool: &str) -> Vec<crate::core::tool_adapters::SkillRootInstance> {
+    crate::core::tool_adapters::default_tool_adapters()
+        .into_iter()
+        .find(|a| a.id.as_key() == tool)
+        .filter(|a| a.instance_rule.is_some())
+        .map(|adapter| {
+            crate::core::tool_adapters::discover_root_instances(&adapter)
+                .into_iter()
+                .filter(|i| i.exists)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// 把母库的 `.skillignore` 规则补进副本。
+///
+/// 语义是**求并集**，不是覆盖：副本可能自己加过规则（`local/` 这类私有内容
+/// 的保护依赖副本自己那份清单，见 `preserve_private_entries`），整份覆盖会
+/// 把它们抹掉，下次整目录替换时私有内容就跟着旧目录进回收站——2026-11 的
+/// AgentPort 事故正是这么丢的 8 份配置。
+///
+/// 返回是否真的写了文件。只补副本缺的行，已存在的一律保留，包括注释。
+pub fn merge_skillignore_into_target(central_rules: &str, target_dir: &std::path::Path) -> bool {
+    crate::core::sync_engine::merge_ignore_rules(central_rules, target_dir)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn record_skill_target_failure(
     store: &SkillStore,
@@ -189,15 +216,6 @@ pub fn auto_reconcile_skill_targets(
             {
                 continue;
             }
-            // 快速短路检查：如果数据库中已经记录该目标且状态为 ok，直接 0 耗时跳过！
-            let existing =
-                store.get_skill_target(&skill.id, adapter.id.as_key(), "global", None)?;
-            if let Some(ref rec) = existing {
-                if rec.status == "ok" {
-                    continue;
-                }
-            }
-
             let tool_dir = home.join(adapter.relative_skills_dir);
             if !tool_dir.is_dir() {
                 continue;
@@ -207,11 +225,21 @@ pub fn auto_reconcile_skill_targets(
                 continue;
             }
 
-            // 如果中心库有 .skillignore，而工具目录下还没有，同步一份规则过去以保持比对准则一致
+            // 规则下发必须早于下面的 status 短路，也早于内容比对：副本已有
+            // .skillignore 时过去会被 `!exists()` 挡掉，母库后补的规则永远下发
+            // 不下去，而内容哈希又把 .skillignore 本身排除在外（DEFAULT_IGNORES），
+            // 所以两边规则不一致时完全看不出来。
             if let Some(ref ignore_str) = central_ignore_content {
-                let target_ignore_path = target_path.join(".skillignore");
-                if !target_ignore_path.exists() {
-                    let _ = std::fs::write(&target_ignore_path, ignore_str);
+                merge_skillignore_into_target(ignore_str, &target_path);
+            }
+
+            // 快速短路检查：数据库中已记录该目标且状态为 ok，直接跳过比对。
+            // 放在规则下发之后，否则新增规则永远没机会补偿。
+            let existing =
+                store.get_skill_target(&skill.id, adapter.id.as_key(), "global", None)?;
+            if let Some(ref rec) = existing {
+                if rec.status == "ok" {
+                    continue;
                 }
             }
 
@@ -541,25 +569,32 @@ pub async fn sync_skill_to_tool(
     let store = store.inner().clone();
     let central_root = resolve_central_repo_path(&app, &store).map_err(|err| err.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
-        // 多账号工具（豆包这类 Chromium 客户端）：一次操作铺到每个已存在的
-        // 账号目录，这样切账号不会突然看不到技能。单实例工具行为不变。
+        // 多账号工具（豆包这类 Chromium 客户端）：一次操作铺到每个可用的账号目录，
+        // 这样切账号不会突然看不到技能。单实例工具行为不变。
+        //
+        // 已登出的账号不写：目录和文件都不动，只是不再往里灌新副本。用户重新登录
+        // 后那份旧副本仍在，adopt 会把它认回来；但如果那次是全新登录、目录为空，
+        // 下面的 `RefreshedAccount` 分支会把技能补进去。
         let is_global = scope.as_deref().unwrap_or("global") == "global";
         if is_global && projectPath.is_none() {
-            let instances = crate::core::tool_adapters::default_tool_adapters()
-                .into_iter()
-                .find(|a| a.id.as_key() == tool)
-                .filter(|a| a.instance_rule.is_some())
-                .map(|adapter| {
-                    crate::core::tool_adapters::discover_root_instances(&adapter)
-                        .into_iter()
-                        .filter(|i| i.exists)
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
+            let instances = existing_instances_of(&tool);
             if instances.len() > 1 {
+                let mut targets: Vec<_> = instances
+                    .into_iter()
+                    .filter(|i| crate::core::tool_adapters::instance_accepts_sync(&i.account))
+                    .collect();
+                // 一个都不剩（全部登出）：退回主实例，至少保证主账号目录可用。
+                if targets.is_empty() {
+                    let primary = existing_instances_of(&tool)
+                        .into_iter()
+                        .find(|i| i.is_primary);
+                    if let Some(primary) = primary {
+                        targets.push(primary);
+                    }
+                }
                 let mut first_ok: Option<SyncResultDto> = None;
                 let mut last_err: Option<anyhow::Error> = None;
-                for instance in instances {
+                for instance in targets {
                     let instance_key = if instance.is_primary {
                         String::new()
                     } else {

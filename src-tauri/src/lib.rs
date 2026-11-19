@@ -305,6 +305,23 @@ pub fn run() {
                 }
                 core::installer::backfill_skill_descriptions(&store_clone);
 
+                // 清扫中断安装留下的隐藏暂存目录（`.skills-hub-*`）。这些目录
+                // 正常路径会自己收掉，但进程被杀/断电时会残留，长期堆积占空间。
+                // 只动一小时以前的，避免撞上正在进行的安装。
+                if let Ok(central_root) = core::central_repo::resolve_central_repo_path(
+                    &handle_clone,
+                    &store_clone,
+                ) {
+                    match core::temp_cleanup::cleanup_central_residue(
+                        &central_root,
+                        std::time::Duration::from_secs(3600),
+                    ) {
+                        Ok(0) => {}
+                        Ok(n) => log::info!("cleaned {n} stale staging dirs under {:?}", central_root),
+                        Err(err) => log::warn!("staging cleanup warning: {err:#}"),
+                    }
+                }
+
                 // 如果启用了自动备份，启动时异步静默更新备份
                 let config = core::backup::get_backup_config(&store_clone);
                 if config.enabled {

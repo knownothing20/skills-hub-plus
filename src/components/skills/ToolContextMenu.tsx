@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { Box, Crown, Trash2, FolderOpen } from 'lucide-react'
+import FloatingMenu, { MenuItem } from './FloatingMenu'
 import ToolIcon from './ToolIcon'
 import type { ManagedSkill, ToolOption } from './types'
 
@@ -35,67 +34,10 @@ export default function ToolContextMenu({
   onPromoteToOwner,
   onOpenFolder,
 }: ToolContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null)
   const { tool, skill, synced, isOwner, instance, targetPath, x, y } = state
 
-  useEffect(() => {
-    const handlePointerDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    const handleScroll = (e: Event) => {
-      if (menuRef.current && menuRef.current.contains(e.target as Node)) return
-      onClose()
-    }
-
-    // 延迟 50ms 挂载外部点击关闭，避免第一下右键操作本身的后续 pointer 事件意外关闭
-    const timer = window.setTimeout(() => {
-      window.addEventListener('pointerdown', handlePointerDown)
-    }, 50)
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('scroll', handleScroll, true)
-    window.addEventListener('resize', onClose)
-
-    return () => {
-      window.clearTimeout(timer)
-      window.removeEventListener('pointerdown', handlePointerDown)
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('scroll', handleScroll, true)
-      window.removeEventListener('resize', onClose)
-    }
-  }, [onClose])
-
-  // Calculate clamped coordinates
-  let left = x
-  let top = y
-  if (typeof window !== 'undefined') {
-    const menuWidth = 240
-    const menuHeight = 240
-    if (left + menuWidth > window.innerWidth - 12) {
-      left = Math.max(12, window.innerWidth - menuWidth - 12)
-    }
-    if (top + menuHeight > window.innerHeight - 12) {
-      top = Math.max(12, window.innerHeight - menuHeight - 12)
-    }
-  }
-
-  const content = (
-    <div
-      ref={menuRef}
-      className="tool-context-menu"
-      style={{ left, top }}
-      onClick={(e) => e.stopPropagation()}
-      onContextMenu={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-      }}
-    >
+  return (
+    <FloatingMenu x={x} y={y} name="tool" onClose={onClose}>
       <div className="tool-context-header">
         <ToolIcon toolKey={tool.id} label={tool.label} avatar={tool.avatar} />
         <div className="tool-context-header-info">
@@ -110,43 +52,30 @@ export default function ToolContextMenu({
 
       <div className="tool-context-divider" />
 
-      {/* 未同步状态：提供选择以软链接或实体副本同步 */}
+      {/* 未同步状态：提供选择以实体副本同步 */}
       {!synced && (
-        <>
-          <button
-            type="button"
-            className="tool-context-item"
-            onClick={() => {
-              onClose()
-              onSync(skill, tool.id)
-            }}
-          >
-            <Box size={14} className="icon-copy" />
-            <div className="item-text">
-              <span>同步为 实体副本 (Copy)</span>
-              <small>独立文件目录，配置互不干扰</small>
-            </div>
-          </button>
-        </>
+        <MenuItem
+          icon={<Box size={14} className="icon-copy" />}
+          title="同步为 实体副本 (Copy)"
+          hint="独立文件目录，配置互不干扰"
+          onClick={() => {
+            onClose()
+            onSync(skill, tool.id)
+          }}
+        />
       )}
 
       {/* 已同步为实体副本：提供取消同步 */}
       {synced && !isOwner && (
-        <>
-          <button
-            type="button"
-            className="tool-context-item danger"
-            onClick={() => {
-              onClose()
-              onUnsync(skill, tool.id)
-            }}
-          >
-            <Trash2 size={14} />
-            <div className="item-text">
-              <span>取消同步 (移除该软件技能)</span>
-            </div>
-          </button>
-        </>
+        <MenuItem
+          icon={<Trash2 size={14} />}
+          title="取消同步 (移除该软件技能)"
+          danger
+          onClick={() => {
+            onClose()
+            onUnsync(skill, tool.id)
+          }}
+        />
       )}
 
       {/* 主 skill 归属：按当前形态给不同说明 */}
@@ -154,30 +83,22 @@ export default function ToolContextMenu({
         <>
           <div className="tool-context-divider" />
           {isOwner ? (
-            <button type="button" className="tool-context-item" disabled>
-              <Crown size={14} />
-              <div className="item-text">
-                <span>当前为主 skill</span>
-                <small>原件就在这个目录，其它软件都以它为准</small>
-              </div>
-            </button>
+            <MenuItem
+              icon={<Crown size={14} />}
+              title="当前为主 skill"
+              hint="原件就在这个目录，其它软件都以它为准"
+              disabled
+            />
           ) : (
-            <button
-              type="button"
-              className="tool-context-item"
+            <MenuItem
+              icon={<Crown size={14} />}
+              title="设为主 skill"
+              hint="直接以这个实体副本为原件，文件不动"
               onClick={() => {
                 onClose()
                 onPromoteToOwner(skill, tool.id, instance)
               }}
-            >
-              <Crown size={14} />
-              <div className="item-text">
-                <span>设为主 skill</span>
-                <small>
-                  直接以这个实体副本为原件，文件不动
-                </small>
-              </div>
-            </button>
+            />
           )}
         </>
       )}
@@ -186,28 +107,21 @@ export default function ToolContextMenu({
       {targetPath && onOpenFolder && (
         <>
           <div className="tool-context-divider" />
-          <button
-            type="button"
-            className="tool-context-item"
+          <MenuItem
+            icon={<FolderOpen size={14} />}
+            title="在资源管理器中打开"
+            hint={
+              <span className="path-preview" title={targetPath}>
+                {targetPath}
+              </span>
+            }
             onClick={() => {
               onClose()
               onOpenFolder(targetPath)
             }}
-          >
-            <FolderOpen size={14} />
-            <div className="item-text">
-              <span>在资源管理器中打开</span>
-              <small className="path-preview" title={targetPath}>
-                {targetPath}
-              </small>
-            </div>
-          </button>
+          />
         </>
       )}
-    </div>
+    </FloatingMenu>
   )
-
-  if (typeof document === 'undefined') return null
-  return createPortal(content, document.body)
 }
-

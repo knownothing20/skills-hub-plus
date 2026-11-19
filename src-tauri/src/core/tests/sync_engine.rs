@@ -1,6 +1,9 @@
 use std::fs;
 
-use crate::core::sync_engine::{copy_dir_recursive, sync_dir_with_mode_with_overwrite, SyncMode};
+use crate::core::sync_engine::{
+    carry_over_skillignore, copy_dir_recursive, sync_dir_copy_with_overwrite,
+    sync_dir_with_mode_with_overwrite, SyncMode,
+};
 
 #[test]
 fn copy_dir_recursive_skips_git_dir() {
@@ -145,4 +148,81 @@ fn overwrite_does_not_leave_staging_directories() {
         .filter(|name| name.starts_with(".skills-hub-preserve-"))
         .collect();
     assert!(leftovers.is_empty(), "暂存目录残留: {leftovers:?}");
+}
+
+#[test]
+fn skillignore_is_carried_over_even_though_copy_skips_it() {
+    let src = tempfile::tempdir().unwrap();
+    let dst = tempfile::tempdir().unwrap();
+
+    fs::write(src.path().join(".skillignore"), b"local/\nlogs/\n").unwrap();
+    fs::write(src.path().join("SKILL.md"), b"# demo").unwrap();
+    fs::create_dir_all(src.path().join("local")).unwrap();
+    fs::write(src.path().join("local/secret.bin"), b"private").unwrap();
+
+    sync_dir_copy_with_overwrite(src.path(), dst.path(), true).unwrap();
+
+    // .skillignore 自身在 DEFAULT_IGNORES 里，复制阶段会跳过，必须靠补发。
+    let rule = fs::read_to_string(dst.path().join(".skillignore")).unwrap();
+    assert!(
+        rule.contains("local/"),
+        "副本拿不到规则就无法保护私有内容: {rule}"
+    );
+    assert!(rule.contains("logs/"));
+    // 私有内容本身仍然不该被复制过去。
+    assert!(!dst.path().join("local").exists());
+    assert!(dst.path().join("SKILL.md").exists());
+}
+
+#[test]
+fn carry_over_merges_instead_of_overwriting_local_rules() {
+    let src = tempfile::tempdir().unwrap();
+    let dst = tempfile::tempdir().unwrap();
+
+    fs::write(src.path().join(".skillignore"), b"local/\n").unwrap();
+    fs::write(dst.path().join(".skillignore"), b"runtime/\n").unwrap();
+
+    sync_dir_copy_with_overwrite(src.path(), dst.path(), true).unwrap();
+
+    let rule = fs::read_to_string(dst.path().join(".skillignore")).unwrap();
+    assert!(rule.contains("local/"), "母库新增规则要补进来: {rule}");
+    assert!(
+        rule.contains("runtime/"),
+        "副本自己的规则不能被覆盖掉，否则私有内容会跟着进回收站: {rule}"
+    );
+}
+
+#[test]
+fn carry_over_is_idempotent() {
+    let src = tempfile::tempdir().unwrap();
+    let dst = tempfile::tempdir().unwrap();
+    fs::write(src.path().join(".skillignore"), b"local/\n").unwrap();
+    fs::write(dst.path().join(".skillignore"), b"local/\n").unwrap();
+
+    assert!(
+        !carry_over_skillignore(src.path(), dst.path()),
+        "规则已一致时不应重复写盘"
+    );
+    let rule = fs::read_to_string(dst.path().join(".skillignore")).unwrap();
+    assert_eq!(rule.matches("local/").count(), 1, "不能产生重复行: {rule}");
+}
+
+#[test]
+fn carry_over_ignores_comments_and_blank_lines() {
+    let src = tempfile::tempdir().unwrap();
+    let dst = tempfile::tempdir().unwrap();
+    fs::write(src.path().join(".skillignore"), b"# comment\n\n/tmp/x/\n").unwrap();
+
+    assert!(carry_over_skillignore(src.path(), dst.path()));
+    let rule = fs::read_to_string(dst.path().join(".skillignore")).unwrap();
+    assert!(!rule.contains("# comment"), "注释不应被搬过去: {rule}");
+    assert!(rule.contains("tmp/x"), "首尾斜杠要归一化: {rule}");
+}
+
+#[test]
+fn carry_over_noop_when_source_has_no_rules() {
+    let src = tempfile::tempdir().unwrap();
+    let dst = tempfile::tempdir().unwrap();
+    assert!(!carry_over_skillignore(src.path(), dst.path()));
+    assert!(!dst.path().join(".skillignore").exists());
 }

@@ -399,6 +399,27 @@ pub fn path_entry_exists(path: &Path) -> Result<bool> {
     }
 }
 
+/// 目录里是否没有任何实际文件（只看文件，空子目录也算空）。
+///
+/// 用于「用原件覆盖母库」这类整目录替换前的护栏：源侧是空目录时覆盖会把
+/// 母库清空，几乎不可能是用户意图。读不到目录时返回 `false`，交给后续的
+/// `is_dir()` 检查去报错，避免这里把「不存在」误判成「空」。
+pub fn is_effectively_empty_dir(dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() {
+            return false;
+        }
+        if path.is_dir() && !is_effectively_empty_dir(&path) {
+            return false;
+        }
+    }
+    true
+}
+
 /// Atomically publish a fully validated hidden sibling staging directory. The
 /// platform primitive must fail if `live` already exists; a plain Unix rename
 /// is deliberately insufficient because it can replace the destination.

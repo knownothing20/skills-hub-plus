@@ -26,6 +26,7 @@ import SkillDetailView from './components/skills/SkillDetailView'
 import { openPath } from '@tauri-apps/plugin-opener'
 import { listen } from '@tauri-apps/api/event'
 import CentralLibraryView from './components/skills/CentralLibraryView'
+import { describeMirrorFailure } from './components/skills/mirrorErrors'
 import TitleBar from './components/skills/TitleBar'
 import Sidebar from './components/skills/Sidebar'
 import LoadingOverlay from './components/skills/LoadingOverlay'
@@ -183,7 +184,7 @@ function App() {
         // 免得用户再手动点一次（副本侧本来就是自动的）。
         void refreshStaleStatus()
       } catch (err) {
-        toast.error(`更新母库失败: ${err instanceof Error ? err.message : String(err)}`)
+        toast.error(describeMirrorFailure(err))
       }
     },
     [invokeTauri, loadManagedSkills, refreshLibraryHealth, refreshStaleMirrors, refreshStaleStatus],

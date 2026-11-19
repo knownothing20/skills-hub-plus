@@ -303,7 +303,9 @@ const SkillCard = ({
             className={`skill-central-badge${mirrorStale ? ' is-stale' : ''}`}
             type="button"
             aria-label={centralBadgeLabel}
-            title={`${centralBadgeTitle}\n（右键：用原件覆盖母库）`}
+            title={`${centralBadgeTitle}${
+              hasOwner ? '\n（右键：用原件覆盖母库）' : ''
+            }`}
             onClick={(e) => {
               e.stopPropagation()
               if (skill.central_path) {
@@ -315,6 +317,9 @@ const SkillCard = ({
             onContextMenu={(e) => {
               // 母库刷新是唯一没有自动同步的方向，入口必须常驻：
               // 不挂在 ! / 版本字母上，因为指纹收敛后字母会消失。
+              // 但没有登记原件的技能无从「覆盖」，弹出只剩禁用按钮的菜单等于
+              // 让用户白点一次，直接不拦默认菜单。
+              if (!hasOwner) return
               e.preventDefault()
               e.stopPropagation()
               setCentralMenu({ x: e.clientX, y: e.clientY, skill })

@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { AlertTriangle, FolderOpen, RefreshCw } from 'lucide-react'
+import FloatingMenu, { MenuItem } from './FloatingMenu'
 import type { ManagedSkill } from './types'
 
 /**
@@ -35,64 +34,10 @@ export default function CentralContextMenu({
   mirrorStale,
   hasOwner,
 }: CentralContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null)
   const { skill, x, y } = state
 
-  useEffect(() => {
-    const handlePointerDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    const handleScroll = (e: Event) => {
-      if (menuRef.current && menuRef.current.contains(e.target as Node)) return
-      onClose()
-    }
-
-    // 延迟 50ms 挂载外部点击关闭，避免第一下右键操作本身的后续 pointer 事件意外关闭
-    const timer = window.setTimeout(() => {
-      window.addEventListener('pointerdown', handlePointerDown)
-    }, 50)
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('scroll', handleScroll, true)
-    window.addEventListener('resize', onClose)
-
-    return () => {
-      window.clearTimeout(timer)
-      window.removeEventListener('pointerdown', handlePointerDown)
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('scroll', handleScroll, true)
-      window.removeEventListener('resize', onClose)
-    }
-  }, [onClose])
-
-  let left = x
-  let top = y
-  if (typeof window !== 'undefined') {
-    const menuWidth = 260
-    const menuHeight = 220
-    if (left + menuWidth > window.innerWidth - 12) {
-      left = Math.max(12, window.innerWidth - menuWidth - 12)
-    }
-    if (top + menuHeight > window.innerHeight - 12) {
-      top = Math.max(12, window.innerHeight - menuHeight - 12)
-    }
-  }
-
-  const content = (
-    <div
-      ref={menuRef}
-      className="tool-context-menu"
-      style={{ left, top }}
-      onClick={(e) => e.stopPropagation()}
-      onContextMenu={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-      }}
-    >
+  return (
+    <FloatingMenu x={x} y={y} name="central" estimatedHeight={220} onClose={onClose}>
       <div className="tool-context-header">
         <div className="tool-context-header-info">
           <div className="tool-context-title">母库镜像</div>
@@ -104,51 +49,42 @@ export default function CentralContextMenu({
 
       <div className="tool-context-divider" />
 
-      <button
-        type="button"
-        className="tool-context-item"
+      <MenuItem
+        icon={
+          mirrorStale ? (
+            <AlertTriangle size={14} className="icon-copy" />
+          ) : (
+            <RefreshCw size={14} className="icon-copy" />
+          )
+        }
+        title="用原件覆盖母库"
+        hint={
+          hasOwner
+            ? '整目录替换为原件内容，local/ 等私有内容会被保留'
+            : '没有登记原件目录，无法覆盖'
+        }
         disabled={!hasOwner}
         onClick={() => {
           onClose()
           onRefreshMirror(skill.id)
         }}
-      >
-        {mirrorStale ? (
-          <AlertTriangle size={14} className="icon-copy" />
-        ) : (
-          <RefreshCw size={14} className="icon-copy" />
-        )}
-        <div className="item-text">
-          <span>用原件覆盖母库</span>
-          <small>
-            {hasOwner
-              ? '整目录替换为原件内容，local/ 等私有内容会被保留'
-              : '没有登记原件目录，无法覆盖'}
-          </small>
-        </div>
-      </button>
+      />
 
       <div className="tool-context-divider" />
 
-      <button
-        type="button"
-        className="tool-context-item"
+      <MenuItem
+        icon={<FolderOpen size={14} />}
+        title="打开母库文件夹"
+        hint={
+          <span className="path-preview" title={skill.central_path}>
+            {skill.central_path}
+          </span>
+        }
         onClick={() => {
           onClose()
           if (skill.central_path) onOpenFolder(skill.central_path)
         }}
-      >
-        <FolderOpen size={14} />
-        <div className="item-text">
-          <span>打开母库文件夹</span>
-          <small className="path-preview" title={skill.central_path}>
-            {skill.central_path}
-          </small>
-        </div>
-      </button>
-    </div>
+      />
+    </FloatingMenu>
   )
-
-  if (typeof document === 'undefined') return null
-  return createPortal(content, document.body)
 }

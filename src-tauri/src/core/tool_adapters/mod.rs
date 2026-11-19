@@ -2078,8 +2078,8 @@ impl AccountIdentity {
     /// 3. `tenant_username` 放最后：它是飞书租户名，实测 `Default` 是「额额额」，
     ///    与账号名毫无关系，用它当显示名会误导。
     ///
-    /// 前端 `ToolsPage` 用同一套顺序；这里保留一份给后端日志与测试用。
-    #[allow(dead_code)]
+    /// 前端 `ToolsPage` 用同一套顺序（`display_name → profile_name →
+    /// tenant_username → label`），两边必须同步改。
     pub fn best_name(&self) -> String {
         for value in [
             &self.display_name,
@@ -2093,6 +2093,26 @@ impl AccountIdentity {
         }
         String::new()
     }
+}
+
+/// 该账号实例是否应当接收同步。
+///
+/// 已登出的账号目录仍留在磁盘上（技能文件也在），但它已经不是一个「可用的
+/// 账号」——继续往里写只会不断堆积没人会读到的副本。因此同步时跳过；目录和
+/// 文件都**不删**，用户重新登录后那份旧副本还在，`adopt` 会把它认回来。
+///
+/// 判据取 `signed_in`：`user_id` 非空即认为已登录。读不到账号信息的目录
+/// （没有 `Preferences`、解析失败）一律视为可同步——宁可多写一份，也不要
+/// 因为解析不出身份就悄悄漏掉用户的账号。
+pub fn instance_accepts_sync(account: &AccountIdentity) -> bool {
+    if account.signed_in {
+        return true;
+    }
+    // 完全没读到任何身份线索：无法判断，按可同步处理。
+    let no_clue = account.display_name.trim().is_empty()
+        && account.profile_name.trim().is_empty()
+        && account.tenant_username.trim().is_empty();
+    no_clue
 }
 
 /// 读取某个账号目录的账号身份。读不到时返回全空结构，不影响目录枚举。
@@ -2230,6 +2250,13 @@ pub fn discover_root_instances(adapter: &ToolAdapter) -> Vec<SkillRootInstance> 
                         .join(rule.skills_suffix.replace('/', "\\"));
                     let exists = path.is_dir();
                     let is_primary = label.eq_ignore_ascii_case(rule.primary_label);
+                    let account = read_account_identity(&base, &label, &profile_names);
+                    log::debug!(
+                        "[tool_adapters] {} instance {label} => {:?} (signed_in={})",
+                        adapter.id.as_key(),
+                        account.best_name(),
+                        account.signed_in
+                    );
                     out.push(SkillRootInstance {
                         tool: adapter.id.as_key().to_string(),
                         // 主实例沿用空串，与 skill_targets.instance 的历史口径保持一致
@@ -2238,7 +2265,7 @@ pub fn discover_root_instances(adapter: &ToolAdapter) -> Vec<SkillRootInstance> 
                         } else {
                             label.clone()
                         },
-                        account: read_account_identity(&base, &label, &profile_names),
+                        account,
                         label: label.clone(),
                         path: path.to_string_lossy().to_string(),
                         skills: if exists {

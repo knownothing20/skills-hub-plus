@@ -63,10 +63,79 @@ pub fn sync_dir_copy_with_overwrite(
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    // 规则文件本身不参与复制（在 DEFAULT_IGNORES 里），补发一份到目标侧。
+    // 失败不算同步失败：内容已经过去了，缺规则只影响下次替换时的私有内容判定。
+    if !carry_over_skillignore(source, target) {
+        log::debug!("[sync] no .skillignore merged into {:?}", target);
+    }
+
     Ok(SyncOutcome {
         mode_used: SyncMode::Copy,
         target_path: target.to_path_buf(),
     })
+}
+
+/// 同步结束后把源侧的 `.skillignore` 规则补到目标侧。
+///
+/// 必须单独做，因为 `.skillignore` 在 `DEFAULT_IGNORES` 里——`copy_dir_recursive`
+/// 会把它当忽略清单文件本身跳过，于是整目录复制永远不携带规则，副本只能靠自己
+/// 那份（或根本没有）。而规则决定哪些条目算「私有内容」，缺失时下次整目录替换
+/// 就会把 `local/` 这类东西当旧目录内容一起送进回收站。
+///
+/// 目标侧已有规则时求并集，不覆盖：副本可能自己加过条目。
+pub fn carry_over_skillignore(source: &Path, target: &Path) -> bool {
+    let Ok(rules) = std::fs::read_to_string(source.join(".skillignore")) else {
+        return false;
+    };
+    merge_ignore_rules(&rules, target)
+}
+
+pub(crate) fn merge_ignore_rules(rules: &str, target: &Path) -> bool {
+    let target_path = target.join(".skillignore");
+
+    let mut wanted: Vec<String> = Vec::new();
+    for line in rules.lines() {
+        let trimmed = line.trim().trim_start_matches('\u{feff}').trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let clean = trimmed.replace('\\', "/").trim_matches('/').to_string();
+        if !clean.is_empty() && !wanted.iter().any(|p| p == &clean) {
+            wanted.push(clean);
+        }
+    }
+    if wanted.is_empty() {
+        return false;
+    }
+
+    let Ok(existing) = std::fs::read_to_string(&target_path) else {
+        let body = wanted.join("\n");
+        return std::fs::write(&target_path, format!("{body}\n")).is_ok();
+    };
+
+    let have: Vec<String> = existing
+        .lines()
+        .map(|line| line.trim().trim_start_matches('\u{feff}').trim())
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(|line| line.replace('\\', "/").trim_matches('/').to_string())
+        .collect();
+    let missing: Vec<&String> = wanted
+        .iter()
+        .filter(|rule| !have.iter().any(|h| h == *rule))
+        .collect();
+    if missing.is_empty() {
+        return false;
+    }
+
+    let mut body = existing.clone();
+    if !body.ends_with('\n') {
+        body.push('\n');
+    }
+    for rule in missing {
+        body.push_str(rule);
+        body.push('\n');
+    }
+    std::fs::write(&target_path, body).is_ok()
 }
 
 pub fn sync_dir_with_mode_with_overwrite(

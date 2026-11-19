@@ -138,6 +138,20 @@ pub async fn refresh_skill_mirror(
         if source == mirror {
             anyhow::bail!("SAME_PATH|{source_ref}");
         }
+        // 原件是空目录时覆盖会把母库清成空壳——这几乎不可能是用户的意图，
+        // 大概率是原件被误删或还没同步下来。宁可拒绝，也不做不可逆的破坏。
+        if crate::core::safe_fs::is_effectively_empty_dir(source) {
+            anyhow::bail!("SOURCE_EMPTY|{source_ref}");
+        }
+        // 母库必须落在中心库根下，不接受任意路径写入（防止 source_ref 或
+        // central_path 被指到别处时，把无关目录整个替换掉）。
+        let central_root = match store.get_setting("central_repo_path")? {
+            Some(path) if !path.trim().is_empty() => std::path::PathBuf::from(path.trim()),
+            _ => crate::core::central_repo::fixed_central_repo_path()?,
+        };
+        if !mirror.starts_with(&central_root) {
+            anyhow::bail!("UNSAFE_TARGET|{}", mirror.display());
+        }
 
         crate::core::sync_engine::sync_dir_copy_with_overwrite(source, mirror, true)?;
 
