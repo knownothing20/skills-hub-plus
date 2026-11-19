@@ -153,38 +153,42 @@ fn overwrite_does_not_leave_staging_directories() {
 #[test]
 fn skillignore_is_carried_over_even_though_copy_skips_it() {
     let src = tempfile::tempdir().unwrap();
-    let dst = tempfile::tempdir().unwrap();
+    let dst_root = tempfile::tempdir().unwrap();
+    // 目标用普通子目录：tempdir 自己那层是点开头的，会被安全校验当隐藏名拒掉。
+    let dst = dst_root.path().join("copy");
 
     fs::write(src.path().join(".skillignore"), b"local/\nlogs/\n").unwrap();
     fs::write(src.path().join("SKILL.md"), b"# demo").unwrap();
     fs::create_dir_all(src.path().join("local")).unwrap();
     fs::write(src.path().join("local/secret.bin"), b"private").unwrap();
 
-    sync_dir_copy_with_overwrite(src.path(), dst.path(), true).unwrap();
+    sync_dir_copy_with_overwrite(src.path(), &dst, true).unwrap();
 
     // .skillignore 自身在 DEFAULT_IGNORES 里，复制阶段会跳过，必须靠补发。
-    let rule = fs::read_to_string(dst.path().join(".skillignore")).unwrap();
+    let rule = fs::read_to_string(dst.join(".skillignore")).unwrap();
     assert!(
         rule.contains("local/"),
         "副本拿不到规则就无法保护私有内容: {rule}"
     );
     assert!(rule.contains("logs/"));
     // 私有内容本身仍然不该被复制过去。
-    assert!(!dst.path().join("local").exists());
-    assert!(dst.path().join("SKILL.md").exists());
+    assert!(!dst.join("local").exists());
+    assert!(dst.join("SKILL.md").exists());
 }
 
 #[test]
 fn carry_over_merges_instead_of_overwriting_local_rules() {
     let src = tempfile::tempdir().unwrap();
-    let dst = tempfile::tempdir().unwrap();
+    let dst_root = tempfile::tempdir().unwrap();
+    let dst = dst_root.path().join("copy");
+    fs::create_dir_all(&dst).unwrap();
 
     fs::write(src.path().join(".skillignore"), b"local/\n").unwrap();
-    fs::write(dst.path().join(".skillignore"), b"runtime/\n").unwrap();
+    fs::write(dst.join(".skillignore"), b"runtime/\n").unwrap();
 
-    sync_dir_copy_with_overwrite(src.path(), dst.path(), true).unwrap();
+    sync_dir_copy_with_overwrite(src.path(), &dst, true).unwrap();
 
-    let rule = fs::read_to_string(dst.path().join(".skillignore")).unwrap();
+    let rule = fs::read_to_string(dst.join(".skillignore")).unwrap();
     assert!(rule.contains("local/"), "母库新增规则要补进来: {rule}");
     assert!(
         rule.contains("runtime/"),
