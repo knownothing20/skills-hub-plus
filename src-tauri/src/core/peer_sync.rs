@@ -368,11 +368,53 @@ pub fn reconcile_skill(
     })
 }
 
+/// 把母库的规则文件下发到该技能的所有副本，不依赖内容是否变化。
+///
+/// `.skillignore` 在 `DEFAULT_IGNORES` 里，因此它既不进快照指纹，也不进整目录
+/// 复制——两边规则一致与否在内容层完全看不出来。规则缺失时，下一次整目录替换
+/// 会把 `local/`、`logs/` 这类私有内容当旧内容一起送进回收站（2026-11 的
+/// AgentPort 事故）。所以每轮同步都要单独下发一遍，宁可多写几次空操作。
+///
+/// 只从母库往副本下发，不反向写母库：副本可能为自己的私有目录加过条目
+/// （agentport 的 `local/logs/runtime` 就是这样来的），合并口径是并集，
+/// 副本已有的行原样保留，不会因为下发而被覆盖掉。
+fn push_ignore_rules_to_targets(store: &SkillStore, skill: &SkillRecord) {
+    if skill.central_path.trim().is_empty() {
+        return;
+    }
+    let central = PathBuf::from(&skill.central_path);
+    if !central.is_dir() {
+        return;
+    }
+    let Ok(rules) = std::fs::read_to_string(central.join(".skillignore")) else {
+        return;
+    };
+    if rules.trim().is_empty() {
+        return;
+    }
+
+    let Ok(targets) = store.list_skill_targets(&skill.id) else {
+        return;
+    };
+    for target in &targets {
+        let path = PathBuf::from(&target.target_path);
+        if path == central || !path.is_dir() {
+            continue;
+        }
+        crate::core::sync_engine::merge_ignore_rules(&rules, &path);
+    }
+}
+
 /// 对所有技能跑一遍，返回 (采纳数, 冲突数, 无变化数)
 pub fn reconcile_all(store: &SkillStore) -> Result<(usize, usize, usize)> {
     let skills = store.list_skills()?;
     let (mut adopted, mut conflicts, mut unchanged) = (0usize, 0usize, 0usize);
     for skill in &skills {
+        // 规则下发独立于内容同步：`.skillignore` 既不参与快照比对（在
+        // DEFAULT_IGNORES 里），也不参与整目录复制，所以内容全一致时
+        // reconcile_skill 会直接返回 NoChange，补发逻辑永远轮不到。规则缺失
+        // 的后果是下一次整目录替换把私有内容一起清掉，因此必须每轮都补。
+        push_ignore_rules_to_targets(store, skill);
         match reconcile_skill(store, skill, true) {
             Ok(ReconcileOutcome::Adopted { from, updated }) => {
                 adopted += 1;

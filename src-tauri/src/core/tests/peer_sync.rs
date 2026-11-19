@@ -282,3 +282,63 @@ fn version_labels_still_split_on_real_content_differences() {
     assert_eq!(labels.get("tool_new").map(String::as_str), Some("A"));
     assert!(labels.get("tool_old").is_some_and(|label| label != "A"));
 }
+
+/// 内容完全一致时，reconcile_skill 会直接返回 NoChange——规则下发不能因此被跳过。
+/// `.skillignore` 在 DEFAULT_IGNORES 里，既不进快照也不进复制，所以「内容没变」
+/// 并不代表规则到位。母库后补的规则必须能走到副本，否则下次整目录替换会把
+/// `local/` 这类私有内容当旧内容一起送进回收站。
+#[test]
+fn reconcile_all_pushes_ignore_rules_even_when_content_matches() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let copy = tmp.path().join("copy");
+
+    write_skill(&central, "same body\n");
+    write_skill(&copy, "same body\n");
+    // 母库有规则，副本没有。
+    fs::write(central.join(".skillignore"), "local\nlogs\n").unwrap();
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_copy", &copy);
+
+    // 内容一致 ⇒ reconcile_skill 返回 NoChange，但规则仍应下发。
+    let (_adopted, _conflicts, unchanged) = crate::core::peer_sync::reconcile_all(&store).unwrap();
+    assert_eq!(unchanged, 1, "内容一致应记作无变化");
+
+    let rule_path = copy.join(".skillignore");
+    assert!(rule_path.is_file(), "副本必须拿到规则文件");
+    let rule = fs::read_to_string(&rule_path).unwrap();
+    let has = |p: &str| {
+        rule.lines()
+            .any(|line| line.trim().trim_end_matches('/') == p)
+    };
+    assert!(has("local"), "母库规则要下发到副本: {rule}");
+    assert!(has("logs"), "母库规则要下发到副本: {rule}");
+}
+
+/// 副本自己的规则不能被下发覆盖掉（求并集）。
+#[test]
+fn reconcile_all_keeps_copy_own_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let copy = tmp.path().join("copy");
+
+    write_skill(&central, "same body\n");
+    write_skill(&copy, "same body\n");
+    fs::write(central.join(".skillignore"), "local\n").unwrap();
+    fs::write(copy.join(".skillignore"), "runtime\n").unwrap();
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_copy", &copy);
+    crate::core::peer_sync::reconcile_all(&store).unwrap();
+
+    let rule = fs::read_to_string(copy.join(".skillignore")).unwrap();
+    let has = |p: &str| {
+        rule.lines()
+            .any(|line| line.trim().trim_end_matches('/') == p)
+    };
+    assert!(has("local"), "母库规则要补进来: {rule}");
+    assert!(has("runtime"), "副本自己的规则不能丢: {rule}");
+}
