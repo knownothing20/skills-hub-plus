@@ -2080,6 +2080,10 @@ impl AccountIdentity {
     ///
     /// 前端 `ToolsPage` 用同一套顺序（`display_name → profile_name →
     /// tenant_username → label`），两边必须同步改。
+    ///
+    /// 唯一调用点在 `discover_root_instances` 的 Windows 分支（写日志），
+    /// 非 Windows 平台编译不到，放行 dead_code 否则 CI 的 `-D warnings` 会失败。
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     pub fn best_name(&self) -> String {
         for value in [
             &self.display_name,
