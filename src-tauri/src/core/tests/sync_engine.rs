@@ -190,12 +190,15 @@ fn carry_over_merges_instead_of_overwriting_local_rules() {
     sync_dir_copy_with_overwrite(src.path(), &dst, true).unwrap();
 
     let rule = fs::read_to_string(dst.join(".skillignore")).unwrap();
+    // 两侧的写法不同：副本原有行原样保留（`runtime/` 带斜杠），补进来的行按
+    // 归一化口径写入（`local` 无斜杠）。断言只比语义，不要求字面一致。
+    let has = |pattern: &str| {
+        rule.lines()
+            .any(|line| line.trim().trim_end_matches('/') == pattern)
+    };
+    assert!(has("local"), "母库新增规则要补进来: {rule}");
     assert!(
-        rule.lines().any(|line| line.trim() == "local"),
-        "母库新增规则要补进来: {rule}"
-    );
-    assert!(
-        rule.lines().any(|line| line.trim() == "runtime"),
+        has("runtime"),
         "副本自己的规则不能被覆盖掉，否则私有内容会跟着进回收站: {rule}"
     );
 }
