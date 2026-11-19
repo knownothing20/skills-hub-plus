@@ -2081,7 +2081,11 @@ impl AccountIdentity {
     /// 前端 `ToolsPage` 用同一套顺序；这里保留一份给后端日志与测试用。
     #[allow(dead_code)]
     pub fn best_name(&self) -> String {
-        for value in [&self.display_name, &self.profile_name, &self.tenant_username] {
+        for value in [
+            &self.display_name,
+            &self.profile_name,
+            &self.tenant_username,
+        ] {
             let trimmed = value.trim();
             if !trimmed.is_empty() {
                 return trimmed.to_string();
@@ -2227,7 +2231,11 @@ pub fn discover_root_instances(adapter: &ToolAdapter) -> Vec<SkillRootInstance> 
                     out.push(SkillRootInstance {
                         tool: adapter.id.as_key().to_string(),
                         // 主实例沿用空串，与 skill_targets.instance 的历史口径保持一致
-                        instance: if is_primary { String::new() } else { label.clone() },
+                        instance: if is_primary {
+                            String::new()
+                        } else {
+                            label.clone()
+                        },
                         account: read_account_identity(&base, &label, &profile_names),
                         label: label.clone(),
                         path: path.to_string_lossy().to_string(),
