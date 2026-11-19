@@ -63,3 +63,9 @@ src-tauri/target/
 # Local release archive
 release/
 dist-download/
+
+# One-off repair backups and probe output (never commit: contain live skill data)
+.fix-backup-*/
+dev/*.json
+dev/*.png
+dev/skill-audit-*.md

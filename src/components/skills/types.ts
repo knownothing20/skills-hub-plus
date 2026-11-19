@@ -123,14 +123,31 @@ export type StaleCopyStatusDto = {
   verdict: 'behind' | 'hand_edited' | 'conflict'
 }
 
+/** 从软件自己的配置里读出的账号身份；登出后多数字段会被清空 */
+export type AccountIdentityDto = {
+  /** 真实账号名（豆包 `saman.last_user.name`）；登出后为空 */
+  display_name: string
+  /** 数字用户 ID；登出后为空 */
+  user_id: string
+  /** 租户内用户名；登出后可能仍保留 */
+  tenant_username: string
+  /** Chromium profile 显示名，可能是自动生成的 */
+  profile_name: string
+  /** user_id 非空即视为已登录 */
+  signed_in: boolean
+}
+
 export type SkillRootInstanceDto = {
   tool: string
   /** 账号目录名（Default / Profile 4），单实例工具为空 */
   label: string
+  /** 实例键：主实例为空串，其余等于 label；与 skill_targets.instance 对齐 */
+  instance: string
   path: string
   skills: string[]
   is_primary: boolean
   exists: boolean
+  account: AccountIdentityDto
 }
 
 export type SharedSkillDirDto = {

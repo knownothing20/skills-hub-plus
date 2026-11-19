@@ -348,20 +348,50 @@ const ToolsPage = ({
               })}
             </div>
             <ul>
-              {instancesByTool[tool.key].map((instance) => (
-                <li
-                  key={`${instance.label}-${instance.path}`}
-                  className={instance.exists ? '' : 'is-missing'}
-                  title={instance.path}
-                >
-                  <span className="tool-card-instance-label">
-                    {instance.label}
-                  </span>
-                  <span className="tool-card-instance-count">
-                    {t('toolInstances.skills', { count: instance.skills.length })}
-                  </span>
-                </li>
-              ))}
+              {instancesByTool[tool.key].map((instance) => {
+                // 账号名优先用软件自己记录的真名。登出后真名被清空，
+                // 此时用账号切换器里显示的名字（profile_name）——用户认的就是它。
+                // tenant_username 放最后：它是飞书租户名，可能是「额额额」这种
+                // 与账号名无关的字符串（实测 Default 就踩了这个坑）。
+                const accountName =
+                  instance.account?.display_name?.trim() ||
+                  instance.account?.profile_name?.trim() ||
+                  instance.account?.tenant_username?.trim() ||
+                  instance.label
+                const signedIn = instance.account?.signed_in === true
+                const userId = instance.account?.user_id?.trim() || ''
+                const hint = [
+                  `目录：${instance.label}`,
+                  accountName && accountName !== instance.label ? `账号：${accountName}` : '',
+                  userId ? `ID：${userId}` : '',
+                  signedIn ? '状态：已登录' : '状态：未登录（仍占用目录）',
+                  instance.path,
+                ]
+                  .filter(Boolean)
+                  .join('\n')
+                return (
+                  <li
+                    key={`${instance.label}-${instance.path}`}
+                    className={`${instance.exists ? '' : 'is-missing'}${
+                      signedIn ? '' : ' is-signed-out'
+                    }`}
+                    title={hint}
+                  >
+                    <span className="tool-card-instance-label">
+                      {accountName}
+                      {!signedIn ? (
+                        <span className="tool-card-instance-signed-out">未登录</span>
+                      ) : null}
+                    </span>
+                    <span className="tool-card-instance-meta">
+                      {userId ? <span className="tool-card-instance-id">ID {userId}</span> : null}
+                      <span className="tool-card-instance-count">
+                        {t('toolInstances.skills', { count: instance.skills.length })}
+                      </span>
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         ) : null}

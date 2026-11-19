@@ -179,11 +179,14 @@ function App() {
         await loadManagedSkills()
         void refreshStaleMirrors()
         void refreshLibraryHealth()
+        // 母库刚被覆盖，副本相对母库可能立刻变落后；顺手刷一遍，
+        // 免得用户再手动点一次（副本侧本来就是自动的）。
+        void refreshStaleStatus()
       } catch (err) {
         toast.error(`更新母库失败: ${err instanceof Error ? err.message : String(err)}`)
       }
     },
-    [invokeTauri, loadManagedSkills, refreshLibraryHealth, refreshStaleMirrors],
+    [invokeTauri, loadManagedSkills, refreshLibraryHealth, refreshStaleMirrors, refreshStaleStatus],
   )
 
   // 手动刷新：列表、健康栏、落后状态、版本字母一起重读
@@ -354,6 +357,9 @@ function App() {
         if (cancelled) return
         const totals: Record<string, number> = {}
         for (const row of rows) {
+          // 只有真正存在的账号目录才计入总数。
+          // 注意这里仍把「已登出但目录还在」的账号算进来：目录还在就意味着
+          // 技能仍被写进去、仍占空间，如实计入才不会被误认为已清理。
           if (row.exists) totals[row.tool] = (totals[row.tool] ?? 0) + 1
         }
         setToolInstanceTotals(totals)

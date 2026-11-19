@@ -17,6 +17,7 @@ import logoMark from '../../assets/logo-mark.svg'
 import SkillIcon from './SkillIcon'
 import ToolIcon from './ToolIcon'
 import ToolContextMenu, { type ToolContextMenuState } from './ToolContextMenu'
+import CentralContextMenu, { type CentralContextMenuState } from './CentralContextMenu'
 
 type GithubInfo = { label: string; href: string }
 
@@ -94,6 +95,7 @@ const SkillCard = ({
   t,
 }: SkillCardProps) => {
   const [contextMenu, setContextMenu] = useState<ToolContextMenuState | null>(null)
+  const [centralMenu, setCentralMenu] = useState<CentralContextMenuState | null>(null)
 
   const github = getGithubInfo(skill.source_ref)
   const sourceLabel = github?.label ?? getSkillSourceLabel(skill)
@@ -301,7 +303,7 @@ const SkillCard = ({
             className={`skill-central-badge${mirrorStale ? ' is-stale' : ''}`}
             type="button"
             aria-label={centralBadgeLabel}
-            title={centralBadgeTitle}
+            title={`${centralBadgeTitle}\n（右键：用原件覆盖母库）`}
             onClick={(e) => {
               e.stopPropagation()
               if (skill.central_path) {
@@ -309,6 +311,13 @@ const SkillCard = ({
                   toast.error(t('openMasterFolderFailed'))
                 })
               }
+            }}
+            onContextMenu={(e) => {
+              // 母库刷新是唯一没有自动同步的方向，入口必须常驻：
+              // 不挂在 ! / 版本字母上，因为指纹收敛后字母会消失。
+              e.preventDefault()
+              e.stopPropagation()
+              setCentralMenu({ x: e.clientX, y: e.clientY, skill })
             }}
           >
             <img src={logoMark} alt={centralBadgeLabel} className="central-badge-logo" />
@@ -645,6 +654,23 @@ const SkillCard = ({
           onOpenFolder={(path) => {
             openPath(path).catch(() => {
               toast.error('无法打开目标目录')
+            })
+          }}
+        />
+      )}
+
+      {centralMenu && (
+        <CentralContextMenu
+          state={centralMenu}
+          onClose={() => setCentralMenu(null)}
+          onRefreshMirror={(skillId) => {
+            onRefreshMirror?.(skillId)
+          }}
+          mirrorStale={mirrorStale}
+          hasOwner={hasOwner}
+          onOpenFolder={(path) => {
+            openPath(path).catch(() => {
+              toast.error(t('openMasterFolderFailed'))
             })
           }}
         />

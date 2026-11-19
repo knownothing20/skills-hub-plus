@@ -946,10 +946,25 @@
   color: var(--text-secondary);
 }
 .tool-card-instances-head { font-weight: 500; margin-bottom: 4px; }
-.tool-card-instances ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
-.tool-card-instances li { display: flex; justify-content: space-between; gap: 8px; }
+.tool-card-instances ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.tool-card-instances li { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .tool-card-instances li.is-missing { opacity: .5; }
-.tool-card-instance-label { font-family: var(--font-mono, monospace); }
+/* 已登出但目录仍在：整行灰掉，但仍可读——它照样占空间、照样被同步 */
+.tool-card-instances li.is-signed-out { color: var(--text-tertiary); }
+.tool-card-instance-label { font-family: var(--font-mono, monospace); display: flex; align-items: center; gap: 5px; min-width: 0; }
+.tool-card-instance-label > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-card-instance-signed-out {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+.tool-card-instance-meta { display: flex; align-items: baseline; gap: 6px; flex: 0 0 auto; }
+.tool-card-instance-id { font-family: var(--font-mono, monospace); color: var(--text-tertiary); }
 .tool-card-instance-count { color: var(--text-tertiary); }
 .skill-shared-badge {
   flex: 0 0 auto;
@@ -2443,4 +2458,14 @@
 }
 .skill-central-badge .central-alert.is-version.is-latest {
   background: #e24b4a;
+}
+
+/* 母库落后于原件：无论角标里是版本字母还是感叹号，一律染成橙色。
+   版本字母优先于感叹号渲染，若不给字母上色，「母库落后」这件事就被版本号盖掉了。
+   入口是母库图标的右键菜单（用原件覆盖母库），不依赖这个角标。 */
+.skill-central-badge.is-stale .central-alert {
+  background: #d97706;
+}
+.skill-central-badge.is-stale .central-alert.is-version.is-latest {
+  background: #d97706;
 }

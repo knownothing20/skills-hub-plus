@@ -2045,6 +2045,125 @@ pub struct SkillRootInstance {
     pub skills: Vec<String>,
     pub is_primary: bool,
     pub exists: bool,
+    /// 该账号目录的实例键：主实例为空串，其余等于 `label`。
+    /// 前端与 `skill_targets.instance` 对齐时用它，不要用 `label`。
+    pub instance: String,
+    /// 从 `<Profile>/Preferences` 的 `saman.last_user` 读出的账号信息。
+    /// 退出登录会清空 name/user_id，此时只有 tenant.username 这类残留。
+    pub account: AccountIdentity,
+}
+
+/// 账号身份的可见线索。字段可能为空：登出后豆包会清掉大半。
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct AccountIdentity {
+    /// 真实豆包账号名（`saman.last_user.name`）；登出后为空
+    pub display_name: String,
+    /// 数字用户 ID（`saman.last_user.user_id`）；登出后为空
+    pub user_id: String,
+    /// 飞书租户内用户名（`saman.last_user.tenant.username`）；登出后仍可能保留
+    pub tenant_username: String,
+    /// Chromium profile 显示名（`Local State` → `profile.info_cache[<dir>].name`）
+    pub profile_name: String,
+    /// 是否已登录：`user_id` 非空即视为已登录
+    pub signed_in: bool,
+}
+
+impl AccountIdentity {
+    /// 给前端直接展示的名字，按可靠性从高到低挑第一个非空值。
+    ///
+    /// 顺序刻意如此：
+    /// 1. `last_user.name` 是豆包账号真名，最可靠；
+    /// 2. 登出后真名被清空，退回 `profile_name`——那是账号切换器里显示的名字，
+    ///    用户认的就是它；
+    /// 3. `tenant_username` 放最后：它是飞书租户名，实测 `Default` 是「额额额」，
+    ///    与账号名毫无关系，用它当显示名会误导。
+    ///
+    /// 前端 `ToolsPage` 用同一套顺序；这里保留一份给后端日志与测试用。
+    #[allow(dead_code)]
+    pub fn best_name(&self) -> String {
+        for value in [&self.display_name, &self.profile_name, &self.tenant_username] {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+        String::new()
+    }
+}
+
+/// 读取某个账号目录的账号身份。读不到时返回全空结构，不影响目录枚举。
+///
+/// `profile_names` 是从共享的 `Local State` 里一次性解析出来的
+/// `profile.info_cache[*].name`，由调用方传入，避免每个账号重复读同一个文件。
+///
+/// 目录枚举本身只在 Windows 上实现（见 `discover_root_instances`），其它平台
+/// 不会调用它，显式放行 dead_code，否则 CI 的 `clippy -D warnings` 会失败。
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+fn read_account_identity(
+    base: &Path,
+    label: &str,
+    profile_names: &HashMap<String, String>,
+) -> AccountIdentity {
+    let mut ident = AccountIdentity::default();
+
+    if let Some(name) = profile_names.get(label) {
+        ident.profile_name = name.clone();
+    }
+
+    // Preferences 里的 saman.last_user
+    let pref_path = base.join(label).join("Preferences");
+    if let Ok(text) = std::fs::read_to_string(&pref_path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+            if let Some(last_user) = json.get("saman").and_then(|s| s.get("last_user")) {
+                let pick = |key: &str| -> String {
+                    last_user
+                        .get(key)
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default()
+                        .to_string()
+                };
+                ident.display_name = pick("name");
+                ident.user_id = pick("user_id");
+                ident.tenant_username = last_user
+                    .get("tenant")
+                    .and_then(|t| t.get("username"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                ident.signed_in = !ident.user_id.trim().is_empty();
+            }
+        }
+    }
+
+    ident
+}
+
+/// 一次性解析 `User Data/Local State` 里的 profile 显示名。
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+fn read_profile_names(base: &Path) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    let Some(state_path) = base.parent().map(|p| p.join("Local State")) else {
+        return out;
+    };
+    let Ok(text) = std::fs::read_to_string(&state_path) else {
+        return out;
+    };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return out;
+    };
+    let Some(cache) = json
+        .get("profile")
+        .and_then(|p| p.get("info_cache"))
+        .and_then(|c| c.as_object())
+    else {
+        return out;
+    };
+    for (key, value) in cache {
+        if let Some(name) = value.get("name").and_then(|v| v.as_str()) {
+            out.insert(key.clone(), name.to_string());
+        }
+    }
+    out
 }
 
 fn list_skill_dirs(root: &Path) -> Vec<String> {
@@ -2097,13 +2216,19 @@ pub fn discover_root_instances(adapter: &ToolAdapter) -> Vec<SkillRootInstance> 
                             .unwrap_or(u32::MAX)
                     }
                 });
+                // Local State 只读一次，供下面每个账号查显示名
+                let profile_names = read_profile_names(&base);
                 for label in labels {
                     let path = base
                         .join(&label)
                         .join(rule.skills_suffix.replace('/', "\\"));
                     let exists = path.is_dir();
+                    let is_primary = label.eq_ignore_ascii_case(rule.primary_label);
                     out.push(SkillRootInstance {
                         tool: adapter.id.as_key().to_string(),
+                        // 主实例沿用空串，与 skill_targets.instance 的历史口径保持一致
+                        instance: if is_primary { String::new() } else { label.clone() },
+                        account: read_account_identity(&base, &label, &profile_names),
                         label: label.clone(),
                         path: path.to_string_lossy().to_string(),
                         skills: if exists {
@@ -2111,7 +2236,7 @@ pub fn discover_root_instances(adapter: &ToolAdapter) -> Vec<SkillRootInstance> 
                         } else {
                             Vec::new()
                         },
-                        is_primary: label.eq_ignore_ascii_case(rule.primary_label),
+                        is_primary,
                         exists,
                     });
                 }
@@ -2123,6 +2248,8 @@ pub fn discover_root_instances(adapter: &ToolAdapter) -> Vec<SkillRootInstance> 
         out.push(SkillRootInstance {
             tool: adapter.id.as_key().to_string(),
             label: String::new(),
+            instance: String::new(),
+            account: AccountIdentity::default(),
             path: primary
                 .as_ref()
                 .map(|p| p.to_string_lossy().to_string())
