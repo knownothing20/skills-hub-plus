@@ -166,11 +166,12 @@ fn skillignore_is_carried_over_even_though_copy_skips_it() {
 
     // .skillignore 自身在 DEFAULT_IGNORES 里，复制阶段会跳过，必须靠补发。
     let rule = fs::read_to_string(dst.join(".skillignore")).unwrap();
+    // 规则条目落盘时会归一化（去掉首尾斜杠），与 content_hash 的比对口径一致。
     assert!(
-        rule.contains("local/"),
+        rule.lines().any(|line| line.trim() == "local"),
         "副本拿不到规则就无法保护私有内容: {rule}"
     );
-    assert!(rule.contains("logs/"));
+    assert!(rule.lines().any(|line| line.trim() == "logs"));
     // 私有内容本身仍然不该被复制过去。
     assert!(!dst.join("local").exists());
     assert!(dst.join("SKILL.md").exists());
@@ -189,9 +190,12 @@ fn carry_over_merges_instead_of_overwriting_local_rules() {
     sync_dir_copy_with_overwrite(src.path(), &dst, true).unwrap();
 
     let rule = fs::read_to_string(dst.join(".skillignore")).unwrap();
-    assert!(rule.contains("local/"), "母库新增规则要补进来: {rule}");
     assert!(
-        rule.contains("runtime/"),
+        rule.lines().any(|line| line.trim() == "local"),
+        "母库新增规则要补进来: {rule}"
+    );
+    assert!(
+        rule.lines().any(|line| line.trim() == "runtime"),
         "副本自己的规则不能被覆盖掉，否则私有内容会跟着进回收站: {rule}"
     );
 }
