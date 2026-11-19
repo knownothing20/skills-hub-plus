@@ -29,6 +29,9 @@ All notable changes to this project will be documented in this file.
   「母库落后于原件」看不出来。现在落后状态一律把角标染成橙色。
 - **`SkillRootInstance` 缺 `instance` 字段**：只有展示名 `label`，与
   `skill_targets.instance` 的口径不一致，前端无法与目标记录对齐。已补齐。
+- **账号名回退成飞书租户名**：`Local State` 少找了一层目录（读的是 `User Data`
+  的父目录而不是它自己），`profile.info_cache.name` 从未命中，于是 `Default`
+  显示成「额额额」、`Profile 2` 显示成「leon」。`Preferences` 的路径本来就是对的。
 
 ### Changed
 
