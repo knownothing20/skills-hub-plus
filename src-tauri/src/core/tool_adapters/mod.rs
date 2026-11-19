@@ -2142,13 +2142,15 @@ fn read_account_identity(
     ident
 }
 
-/// 一次性解析 `User Data/Local State` 里的 profile 显示名。
+/// 一次性解析 `<User Data>/Local State` 里的 profile 显示名。
+///
+/// `Local State` 与各 profile 目录同级，都直接位于 `base`（即 `.../User Data`）
+/// 之下，所以取 `base.join(...)`，不是 `base.parent()`——后者是 `User Data`
+/// 的父目录，那里没有这个文件。
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 fn read_profile_names(base: &Path) -> HashMap<String, String> {
     let mut out = HashMap::new();
-    let Some(state_path) = base.parent().map(|p| p.join("Local State")) else {
-        return out;
-    };
+    let state_path = base.join("Local State");
     let Ok(text) = std::fs::read_to_string(&state_path) else {
         return out;
     };
