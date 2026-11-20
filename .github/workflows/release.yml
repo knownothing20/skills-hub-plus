@@ -332,6 +332,19 @@ jobs:
             echo "⚠️ 未找到便携版 exe：${PORTABLE}" >&2
           fi
 
+          # 命令行同步工具：`tauri build` 只产出 GUI 目标，CLI 是独立的 [[bin]]，
+          # 必须单独 cargo build，否则 release 里永远没有它。带上不带 console 的
+          # 版本没有意义——CLI 全靠 stdout，所以这里刻意单独编译一次。
+          export PATH="/c/Strawberry/perl/bin:$PATH"
+          cargo build --release --manifest-path src-tauri/Cargo.toml --bin skills-hub-cli --target "${TARGET}"
+          CLI_EXE="src-tauri/target/${TARGET}/release/skills-hub-cli.exe"
+          if [ -f "${CLI_EXE}" ]; then
+            cp "${CLI_EXE}" "release-assets/Skills-Hub-Plus-${VERSION}-Windows-${ARCH}-cli.exe"
+          else
+            echo "❌ 未找到 CLI 产物：${CLI_EXE}" >&2
+            exit 1
+          fi
+
       - name: List prepared assets
         shell: bash
         run: ls -la release-assets || true

@@ -15,8 +15,16 @@ type Props = {
   skillId: string
 }
 
+// 母库也在后端的 peers 列表里（后端的 CENTRAL_LABEL 同名）。
+// 它不是「副本」，所以统计口径和文案都要区分开，否则「N 个副本」会多算一个。
+const CENTRAL_LABEL = '母库'
+
 function labelOf(p: PeerStanding): string {
   return p.instance ? `${p.tool} / ${p.instance}` : p.tool
+}
+
+function isCentral(p: PeerStanding): boolean {
+  return p.tool === CENTRAL_LABEL
 }
 
 /**
@@ -46,6 +54,8 @@ export default function PeerStatusBanner({ skillId }: Props) {
 
   const edited = useMemo(() => peers.filter((p) => p.state === 'edited'), [peers])
   const missing = useMemo(() => peers.filter((p) => p.state === 'missing'), [peers])
+  // 「副本」不含母库：母库只是参与比较的另一个位置。
+  const copyCount = useMemo(() => peers.filter((p) => !isCentral(p)).length, [peers])
 
   if (loading || peers.length === 0) return null
 
@@ -66,7 +76,7 @@ export default function PeerStatusBanner({ skillId }: Props) {
         }}
       >
         <CheckCircle2 size={13} style={{ color: '#059669' }} />
-        {peers.length} 个副本内容完全一致
+        {copyCount} 个副本与母库内容完全一致
       </div>
     )
   }
@@ -91,8 +101,8 @@ export default function PeerStatusBanner({ skillId }: Props) {
         <AlertTriangle size={14} style={{ color: tone.color }} />
         <span style={{ color: tone.color, fontWeight: 500 }}>
           {isConflict
-            ? `${edited.length} 个副本改过且内容不同，需要选一个`
-            : `${edited.length} 个副本有改动，等其它副本同步`}
+            ? `${edited.length} 个位置改过且内容不同，需要选一个`
+            : `${edited.length} 个位置有改动，等其它位置同步`}
         </span>
         {missing.length > 0 && (
           <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>· {missing.length} 个目录缺失</span>

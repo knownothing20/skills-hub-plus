@@ -7,17 +7,16 @@
 //! 与 GUI 的关系：**共用同一份实现**，不是另写一套同步算法。DB 路径、`.skillignore`
 //! 语义、对等模型的三方比对全部一致，因此两者永远不会给出不同结论。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use app_lib::core::peer_sync::{adopt_from, reconcile_skill, ReconcileOutcome};
-use app_lib::core::stale_copies::{scan_stale_copy_targets, StaleVerdict};
 
 mod output;
 mod paths;
 mod resolve;
 
-use output::{diff_dirs, print_skill_table, Ctx};
+use output::{collect_versions, diff_dirs, print_skill_table, Ctx};
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -34,12 +33,17 @@ fn usage() -> &'static str {
     "skills-hub-cli —— Skills Hub 命令行同步
 
 用法：
-  skills-hub-cli status                  全库差异一览（谁新、谁旧、谁冲突）
-  skills-hub-cli pull  [技能名...]       把副本的改动收回来：以最新副本为准，铺到母库与其它副本
-  skills-hub-cli push  [技能名...]       把母库内容推给落后副本（只处理能确定方向的）
-  skills-hub-cli diff  <技能名>          列出各副本之间的差异，供你决定
-  skills-hub-cli adopt <技能名> --from <工具名> [--instance <实例>]
-                                         指定以某一份副本为准，推到其余所有位置
+  skills-hub-cli status                  全库差异一览（A 为最新，母库也参与比较）
+  skills-hub-cli pull  [技能名...]       把最新的一份铺到所有位置，母库也在其中
+  skills-hub-cli push  [技能名...]       把母库内容推给内容不一致的副本
+  skills-hub-cli diff  <技能名>          列出各位置的内容分组，供你决定
+  skills-hub-cli adopt <技能名> --from <工具名|母库> [--instance <实例>]
+                                         指定以某个位置为准，推到母库和其余所有副本
+
+说明：
+  「位置」包括母库（D:\\GitHub\\skill-hub\\skills\\<名字>）和各软件的副本。
+  pull 只有在一份内容偏离基线时才动手；多份各改各的会停下让你用 adopt 指定。
+  默认不写任何文件之外的东西；私有目录（local/、node_modules…）按 .skillignore 原地保留。
 
 选项：
   --db <路径>       指定数据库（默认自动定位 Skills Hub 的 skills_hub.db）
@@ -96,47 +100,44 @@ fn run(args: &[String]) -> anyhow::Result<ExitCode> {
     }
 }
 
-/// `status`：把每个技能的每一份副本按「相对母库」的结论归类。
+/// `status`：列出所有存在版本差异的技能。
+///
+/// 口径与 GUI 卡片角标一致——都走 `version_labels`，它把**母库**也算成一个位置。
+/// 早期版本用的是 `scan_stale_copy_targets`，那条链路只比「创造者软件目录 →
+/// 各副本」，母库不在任何一侧，于是「母库落后了」永远显示不出来。
 fn cmd_status(ctx: &mut Ctx) -> anyhow::Result<ExitCode> {
-    let store = ctx.store();
-    let skills = store.list_skills()?;
-    let stale = scan_stale_copy_targets(store)?;
+    let skills = ctx.store().list_skills()?;
+    let views = collect_versions(ctx, &skills);
 
-    print_skill_table(ctx, &skills, &stale);
+    print_skill_table(ctx, &skills, &views);
 
-    let behind = stale
-        .iter()
-        .filter(|s| s.verdict == StaleVerdict::Behind)
-        .count();
-    let hand_edited = stale
-        .iter()
-        .filter(|s| s.verdict == StaleVerdict::HandEdited)
-        .count();
-    let conflict = stale
-        .iter()
-        .filter(|s| s.verdict == StaleVerdict::Conflict)
-        .count();
-
-    if !ctx.as_json {
-        println!();
-        println!(
-            "共 {} 个技能；副本落后 {behind} 个，副本有独有改动 {hand_edited} 个，方向不明 {conflict} 个。",
-            skills.len()
-        );
-        if hand_edited > 0 {
-            println!(
-                "有独有改动的副本用 `skills-hub-cli pull` 收回，或用 `diff <技能名>` 先看差异。"
-            );
-        }
+    if ctx.as_json {
+        return Ok(ExitCode::SUCCESS);
     }
+    if views.is_empty() {
+        return Ok(ExitCode::SUCCESS);
+    }
+    println!();
+    println!(
+        "共 {} 个技能，其中 {} 个存在多版本。",
+        skills.len(),
+        views.len()
+    );
     Ok(ExitCode::SUCCESS)
 }
 
 /// `pull`：你的主诉求——在别的软件改完，把改动收回来并铺开。
 ///
 /// 口径：对每个技能跑一遍对等比对（`reconcile_skill`）。只有一份副本偏离基线时
-/// 它会被采纳并推给其他所有位置，这正是「在 Codex 里改了，其它软件跟着更新」。
-/// 多份副本各改各的（`Conflict`）时**不自动决定**，列出来等你用 `adopt` 指定。
+/// 它会被采纳并推给其他所有位置（含母库），这正是「在 Codex 里改了，其它软件
+/// 跟着更新」。多份副本各改各的（`Conflict`）时**不自动决定**，列出来用 `adopt`
+/// 指定。
+///
+/// `require_stable` 必须传 `false`：那个「连续两轮看到同一指纹才动手」的确认机制
+/// 靠的是一个**进程内**的静态表（`pending_slots`），而 CLI 每次调用都是一个新
+/// 进程，表永远是空的——传 `true` 会让每一次 `pull` 都停在「待确认」，看起来
+/// 什么也没做。GUI 的「立即同步」按钮同样是传 `false`（见 `reconcile_skill_now`），
+/// 因为两者都是用户显式发起的一次动作。回滚检测不受影响，仍在函数内部生效。
 fn cmd_pull(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
     let targets = resolve::select_skills(ctx.store(), names)?;
     if targets.is_empty() {
@@ -151,7 +152,11 @@ fn cmd_pull(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
         if ctx.dry_run {
             continue;
         }
-        match reconcile_skill(ctx.store(), skill, true) {
+        // 先把规则对齐（双向并集），再比内容。顺序不能反：母库可能缺
+        // `.skillignore`（agentport 就是这样），此时副本里的 `local/` 会被当成
+        // 技能内容复制进母库。规则先到位，私有目录才会被正确判为「不是内容」。
+        app_lib::core::peer_sync::push_ignore_rules_to_targets(ctx.store(), skill);
+        match reconcile_skill(ctx.store(), skill, false) {
             Ok(ReconcileOutcome::Adopted { from, updated }) => {
                 adopted += 1;
                 if !ctx.as_json {
@@ -220,51 +225,79 @@ fn cmd_pull(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-/// `push`：只把母库的内容推给明确落后的副本。
+/// `push`：把**母库**的内容推给内容不一致的副本。
 ///
 /// 与 `pull` 的区别是方向：`push` 不采纳副本改动，只修「母库更新了但副本没跟上」。
+///
+/// 这里**刻意不用** `scan_stale_copy_targets`：那条链路的基准是 `source_ref`
+/// （创造者软件的原始目录），不是母库。用它做 push 会把「原件的旧内容」推给副本，
+/// 母库里较新的改动反而推不出去——正好与命令意图相反。这里直接拿母库做源，
+/// 语义干净：母库是什么，副本就变成什么。
 fn cmd_push(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
     let selected = resolve::select_skills(ctx.store(), names)?;
-    let selected_ids: Vec<&str> = selected.iter().map(|s| s.id.as_str()).collect();
-    let stale = scan_stale_copy_targets(ctx.store())?;
+    if selected.is_empty() {
+        println!("没有匹配的技能。");
+        return Ok(ExitCode::SUCCESS);
+    }
 
-    let behind: Vec<_> = stale
-        .iter()
-        .filter(|s| s.verdict == StaleVerdict::Behind)
-        .filter(|s| names.is_empty() || selected_ids.iter().any(|id| *id == s.skill_id))
-        .collect();
+    // (技能名, 工具标签, 副本路径, 母库路径)
+    let mut pending: Vec<(String, String, PathBuf, PathBuf)> = Vec::new();
+    for skill in &selected {
+        let central = PathBuf::from(&skill.central_path);
+        if !central.is_dir() {
+            continue;
+        }
+        // 规则先对齐：母库若缺 `.skillignore`，副本的 `local/` 会被当成内容推过去，
+        // 反过来母库的私有目录也一样。见 `push_ignore_rules_to_targets` 的说明。
+        app_lib::core::peer_sync::push_ignore_rules_to_targets(ctx.store(), skill);
+        let central_fp = fingerprint_of(&central);
+        for target in ctx.store().list_skill_targets(&skill.id)? {
+            let path = PathBuf::from(&target.target_path);
+            if !path.is_dir() || path == central {
+                continue;
+            }
+            if fingerprint_of(&path) == central_fp {
+                continue;
+            }
+            let label = if target.instance.is_empty() {
+                target.tool.clone()
+            } else {
+                format!("{}#{}", target.tool, target.instance)
+            };
+            pending.push((skill.name.clone(), label, path, central.clone()));
+        }
+    }
 
-    if behind.is_empty() {
-        println!("没有需要推送的副本（母库不比任何副本新）。");
+    if pending.is_empty() {
+        println!("所有副本都与母库一致，无需推送。");
         return Ok(ExitCode::SUCCESS);
     }
     if ctx.dry_run {
-        for s in &behind {
-            println!("将推送 {} → {}（{}）", s.skill_name, s.tool, s.target_path);
+        for (name, label, path, _) in &pending {
+            println!("将推送 {name}：母库 → {label}（{}）", path.display());
         }
         println!("（--dry-run：未写入任何文件）");
         return Ok(ExitCode::SUCCESS);
     }
 
-    let central_root = ctx.central_root()?;
-    let mut refreshed = 0usize;
-    for s in &behind {
-        match app_lib::core::stale_copies::refresh_stale_copy(
-            ctx.store(),
-            &central_root,
-            &s.skill_id,
-            &s.tool,
-        ) {
-            Ok(()) => {
-                refreshed += 1;
-                println!("✅ {} → {}（{}）", s.skill_name, s.tool, s.target_path);
+    let mut pushed = 0usize;
+    for (name, label, path, central) in &pending {
+        match app_lib::core::sync_engine::sync_dir_copy_with_overwrite(central, path, true) {
+            Ok(_) => {
+                pushed += 1;
+                println!("✅ {name}：母库 → {label}");
             }
-            Err(err) => eprintln!("❌ {} → {} 失败：{err:#}", s.skill_name, s.tool),
+            Err(err) => eprintln!("❌ {name}：母库 → {label} 失败：{err:#}"),
         }
     }
     println!();
-    println!("推送 {refreshed} 个副本。");
+    println!("推送 {pushed} 个副本。");
     Ok(ExitCode::SUCCESS)
+}
+
+/// 目录指纹，口径与 `version_labels` 一致（应用 `.skillignore`、忽略生成物）。
+fn fingerprint_of(dir: &Path) -> String {
+    app_lib::core::content_hash::hash_dir(dir).unwrap_or_default()
 }
 
 /// `diff`：把某个技能各位置的文件清单与内容差异摊开，供人选。
@@ -279,9 +312,12 @@ fn cmd_diff(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
 }
 
 /// `adopt`：明确指定以谁为准。
+///
+/// `--from` 除了工具名，也接受 `母库`（或 `central`）——把母库那一版铺回所有副本，
+/// 这是最保守的「以我为准」形式，也是唯一能主动回退副本改动的方式。
 fn cmd_adopt(ctx: &mut Ctx, args: &[String]) -> anyhow::Result<ExitCode> {
     let Some(name) = args.first() else {
-        eprintln!("用法：skills-hub-cli adopt <技能名> --from <工具名> [--instance <实例>]");
+        eprintln!("用法：skills-hub-cli adopt <技能名> --from <工具名|母库> [--instance <实例>]");
         return Ok(ExitCode::FAILURE);
     };
     let mut from_tool: Option<String> = None;
@@ -295,7 +331,7 @@ fn cmd_adopt(ctx: &mut Ctx, args: &[String]) -> anyhow::Result<ExitCode> {
         }
     }
     let Some(tool) = from_tool else {
-        eprintln!("必须用 --from 指定以哪个工具的那份副本为准。");
+        eprintln!("必须用 --from 指定以哪个工具的那份副本为准（也接受 `母库`）。");
         return Ok(ExitCode::FAILURE);
     };
 
@@ -309,9 +345,9 @@ fn cmd_adopt(ctx: &mut Ctx, args: &[String]) -> anyhow::Result<ExitCode> {
     }
 
     let updated = adopt_from(ctx.store(), &skill, &path)?;
-    println!("✅ 以 {tool} 为准，更新了 {updated} 处副本。");
+    println!("✅ 以 {tool} 为准，更新了 {updated} 处位置（含母库）。");
     if updated == 0 {
-        println!("   注意：只有这一份副本时无处可推；请再确认母库是否已对齐（见 `status`）。");
+        println!("   所有位置本来就与 {tool} 一致，无需改动。");
     }
     Ok(ExitCode::SUCCESS)
 }

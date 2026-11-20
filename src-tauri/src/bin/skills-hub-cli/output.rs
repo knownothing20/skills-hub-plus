@@ -2,11 +2,13 @@
 //!
 //! 不用第三方表格库——输出量小，对齐规则简单，少一个依赖少一处版本冲突。
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use app_lib::core::peer_sync::version_labels;
 use app_lib::core::skill_store::{SkillRecord, SkillStore};
-use app_lib::core::stale_copies::{scan_dir_latest_mtime, StaleCopyStatus, StaleVerdict};
+use app_lib::core::stale_copies::scan_dir_latest_mtime;
 
 use crate::paths;
 
@@ -51,42 +53,53 @@ impl Ctx {
     }
 }
 
-/// 判定标签：让「谁新谁旧」一眼可读。
-fn verdict_label(v: StaleVerdict) -> &'static str {
-    match v {
-        StaleVerdict::Behind => "母库较新",
-        StaleVerdict::HandEdited => "副本有独有改动",
-        StaleVerdict::Conflict => "方向不明",
-    }
+/// 一个技能在版本字母表里的位置。
+///
+/// 口径来自 `version_labels`：它在内部把**母库也算进去**（母库不在
+/// `skill_targets` 表里），并按内容指纹分组、按组内最新时间降序打字母。
+/// 直接复用它，是为了让「谁是新版本」只有一处定义——CLI 和 GUI 的卡片角标
+/// 永远给同一个答案。
+pub struct SkillVersionView {
+    pub skill_id: String,
+    pub name: String,
+    /// 每个位置 -> 版本字母（只有一种版本时为空）
+    pub labels: BTreeMap<String, String>,
 }
 
-fn verdict_hint(v: StaleVerdict) -> &'static str {
-    match v {
-        StaleVerdict::Behind => "push 会更新它",
-        StaleVerdict::HandEdited => "pull 或 adopt 可选择它",
-        StaleVerdict::Conflict => "先 diff 看差异",
+/// 汇总所有需要关注的技能：只要版本字母表非空，就说明存在两个以上不同内容。
+pub fn collect_versions(ctx: &Ctx, skills: &[SkillRecord]) -> Vec<SkillVersionView> {
+    let mut out = Vec::new();
+    for skill in skills {
+        let Ok(labels) = version_labels(ctx.store(), skill) else {
+            continue;
+        };
+        if labels.is_empty() {
+            continue;
+        }
+        out.push(SkillVersionView {
+            skill_id: skill.id.clone(),
+            name: skill.name.clone(),
+            labels: labels.into_iter().collect(),
+        });
     }
+    out
 }
 
 /// 打印技能总览。只列出**存在差异**的技能，全部一致的收在最后一行汇总，
 /// 否则 41 个技能刷屏之后真正要看的那几行反而找不着。
-pub fn print_skill_table(ctx: &Ctx, skills: &[SkillRecord], stale: &[StaleCopyStatus]) {
-    let mut by_skill: std::collections::BTreeMap<&str, Vec<&StaleCopyStatus>> =
-        std::collections::BTreeMap::new();
-    for s in stale {
-        by_skill.entry(s.skill_name.as_str()).or_default().push(s);
-    }
-
+///
+/// 「最新」的判定沿用 `version_labels` 的字母顺序：A 是最近被编辑的那一组，
+/// 其余字母都比它旧。母库固定显示为 `母库`，与副本同列可比。
+pub fn print_skill_table(ctx: &Ctx, skills: &[SkillRecord], views: &[SkillVersionView]) {
     if ctx.as_json {
-        let items: Vec<_> = by_skill
+        let items: Vec<_> = views
             .iter()
-            .map(|(name, list)| {
+            .map(|view| {
                 serde_json::json!({
-                    "skill": name,
-                    "copies": list.iter().map(|c| serde_json::json!({
-                        "tool": c.tool,
-                        "path": c.target_path,
-                        "verdict": verdict_label(c.verdict),
+                    "skill": view.name,
+                    "positions": view.labels.iter().map(|(k, v)| serde_json::json!({
+                        "position": k,
+                        "version": v,
                     })).collect::<Vec<_>>()
                 })
             })
@@ -98,7 +111,7 @@ pub fn print_skill_table(ctx: &Ctx, skills: &[SkillRecord], stale: &[StaleCopySt
         return;
     }
 
-    if by_skill.is_empty() {
+    if views.is_empty() {
         println!(
             "全部 {} 个技能在各软件之间内容一致，无需同步。",
             skills.len()
@@ -107,26 +120,27 @@ pub fn print_skill_table(ctx: &Ctx, skills: &[SkillRecord], stale: &[StaleCopySt
     }
 
     println!(
-        "以下技能的副本与母库不一致（共 {} 个技能有差异）：",
-        by_skill.len()
+        "以下技能存在版本差异（共 {} 个技能，A 为最新）：",
+        views.len()
     );
     println!();
-    for (name, list) in &by_skill {
-        println!("● {name}");
-        for c in list {
-            // StaleCopyStatus 只带 tool，不带 instance——多账号工具的每个实例各占一条
-            // 记录、tool 同名，所以这里按路径末段补一点辨识度。
-            println!(
-                "    {:<28} {:<14} {}",
-                c.tool,
-                verdict_label(c.verdict),
-                verdict_hint(c.verdict),
-            );
+    for view in views {
+        println!("● {}", view.name);
+        for (position, letter) in &view.labels {
+            let role = if position == "central" {
+                "母库"
+            } else {
+                position.as_str()
+            };
+            println!("    {:<34} {}", role, letter);
         }
         println!();
     }
-    let consistent = skills.len().saturating_sub(by_skill.len());
+    let consistent = skills.len().saturating_sub(views.len());
     println!("其余 {consistent} 个技能一致。");
+    println!();
+    println!("把最新版铺到所有位置（含母库）：skills-hub-cli pull");
+    println!("只看某个技能的差异：              skills-hub-cli diff <技能名>");
 }
 
 /// 展开某个技能各位置的文件差异。

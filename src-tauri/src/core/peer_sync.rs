@@ -93,11 +93,17 @@ pub enum ReconcileOutcome {
 }
 
 /// 目录内容快照：相对路径 -> (文件 hash, 字节数)
+///
+/// 必须应用 `.skillignore`：这些条目（`local/`、`node_modules/`…）是每个软件
+/// 各自的私有内容，各副本之间天然不同。不排除它们，同一个技能在比对里会永远
+/// 「不一致」——轻则每轮都判冲突，重则把某份副本的私有配置铺到别人家去。
+/// `snapshot_with_time`（版本字母表）早就是这个口径，这里必须对齐。
 fn snapshot(root: &Path) -> Snapshot {
     let mut out = Snapshot::new();
     if !root.is_dir() {
         return out;
     }
+    let ignore_rules = crate::core::content_hash::load_ignore_patterns(root);
     for entry in walkdir::WalkDir::new(root)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -111,6 +117,10 @@ fn snapshot(root: &Path) -> Snapshot {
             .map(|p| p.to_string_lossy().replace('\\', "/"))
             .unwrap_or_default();
         if is_ignored_rel(&rel) {
+            continue;
+        }
+        let file_name = entry.file_name().to_string_lossy();
+        if crate::core::content_hash::is_rel_ignored(&rel, &file_name, &ignore_rules) {
             continue;
         }
         let Ok(meta) = entry.metadata() else {
@@ -186,7 +196,10 @@ fn label_for(target: &crate::core::skill_store::SkillTargetRecord) -> String {
     }
 }
 
-/// 列出每个副本相对基线的位置（只读）
+/// 列出每个位置相对基线的状态（只读）
+///
+/// 母库也在列表里——它代表「母库自己是哪一版」。不列它，用户看到所有副本都
+/// 「一致」时会以为全库正常，而母库可能停在旧内容上。
 pub fn scan_peers(store: &SkillStore, skill: &SkillRecord) -> Result<Vec<PeerStanding>> {
     let mut baseline = baseline_map(store, &skill.id);
     // 还没有基线（刚升级或新技能）：先用来源目录的快照当参照，
@@ -197,7 +210,37 @@ pub fn scan_peers(store: &SkillStore, skill: &SkillRecord) -> Result<Vec<PeerSta
         }
     }
     let mut out = Vec::new();
-    for target in store.list_skill_targets(&skill.id)? {
+
+    let central = PathBuf::from(&skill.central_path);
+    let targets = store.list_skill_targets(&skill.id)?;
+    let central_is_target = targets
+        .iter()
+        .any(|t| PathBuf::from(&t.target_path) == central);
+    if !skill.central_path.trim().is_empty() && central.is_dir() && !central_is_target {
+        let snap = snapshot(&central);
+        let state = if snap.is_empty() {
+            PeerState::Missing
+        } else if baseline.is_empty() || snap == baseline {
+            PeerState::InSync
+        } else {
+            PeerState::Edited
+        };
+        let changed_files = if state == PeerState::Edited {
+            diff_against(&baseline, &snap)
+        } else {
+            Vec::new()
+        };
+        out.push(PeerStanding {
+            tool: CENTRAL_LABEL.to_string(),
+            instance: String::new(),
+            path: skill.central_path.clone(),
+            state,
+            changed_files,
+            file_count: snap.len(),
+        });
+    }
+
+    for target in &targets {
         let path = PathBuf::from(&target.target_path);
         let snap = snapshot(&path);
         let state = if snap.is_empty() {
@@ -213,9 +256,9 @@ pub fn scan_peers(store: &SkillStore, skill: &SkillRecord) -> Result<Vec<PeerSta
             Vec::new()
         };
         out.push(PeerStanding {
-            tool: target.tool,
-            instance: target.instance,
-            path: target.target_path,
+            tool: target.tool.clone(),
+            instance: target.instance.clone(),
+            path: target.target_path.clone(),
             state,
             changed_files,
             file_count: snap.len(),
@@ -223,6 +266,10 @@ pub fn scan_peers(store: &SkillStore, skill: &SkillRecord) -> Result<Vec<PeerSta
     }
     Ok(out)
 }
+
+/// 母库在「对等」里的显示名。它不在 `skill_targets` 表里，但必须参与比对——
+/// 否则「在别的软件改完 skill，回终端收一下」只会把副本之间对齐，母库仍是旧的。
+pub const CENTRAL_LABEL: &str = "母库";
 
 /// 对一个技能做一次对等同步
 pub fn reconcile_skill(
@@ -252,6 +299,31 @@ pub fn reconcile_skill(
         }
         peers.push((label_for(target), path, snap));
     }
+
+    // 母库作为一等参与者加入。它在 `skill_targets` 里没有记录，所以上面那轮
+    // 永远扫不到它；不补这一步，单副本技能（例如只有一份副本的 word2ppt）
+    // 在别的软件改完之后整条链路根本推不动。
+    let central = PathBuf::from(&skill.central_path);
+    if !skill.central_path.trim().is_empty() && central.is_dir() {
+        let already = peers.iter().any(|(_, path, _)| path == &central);
+        if !already {
+            let snap = snapshot(&central);
+            if snap.len() > MAX_FILES_PER_SKILL {
+                log::warn!(
+                    "[peer_sync] {} 的母库有 {} 个文件，超过上限 {}，跳过自动同步",
+                    skill.name,
+                    snap.len(),
+                    MAX_FILES_PER_SKILL
+                );
+                return Ok(ReconcileOutcome::TooManyFiles { count: snap.len() });
+            }
+            if !snap.is_empty() {
+                // 放在最前面：建立基线时默认以母库为准，与「母库是权威副本」的直觉一致。
+                peers.insert(0, (CENTRAL_LABEL.to_string(), central, snap));
+            }
+        }
+    }
+
     if peers.is_empty() {
         return Ok(ReconcileOutcome::NoChange);
     }
@@ -368,17 +440,22 @@ pub fn reconcile_skill(
     })
 }
 
-/// 把母库的规则文件下发到该技能的所有副本，不依赖内容是否变化。
+/// 把规则文件在母库与所有副本之间对齐（双向并集），不依赖内容是否变化。
 ///
 /// `.skillignore` 在 `DEFAULT_IGNORES` 里，因此它既不进快照指纹，也不进整目录
 /// 复制——两边规则一致与否在内容层完全看不出来。规则缺失时，下一次整目录替换
 /// 会把 `local/`、`logs/` 这类私有内容当旧内容一起送进回收站（2026-11 的
-/// AgentPort 事故）。所以每轮同步都要单独下发一遍，宁可多写几次空操作。
+/// AgentPort 事故）。所以每轮同步都要单独对齐一遍，宁可多写几次空操作。
 ///
-/// 只从母库往副本下发，不反向写母库：副本可能为自己的私有目录加过条目
-/// （agentport 的 `local/logs/runtime` 就是这样来的），合并口径是并集，
-/// 副本已有的行原样保留，不会因为下发而被覆盖掉。
-fn push_ignore_rules_to_targets(store: &SkillStore, skill: &SkillRecord) {
+/// **必须是双向的。** 只从母库下发的写法有两个漏洞，都在把母库拉进对等比对
+/// 之后变成了真问题：
+/// 1. 母库自己缺规则时（`agentport` 就是这样，8 个副本都有 `local/logs/runtime`，
+///    母库一个都没有），副本的私有目录会被当成技能内容复制进母库。
+/// 2. 某份副本总结出的规则，其它副本永远学不到。
+///
+/// 合并口径是并集：任何一处已有的条目都不会被删掉，因此不会因为对齐而让某个
+/// 软件失去对自家私有目录的保护。
+pub fn push_ignore_rules_to_targets(store: &SkillStore, skill: &SkillRecord) {
     if skill.central_path.trim().is_empty() {
         return;
     }
@@ -386,22 +463,46 @@ fn push_ignore_rules_to_targets(store: &SkillStore, skill: &SkillRecord) {
     if !central.is_dir() {
         return;
     }
-    let Ok(rules) = std::fs::read_to_string(central.join(".skillignore")) else {
-        return;
-    };
-    if rules.trim().is_empty() {
-        return;
-    }
 
     let Ok(targets) = store.list_skill_targets(&skill.id) else {
         return;
     };
-    for target in &targets {
-        let path = PathBuf::from(&target.target_path);
-        if path == central || !path.is_dir() {
+    let copy_dirs: Vec<PathBuf> = targets
+        .iter()
+        .map(|t| PathBuf::from(&t.target_path))
+        .filter(|p| p.is_dir() && p != &central)
+        .collect();
+
+    // 汇总所有位置（母库 + 副本）已有的规则行，取并集。
+    // 不用闭包：闭包要可变借用 `union`，后面还要读它，写成普通循环更稳妥。
+    let mut dirs: Vec<&Path> = vec![central.as_path()];
+    dirs.extend(copy_dirs.iter().map(|p| p.as_path()));
+
+    let mut union: Vec<String> = Vec::new();
+    for dir in &dirs {
+        let Ok(content) = std::fs::read_to_string(dir.join(".skillignore")) else {
             continue;
+        };
+        for line in content.lines() {
+            let trimmed = line.trim().trim_start_matches('\u{feff}').trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            let norm = trimmed.trim_end_matches('/').to_string();
+            if !union.iter().any(|x| x == &norm) {
+                union.push(norm);
+            }
         }
-        crate::core::sync_engine::merge_ignore_rules(&rules, &path);
+    }
+    if union.is_empty() {
+        return;
+    }
+
+    let merged = union.join("\n") + "\n";
+    // 母库自己也补齐：它可能原本没有规则，而副本早已有。
+    crate::core::sync_engine::merge_ignore_rules(&merged, &central);
+    for dir in &copy_dirs {
+        crate::core::sync_engine::merge_ignore_rules(&merged, dir);
     }
 }
 

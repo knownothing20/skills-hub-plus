@@ -399,3 +399,234 @@ fn adopt_from_skips_central_when_source_is_central() {
     assert_eq!(read_body(&copy), "central body\n", "副本应跟上母库");
     assert_eq!(updated, 1, "只应更新那一个副本");
 }
+
+// ---------------------------------------------------------------------------
+// 以下三条覆盖「母库参与对等比对」这个补丁。母库不在 skill_targets 表里，
+// 早期实现扫不到它，于是单副本技能在别的软件改完之后整条链路推不动。
+// ---------------------------------------------------------------------------
+
+/// 把母库纳入 peers：母库条目必须是母库的真实路径，并且排在最前。
+#[test]
+fn reconcile_includes_central_as_a_peer() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let copy = tmp.path().join("copy");
+
+    write_skill(&central, "same body\n");
+    write_skill(&copy, "same body\n");
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_copy", &copy);
+
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+    // 内容一致 → 首轮建立基线，来源应是母库（它在 peers 里排第一）。
+    let outcome = reconcile_skill(&store, &skill, false).unwrap();
+    match outcome {
+        ReconcileOutcome::Initialized { from } => {
+            assert_eq!(
+                from,
+                crate::core::peer_sync::CENTRAL_LABEL,
+                "基线应取母库，而不是任意副本"
+            );
+        }
+        other => panic!("应建立基线，实际 {other:?}"),
+    }
+}
+
+/// 用户的真实场景：只有一份副本，在别的软件里改了它。
+/// 母库必须收到这份改动——这正是「在 Codex 改完，回终端 pull 一下」。
+#[test]
+fn reconcile_pulls_single_copy_change_back_into_central() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let only_copy = tmp.path().join("only_copy");
+
+    write_skill(&central, "old body\n");
+    write_skill(&only_copy, "old body\n");
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_only", &only_copy);
+
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+    // 建基线
+    let _ = reconcile_skill(&store, &skill, false).unwrap();
+    assert_eq!(read_body(&central), "old body\n");
+
+    // 用户在唯一副本里改了内容
+    write_skill(&only_copy, "edited in another app\n");
+
+    let outcome = reconcile_skill(&store, &skill, false).unwrap();
+    assert!(
+        matches!(outcome, ReconcileOutcome::Adopted { .. }),
+        "唯一副本的改动应被采纳，实际 {outcome:?}"
+    );
+    assert_eq!(
+        read_body(&central),
+        "edited in another app\n",
+        "母库必须收到副本的改动——否则改动永远出不了那个软件"
+    );
+}
+
+/// 母库被直接改（例如 GUI 里在母库里编辑）：必须扩散到副本，
+/// 而不是被当成「哪个副本都没偏离」而无事发生。
+#[test]
+fn reconcile_propagates_central_edit_to_copies() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let copy_a = tmp.path().join("copy_a");
+    let copy_b = tmp.path().join("copy_b");
+
+    write_skill(&central, "v1\n");
+    write_skill(&copy_a, "v1\n");
+    write_skill(&copy_b, "v1\n");
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_a", &copy_a);
+    seed_target(&store, "demo", "tool_b", &copy_b);
+
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+    let _ = reconcile_skill(&store, &skill, false).unwrap();
+
+    write_skill(&central, "v2 from central\n");
+
+    let outcome = reconcile_skill(&store, &skill, false).unwrap();
+    match outcome {
+        ReconcileOutcome::Adopted { from, .. } => {
+            assert_eq!(from, crate::core::peer_sync::CENTRAL_LABEL, "来源应是母库");
+        }
+        other => panic!("母库改动应被采纳，实际 {other:?}"),
+    }
+    assert_eq!(read_body(&copy_a), "v2 from central\n");
+    assert_eq!(read_body(&copy_b), "v2 from central\n");
+}
+
+/// 母库目录不存在时不能把整个技能判成异常，也不能把它塞进 peers。
+#[test]
+fn reconcile_tolerates_missing_central_dir() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let copy = tmp.path().join("copy");
+    write_skill(&copy, "only copy body\n");
+
+    // 母库路径指向一个不存在的目录
+    let missing = tmp.path().join("no-such-central");
+    seed_skill(&store, "demo", &missing);
+    seed_target(&store, "demo", "tool_copy", &copy);
+
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+    let outcome = reconcile_skill(&store, &skill, false).unwrap();
+    assert!(
+        matches!(outcome, ReconcileOutcome::Initialized { .. }),
+        "母库缺失时应退回用副本建基线，实际 {outcome:?}"
+    );
+    assert_eq!(read_body(&copy), "only copy body\n", "副本不该被清空");
+}
+
+// ---------------------------------------------------------------------------
+// 规则文件的双向对齐。只从母库单向下发的写法在「母库自己缺规则」时会失守，
+// agentport 就是真实例子：8 个副本都有 local/logs/runtime，母库一个都没有。
+// ---------------------------------------------------------------------------
+
+/// 母库缺规则、副本有规则 → 对齐后母库必须也拿到，否则副本的 private 目录
+/// 会被当成技能内容复制进母库。
+#[test]
+fn ignore_rules_flow_from_copies_back_into_central() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let copy = tmp.path().join("copy");
+
+    write_skill(&central, "same body\n");
+    write_skill(&copy, "same body\n");
+    // 只有副本有规则（真实场景：母库从未写过 .skillignore）
+    fs::write(copy.join(".skillignore"), "local\nlogs\nruntime\n").unwrap();
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_copy", &copy);
+
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+    crate::core::peer_sync::push_ignore_rules_to_targets(&store, &skill);
+
+    let central_rule = fs::read_to_string(central.join(".skillignore"))
+        .expect("母库必须补上规则，否则副本的私有目录会漏进母库");
+    for want in ["local", "logs", "runtime"] {
+        assert!(
+            central_rule.lines().any(|l| l.trim() == want),
+            "母库缺少 {want}: {central_rule}"
+        );
+    }
+}
+
+/// 双向对齐不能删掉任何一方已有的条目（并集语义）。
+#[test]
+fn ignore_rules_merge_is_union_not_replacement() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let copy_a = tmp.path().join("copy_a");
+    let copy_b = tmp.path().join("copy_b");
+
+    write_skill(&central, "same body\n");
+    write_skill(&copy_a, "same body\n");
+    write_skill(&copy_b, "same body\n");
+    fs::write(central.join(".skillignore"), "node_modules\n").unwrap();
+    fs::write(copy_a.join(".skillignore"), "local\n").unwrap();
+    fs::write(copy_b.join(".skillignore"), "runtime\n").unwrap();
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_a", &copy_a);
+    seed_target(&store, "demo", "tool_b", &copy_b);
+
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+    crate::core::peer_sync::push_ignore_rules_to_targets(&store, &skill);
+
+    for (label, dir) in [("母库", &central), ("copy_a", &copy_a), ("copy_b", &copy_b)] {
+        let rule = fs::read_to_string(dir.join(".skillignore")).unwrap();
+        for want in ["node_modules", "local", "runtime"] {
+            assert!(
+                rule.lines().any(|l| l.trim() == want),
+                "{label} 少了 {want}（并集不该删条目）: {rule}"
+            );
+        }
+    }
+}
+
+/// `snapshot` 必须应用 `.skillignore`：否则每个软件各自的 private 目录会被
+/// 当成「内容差异」，同一技能永远显示不一致，还会被复制到其它副本。
+#[test]
+fn snapshot_excludes_paths_listed_in_skillignore() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let copy = tmp.path().join("copy");
+
+    write_skill(&central, "same body\n");
+    write_skill(&copy, "same body\n");
+    for dir in [&central, &copy] {
+        fs::write(dir.join(".skillignore"), "local\n").unwrap();
+        fs::create_dir_all(dir.join("local")).unwrap();
+    }
+    // 两边私有内容故意不同
+    fs::write(central.join("local/c.json"), "{\"who\":\"central\"}").unwrap();
+    fs::write(copy.join("local/c.json"), "{\"who\":\"copy\"}").unwrap();
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_copy", &copy);
+
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+    let _ = reconcile_skill(&store, &skill, false).unwrap();
+    // 建基线后再跑一轮：内容应当一致（私有目录不参与），不能判冲突。
+    let outcome = reconcile_skill(&store, &skill, false).unwrap();
+    assert!(
+        matches!(outcome, ReconcileOutcome::NoChange),
+        "私有目录差异不该被判成内容差异，实际 {outcome:?}"
+    );
+    assert_eq!(
+        fs::read_to_string(copy.join("local/c.json")).unwrap(),
+        "{\"who\":\"copy\"}",
+        "副本的私有内容不该被覆盖"
+    );
+}

@@ -56,13 +56,23 @@ pub fn find_skill_by_name(store: &SkillStore, name: &str) -> Result<SkillRecord>
     skills.pop().ok_or_else(|| anyhow!("找不到技能「{name}」"))
 }
 
-/// 找出某工具（可带实例）那份副本的路径。
+/// 找出某工具（可带实例）那份副本的路径；`tool` 为「母库」/`central` 时返回母库目录。
 pub fn target_path_of(
     store: &SkillStore,
     skill: &SkillRecord,
     tool: &str,
     instance: &str,
 ) -> Result<PathBuf> {
+    // 母库不在 `skill_targets` 表里，必须单独认。否则「以母库为准，把其它副本
+    // 都拉回母库这一版」这个最保守的操作反而做不了。
+    if is_central_alias(tool) {
+        let central = PathBuf::from(&skill.central_path);
+        if !central.is_dir() {
+            return Err(anyhow!("母库目录不存在：{}", central.display()));
+        }
+        return Ok(central);
+    }
+
     let targets = store.list_skill_targets(&skill.id)?;
     let matched: Vec<_> = targets
         .iter()
@@ -72,16 +82,14 @@ pub fn target_path_of(
 
     match matched.len() {
         0 => {
-            let available: Vec<String> = targets
-                .iter()
-                .map(|t| {
-                    if t.instance.is_empty() {
-                        t.tool.clone()
-                    } else {
-                        format!("{}#{}", t.tool, t.instance)
-                    }
-                })
-                .collect();
+            let mut available: Vec<String> = vec!["母库".to_string()];
+            available.extend(targets.iter().map(|t| {
+                if t.instance.is_empty() {
+                    t.tool.clone()
+                } else {
+                    format!("{}#{}", t.tool, t.instance)
+                }
+            }));
             Err(anyhow!(
                 "技能「{}」没有 {tool}{} 这份副本。现有：{}",
                 skill.name,
@@ -90,13 +98,10 @@ pub fn target_path_of(
                 } else {
                     format!("#{instance}")
                 },
-                if available.is_empty() {
-                    "（无任何副本）".to_string()
-                } else {
-                    available.join("、")
-                }
+                available.join("、")
             ))
         }
+        _ if !instance.is_empty() => Ok(PathBuf::from(&matched[0].target_path)),
         1 => Ok(PathBuf::from(&matched[0].target_path)),
         _ => {
             let list: Vec<String> = matched
@@ -110,4 +115,10 @@ pub fn target_path_of(
             ))
         }
     }
+}
+
+/// 用户可能会写「母库」、「central」、或直接给母库路径里的关键词。
+fn is_central_alias(tool: &str) -> bool {
+    let t = tool.trim();
+    t == "母库" || t.eq_ignore_ascii_case("central") || t.eq_ignore_ascii_case("library")
 }
