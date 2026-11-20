@@ -77,7 +77,6 @@ impl Ctx {
 /// 直接复用它，是为了让「谁是新版本」只有一处定义——CLI 和 GUI 的卡片角标
 /// 永远给同一个答案。
 pub struct SkillVersionView {
-    pub skill_id: String,
     pub name: String,
     /// 每个位置 -> 版本字母（只有一种版本时为空）
     pub labels: BTreeMap<String, String>,
@@ -94,7 +93,6 @@ pub fn collect_versions(ctx: &Ctx, skills: &[SkillRecord]) -> Vec<SkillVersionVi
             continue;
         }
         out.push(SkillVersionView {
-            skill_id: skill.id.clone(),
             name: skill.name.clone(),
             labels: labels.into_iter().collect(),
         });
@@ -164,7 +162,16 @@ pub fn print_skill_table(ctx: &Ctx, skills: &[SkillRecord], views: &[SkillVersio
 ///
 /// 先把每份副本的文件清单指纹算出来，再按指纹分组：同组内容相同，跨组才有差异。
 /// 这样即使 9 份副本，也只显示「几组」，而不是列 9 遍。
-pub fn diff_dirs(ctx: &Ctx, skill: &SkillRecord) -> Result<()> {
+/// 展开某个技能各位置的文件差异。
+///
+/// `central` 由调用方传进来，而不是在这里直接读 `skill.central_path`——
+/// 那份记录可能是空的或失效的，`Ctx::central_dir_of` 已经统一做了兜底。
+/// 两处各读一次字段，迟早会出现「diff 显示的母库」和「pull 写进去的母库」
+/// 不是同一个目录。
+///
+/// 先把每份副本的文件清单指纹算出来，再按指纹分组：同组内容相同，跨组才有
+/// 差异。这样即使 9 份副本，也只显示「几组」，而不是列 9 遍。
+pub fn diff_dirs(ctx: &Ctx, skill: &SkillRecord, central: &Path) -> Result<()> {
     let store = ctx.store();
     let targets = store.list_skill_targets(&skill.id)?;
 
@@ -179,13 +186,12 @@ pub fn diff_dirs(ctx: &Ctx, skill: &SkillRecord) -> Result<()> {
     let mut places: Vec<Place> = Vec::new();
 
     // 母库作为首个位置参与比较（它不在 skill_targets 里，必须单独加）。
-    let central = PathBuf::from(&skill.central_path);
     if central.is_dir() {
-        let (mtime, files) = scan_dir_latest_mtime(&central);
+        let (mtime, files) = scan_dir_latest_mtime(central);
         places.push(Place {
             label: "母库".to_string(),
-            fingerprint: fingerprint(&central),
-            path: central,
+            fingerprint: fingerprint(central),
+            path: central.to_path_buf(),
             mtime,
             files,
         });

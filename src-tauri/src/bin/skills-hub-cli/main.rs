@@ -308,7 +308,7 @@ fn cmd_push(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
         let central_fp = fingerprint_of(&central);
         for target in ctx.store().list_skill_targets(&skill.id)? {
             let path = PathBuf::from(&target.target_path);
-            if !path.is_dir() || path == central {
+            if !path.is_dir() || path.as_path() == central.as_path() {
                 continue;
             }
             if fingerprint_of(&path) == central_fp {
@@ -362,7 +362,8 @@ fn cmd_diff(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
         return Ok(ExitCode::FAILURE);
     };
     let skill = resolve::find_skill_by_name(ctx.store(), name)?;
-    diff_dirs(ctx, &skill)?;
+    let central = ctx.central_dir_of(&skill)?;
+    diff_dirs(ctx, &skill, &central)?;
     Ok(ExitCode::SUCCESS)
 }
 
