@@ -210,14 +210,21 @@ jobs:
         # `tauri build` 只产出 GUI 目标（default-run = skills-hub），CLI 是独立的
         # [[bin]]，必须单独编一次。放在这里而不是打包步骤里，是因为此刻依赖已经
         # 全部编译好，增量编一个 bin 只需几十秒；塞进 Prepare Assets 里会让那一步
-        # 变成「又一次全量编译」，最坏情况拖到 10 分钟以上。
+        # 变成「又一次全量编译」。
+        #
+        # ⚠️ `--features tauri/custom-protocol` 绝不能省。`tauri build` 就是带着
+        # 这个 feature 调 cargo 的，而 cargo 的编译产物缓存以 feature 集合为键：
+        # 不带这个 feature 再编一次，等于换了一套 feature，全部依赖判定失效、
+        # 从零重编（实测拖到 8 分钟以上）。省掉它，"复用已编译产物" 就是空话。
         shell: bash
         run: |
           set -euo pipefail
           export PATH="/c/Strawberry/perl/bin:$PATH"
           TARGET="${{ matrix.target }}"
           cargo build --release --target "$TARGET" \
-            --manifest-path src-tauri/Cargo.toml --bin skills-hub-cli
+            --manifest-path src-tauri/Cargo.toml \
+            --features tauri/custom-protocol \
+            --bin skills-hub-cli
           CLI_EXE="src-tauri/target/${TARGET}/release/skills-hub-cli.exe"
           if [ ! -f "$CLI_EXE" ]; then
             echo "❌ 未找到 CLI 产物：$CLI_EXE" >&2
