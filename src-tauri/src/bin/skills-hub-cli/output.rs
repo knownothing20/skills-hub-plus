@@ -181,10 +181,7 @@ pub fn diff_dirs(ctx: &Ctx, skill: &SkillRecord) -> Result<()> {
 
     println!("技能：{}", skill.name);
     println!();
-    println!(
-        "{:<22} {:<8} {:<10} {}",
-        "位置", "文件数", "最新修改", "路径"
-    );
+    println!("{:<22} {:<8} {:<10} 路径", "位置", "文件数", "最新修改");
     for p in &places {
         println!(
             "{:<22} {:<8} {:<10} {}",

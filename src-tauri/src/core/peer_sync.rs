@@ -597,9 +597,13 @@ fn snapshot_with_time(root: &Path) -> (String, u64) {
     (format!("{:x}", hasher.finalize()), newest)
 }
 
-/// 指定某个副本为准：把它推给所有其它副本，并把它记为新的基线。
+/// 指定某个副本为准：把它推给**母库和所有其它副本**，并把它记为新的基线。
 ///
 /// 用于「这份才是最新的」——比逐个点同步更符合真实意图。
+///
+/// 母库必须一起处理：它不在 `skill_targets` 表里，只遍历副本表会让「在别的软件
+/// 改完、收回母库」这个最常见的场景失效——副本之间对齐了，母库却还是旧的。
+/// 这正是 CLAUDE/Codex 里改完 skill 后母库不动的原因。
 pub fn adopt_from(store: &SkillStore, skill: &SkillRecord, source_path: &Path) -> Result<usize> {
     let snap = snapshot(source_path);
     if snap.is_empty() {
@@ -613,6 +617,20 @@ pub fn adopt_from(store: &SkillStore, skill: &SkillRecord, source_path: &Path) -
     store.replace_skill_baseline(&skill.id, &entries)?;
 
     let mut updated = 0usize;
+
+    // 母库先对齐。源本身就在母库时跳过，否则会自己覆盖自己（还会把目录搬进回收站）。
+    let central = PathBuf::from(&skill.central_path);
+    if central != source_path && central.is_dir() && snapshot(&central) != snap {
+        match sync_dir_copy_with_overwrite(source_path, &central, true) {
+            Ok(_) => updated += 1,
+            Err(err) => log::warn!(
+                "[peer_sync] 采用 {} 时更新母库 {} 失败: {err:#}",
+                source_path.display(),
+                central.display()
+            ),
+        }
+    }
+
     for target in store.list_skill_targets(&skill.id)? {
         let path = PathBuf::from(&target.target_path);
         if path == source_path {

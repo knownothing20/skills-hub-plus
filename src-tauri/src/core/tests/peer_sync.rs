@@ -343,3 +343,59 @@ fn reconcile_all_keeps_copy_own_ignore_rules() {
     assert!(has("local"), "母库规则要补进来: {rule}");
     assert!(has("runtime"), "副本自己的规则不能丢: {rule}");
 }
+
+/// 采纳某个副本时，母库必须一起更新。
+///
+/// 母库不在 `skill_targets` 里，早期实现只遍历副本表，于是「在别的软件改完、
+/// 收回母库」这个最常见的场景完全失效：副本之间对齐了，母库却停在旧内容。
+#[test]
+fn adopt_from_updates_central_and_all_copies() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let copy_a = tmp.path().join("copy_a");
+    let copy_b = tmp.path().join("copy_b");
+
+    write_skill(&central, "old body\n");
+    write_skill(&copy_a, "new body\n");
+    write_skill(&copy_b, "old body\n");
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_a", &copy_a);
+    seed_target(&store, "demo", "tool_b", &copy_b);
+
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+    let updated = crate::core::peer_sync::adopt_from(&store, &skill, &copy_a).unwrap();
+
+    assert_eq!(
+        read_body(&central),
+        "new body\n",
+        "母库必须被更新——只改副本等于没收回改动"
+    );
+    assert_eq!(read_body(&copy_b), "new body\n", "其它副本也要跟上");
+    assert_eq!(read_body(&copy_a), "new body\n", "源自身不应被改动");
+    assert_eq!(updated, 2, "母库 + 另一个副本 = 2 处");
+}
+
+/// 源就在母库时不能自己覆盖自己——那会先把目录搬进回收站再复制回来。
+#[test]
+fn adopt_from_skips_central_when_source_is_central() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = make_store(tmp.path());
+    let central = tmp.path().join("central");
+    let copy = tmp.path().join("copy");
+
+    write_skill(&central, "central body\n");
+    write_skill(&copy, "stale body\n");
+
+    seed_skill(&store, "demo", &central);
+    seed_target(&store, "demo", "tool_copy", &copy);
+
+    let skill = store.get_skill_by_id("demo").unwrap().unwrap();
+    let updated = crate::core::peer_sync::adopt_from(&store, &skill, &central).unwrap();
+
+    assert_eq!(read_body(&central), "central body\n", "母库内容不该被动");
+    assert!(central.join("SKILL.md").exists(), "母库不能被搬走");
+    assert_eq!(read_body(&copy), "central body\n", "副本应跟上母库");
+    assert_eq!(updated, 1, "只应更新那一个副本");
+}
