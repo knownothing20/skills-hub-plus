@@ -7,6 +7,9 @@ license = "MIT"
 repository = "https://github.com/mcncarl/skills-hub"
 edition = "2021"
 rust-version = "1.85.0"
+# 声明了第二个 [[bin]]（skills-hub-cli）之后，包内就有两个可执行目标。
+# `tauri build` 会报 "failed to find main binary"，必须显式指定默认目标。
+default-run = "skills-hub"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
