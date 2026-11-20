@@ -14,6 +14,12 @@ rust-version = "1.85.0"
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# 命令行同步工具。与 GUI 共用 app_lib，但**刻意不加 `windows_subsystem`**——
+# GUI 是 windows 子系统所以没有控制台，CLI 必须有控制台才能打印。
+[[bin]]
+name = "skills-hub-cli"
+path = "src/bin/skills-hub-cli/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.5.3", features = [] }
 

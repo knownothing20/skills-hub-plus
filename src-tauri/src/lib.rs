@@ -1,5 +1,7 @@
-mod commands;
-mod core;
+// 两个模块对外公开：命令行目标 `skills-hub-cli` 复用同一套核心逻辑，
+// 这样 GUI 与 CLI 走的是完全相同的同步实现，不会出现两套行为。
+pub mod commands;
+pub mod core;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
