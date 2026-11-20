@@ -205,6 +205,27 @@ jobs:
           echo "=== Build completed ==="
           ls -la src-tauri/target/${{ matrix.target }}/release/bundle/ || true
 
+      - name: Build CLI binary (Windows)
+        if: matrix.os == 'windows-2022'
+        # `tauri build` 只产出 GUI 目标（default-run = skills-hub），CLI 是独立的
+        # [[bin]]，必须单独编一次。放在这里而不是打包步骤里，是因为此刻依赖已经
+        # 全部编译好，增量编一个 bin 只需几十秒；塞进 Prepare Assets 里会让那一步
+        # 变成「又一次全量编译」，最坏情况拖到 10 分钟以上。
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="/c/Strawberry/perl/bin:$PATH"
+          TARGET="${{ matrix.target }}"
+          cargo build --release --target "$TARGET" \
+            --manifest-path src-tauri/Cargo.toml --bin skills-hub-cli
+          CLI_EXE="src-tauri/target/${TARGET}/release/skills-hub-cli.exe"
+          if [ ! -f "$CLI_EXE" ]; then
+            echo "❌ 未找到 CLI 产物：$CLI_EXE" >&2
+            ls -la "src-tauri/target/${TARGET}/release/" | head -40 >&2 || true
+            exit 1
+          fi
+          ls -la "$CLI_EXE"
+
       - name: Verify codesign (optional)
         shell: bash
         run: |
@@ -332,11 +353,7 @@ jobs:
             echo "⚠️ 未找到便携版 exe：${PORTABLE}" >&2
           fi
 
-          # 命令行同步工具：`tauri build` 只产出 GUI 目标，CLI 是独立的 [[bin]]，
-          # 必须单独 cargo build，否则 release 里永远没有它。带上不带 console 的
-          # 版本没有意义——CLI 全靠 stdout，所以这里刻意单独编译一次。
-          export PATH="/c/Strawberry/perl/bin:$PATH"
-          cargo build --release --manifest-path src-tauri/Cargo.toml --bin skills-hub-cli --target "${TARGET}"
+          # 命令行同步工具：已在前一步单独编译，这里只负责放进 release-assets。
           CLI_EXE="src-tauri/target/${TARGET}/release/skills-hub-cli.exe"
           if [ -f "${CLI_EXE}" ]; then
             cp "${CLI_EXE}" "release-assets/Skills-Hub-Plus-${VERSION}-Windows-${ARCH}-cli.exe"
