@@ -145,11 +145,62 @@ fn cmd_pull(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
         return Ok(ExitCode::SUCCESS);
     }
 
+    // `--dry-run` 不能只是「跳过循环」——那样什么也不打印，用户无法判断会动什么。
+    // 这里用 `scan_peers` 只读地把「当前位置谁偏离」列出来，由人自己判断。
+    if ctx.dry_run {
+        println!("（--dry-run：只显示将要做什么，不写入任何文件）");
+        println!();
+        let mut any = false;
+        for skill in &targets {
+            let peers = app_lib::core::peer_sync::scan_peers(ctx.store(), skill)?;
+            let edited: Vec<_> = peers
+                .iter()
+                .filter(|p| p.state == app_lib::core::peer_sync::PeerState::Edited)
+                .collect();
+            if edited.is_empty() {
+                continue;
+            }
+            any = true;
+            println!("● {}", skill.name);
+            for p in &edited {
+                let label = if p.instance.is_empty() {
+                    p.tool.clone()
+                } else {
+                    format!("{} / {}", p.tool, p.instance)
+                };
+                println!(
+                    "    {label} 偏离基线（{} 个文件改动）",
+                    p.changed_files.len()
+                );
+            }
+            if edited.len() == 1 {
+                println!("    → 只有一份偏离，pull 会以它为准，铺到母库与其余所有位置");
+            } else {
+                println!(
+                    "    → {} 份偏离，pull 不会自动动手（会判冲突），需用 adopt 指定",
+                    edited.len()
+                );
+            }
+        }
+        if !any {
+            println!("所有技能都与基线一致，pull 不会做任何事。");
+        }
+        return Ok(ExitCode::SUCCESS);
+    }
+
     let (mut adopted, mut conflicts, mut unchanged) = (0usize, 0usize, 0usize);
     let mut conflict_names: Vec<String> = Vec::new();
 
     for skill in &targets {
-        if ctx.dry_run {
+        // 母库记录脏了（路径为空或目录不在）时，reconcile_skill 会看不到母库，
+        // 于是「收回母库」这一步静默失效。这里先确认母库在，才继续。
+        let central = ctx.central_dir_of(skill)?;
+        if !central.is_dir() {
+            eprintln!(
+                "❌ {} 的母库目录不存在：{}\n   先用 --central 指定母库根目录，或检查该技能记录。",
+                skill.name,
+                central.display()
+            );
             continue;
         }
         // 先把规则对齐（双向并集），再比内容。顺序不能反：母库可能缺
@@ -213,11 +264,8 @@ fn cmd_pull(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
                 "adopted": adopted,
                 "conflicts": conflict_names,
                 "unchanged": unchanged,
-                "dry_run": ctx.dry_run,
             })
         );
-    } else if ctx.dry_run {
-        println!("（--dry-run：未写入任何文件）");
     } else {
         println!();
         println!("采纳 {adopted} 个，无变化 {unchanged} 个，需你决定 {conflicts} 个。");
@@ -243,8 +291,15 @@ fn cmd_push(ctx: &mut Ctx, names: &[String]) -> anyhow::Result<ExitCode> {
     // (技能名, 工具标签, 副本路径, 母库路径)
     let mut pending: Vec<(String, String, PathBuf, PathBuf)> = Vec::new();
     for skill in &selected {
-        let central = PathBuf::from(&skill.central_path);
+        // 用 central_dir_of 而不是直接读记录：记录里的 central_path 可能是空的
+        // 或已失效，那样这里会静默跳过该技能、看起来「全部一致」。
+        let central = ctx.central_dir_of(skill)?;
         if !central.is_dir() {
+            eprintln!(
+                "❌ {} 的母库目录不存在：{}（跳过）",
+                skill.name,
+                central.display()
+            );
             continue;
         }
         // 规则先对齐：母库若缺 `.skillignore`，副本的 `local/` 会被当成内容推过去，
@@ -336,7 +391,11 @@ fn cmd_adopt(ctx: &mut Ctx, args: &[String]) -> anyhow::Result<ExitCode> {
     };
 
     let skill = resolve::find_skill_by_name(ctx.store(), name)?;
-    let path = resolve::target_path_of(ctx.store(), &skill, &tool, &instance)?;
+    let path = if resolve::is_central_alias(&tool) {
+        ctx.central_dir_of(&skill)?
+    } else {
+        resolve::target_path_of(ctx.store(), &skill, &tool, &instance)?
+    };
 
     if ctx.dry_run {
         println!("将以 {} 为准，源路径：{}", tool, path.display());

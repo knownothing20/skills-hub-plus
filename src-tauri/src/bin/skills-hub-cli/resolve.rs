@@ -118,7 +118,7 @@ pub fn target_path_of(
 }
 
 /// 用户可能会写「母库」、「central」、或直接给母库路径里的关键词。
-fn is_central_alias(tool: &str) -> bool {
+pub fn is_central_alias(tool: &str) -> bool {
     let t = tool.trim();
     t == "母库" || t.eq_ignore_ascii_case("central") || t.eq_ignore_ascii_case("library")
 }

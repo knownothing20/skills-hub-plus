@@ -213,9 +213,11 @@ pub fn scan_peers(store: &SkillStore, skill: &SkillRecord) -> Result<Vec<PeerSta
 
     let central = PathBuf::from(&skill.central_path);
     let targets = store.list_skill_targets(&skill.id)?;
+    // 用 Path 直接比，避免 clippy::cmp_owned（PathBuf::from(..) == PathBuf 会
+    // 为比较而多造一个 owned 实例）。
     let central_is_target = targets
         .iter()
-        .any(|t| PathBuf::from(&t.target_path) == central);
+        .any(|t| Path::new(&t.target_path) == central.as_path());
     if !skill.central_path.trim().is_empty() && central.is_dir() && !central_is_target {
         let snap = snapshot(&central);
         let state = if snap.is_empty() {

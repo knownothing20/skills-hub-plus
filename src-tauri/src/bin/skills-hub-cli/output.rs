@@ -43,6 +43,9 @@ impl Ctx {
     }
 
     /// 母库根目录（首次访问时解析并缓存）。
+    ///
+    /// 只在技能记录里的 `central_path` 失效时用作兜底（见 `central_dir_of`）。
+    /// 正常路径下每个技能自己就有 `central_path`，不需要它。
     pub fn central_root(&mut self) -> Result<PathBuf> {
         if let Some(p) = &self.central_cache {
             return Ok(p.clone());
@@ -50,6 +53,20 @@ impl Ctx {
         let resolved = paths::resolve_central(&self.store, self.central_override.clone())?;
         self.central_cache = Some(resolved.clone());
         Ok(resolved)
+    }
+
+    /// 取某个技能的母库目录。
+    ///
+    /// 优先用记录里的 `central_path`；为空或目录不存在时，退回 `--central`
+    /// 指定的根目录 + 技能名。这样 `adopt`/`push` 不会因为一条脏记录就
+    /// 完全不碰母库，而是退到一个合理位置并给出提示。
+    pub fn central_dir_of(&mut self, skill: &SkillRecord) -> Result<PathBuf> {
+        let from_record = PathBuf::from(&skill.central_path);
+        if !skill.central_path.trim().is_empty() && from_record.is_dir() {
+            return Ok(from_record);
+        }
+        let root = self.central_root()?;
+        Ok(root.join(&skill.name))
     }
 }
 
