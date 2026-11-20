@@ -4,10 +4,10 @@ import { describeMirrorFailure } from './mirrorErrors'
 describe('describeMirrorFailure', () => {
   it('把已知错误码翻成人话并保留路径细节', () => {
     const message = describeMirrorFailure(
-      new Error('SOURCE_EMPTY|C:\\Users\\leon\\.codex\\skills\\demo'),
+      new Error('SOURCE_EMPTY|C:\\Users\\Example\\.codex\\skills\\demo'),
     )
     expect(message).toContain('原件目录是空的')
-    expect(message).toContain('C:\\Users\\leon\\.codex\\skills\\demo')
+    expect(message).toContain('C:\\Users\\Example\\.codex\\skills\\demo')
   })
 
   it('没有细节时不留空的括号', () => {

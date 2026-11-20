@@ -116,14 +116,14 @@ describe('SkillCard tool target description', () => {
   const ownerCopySkill: ManagedSkill = {
     ...createSkill(false),
     source_type: 'local',
-    source_ref: 'C:/Users/leon/.codex/skills/pinokio',
+    source_ref: 'C:/Users/Example/.codex/skills/pinokio',
     targets: [
       {
         tool: 'codex',
         scope: 'global',
         mode: 'copy',
         status: 'ok',
-        target_path: 'C:/Users/leon/.codex/skills/pinokio',
+        target_path: 'C:/Users/Example/.codex/skills/pinokio',
         role: 'owner',
       },
     ],
@@ -189,14 +189,14 @@ describe('SkillCard origin column', () => {
   const ownedSkill: ManagedSkill = {
     ...createSkill(false),
     source_type: 'local',
-    source_ref: 'C:/Users/leon/.codex/skills/example',
+    source_ref: 'C:/Users/Example/.codex/skills/example',
     targets: [
       {
         tool: 'codex',
         scope: 'global',
         mode: 'copy',
         status: 'ok',
-        target_path: 'C:/Users/leon/.codex/skills/example',
+        target_path: 'C:/Users/Example/.codex/skills/example',
         role: 'owner',
       },
     ],

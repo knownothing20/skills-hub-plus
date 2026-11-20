@@ -55,6 +55,29 @@ function getPackageJsonVersion() {
   return pkg.version;
 }
 
+// Cargo.lock 里也有本项目自己的 [[package]] 条目。cargo build 默认（不带
+// --locked）会用 Cargo.toml 的版本把它重写掉，因此漏改不会让构建失败——
+// 但会在工作区留下一处与提交不一致的改动，也让人误以为版本没同步。
+// 这里显式改它，并且只改 name = "skills-hub" 这一条，别碰任何依赖条目。
+const CARGO_LOCK = "src-tauri/Cargo.lock";
+const LOCK_PACKAGE_RE =
+  /(\[\[package\]\]\s*\nname\s*=\s*"skills-hub"\s*\nversion\s*=\s*")([^"]*)(")/;
+
+function replaceCargoLockVersion(newValue) {
+  const original = read(CARGO_LOCK);
+  const m = original.match(LOCK_PACKAGE_RE);
+  if (!m) throw new Error(`Cannot find [[package]] skills-hub in ${CARGO_LOCK}`);
+  const updated = original.replace(LOCK_PACKAGE_RE, `$1${newValue}$3`);
+  if (updated !== original) write(CARGO_LOCK, updated);
+  return { from: m[2], to: newValue, changed: updated !== original };
+}
+
+function readCargoLockVersion() {
+  const m = read(CARGO_LOCK).match(LOCK_PACKAGE_RE);
+  if (!m) throw new Error(`Cannot find [[package]] skills-hub in ${CARGO_LOCK}`);
+  return m[2];
+}
+
 function setPackageJsonVersion(newVersion) {
   return replaceJsonStringProp("package.json", "version", newVersion);
 }
@@ -65,6 +88,7 @@ function syncFromPackageJson() {
   results.push({ file: "package.json", ...(replaceJsonStringProp("package.json", "version", version)) });
   results.push({ file: "src-tauri/tauri.conf.json", ...(replaceJsonStringProp("src-tauri/tauri.conf.json", "version", version)) });
   results.push({ file: "src-tauri/Cargo.toml", ...(replaceCargoPackageVersion("src-tauri/Cargo.toml", version)) });
+  results.push({ file: CARGO_LOCK, ...(replaceCargoLockVersion(version)) });
   return { version, results };
 }
 
@@ -90,6 +114,11 @@ function checkInSync() {
   const cargoVersion = m[1];
   if (cargoVersion !== version) {
     mismatches.push(`src-tauri/Cargo.toml version=${cargoVersion} (expected ${version})`);
+  }
+
+  const lockVersion = readCargoLockVersion();
+  if (lockVersion !== version) {
+    mismatches.push(`${CARGO_LOCK} skills-hub version=${lockVersion} (expected ${version})`);
   }
 
   return { version, mismatches };

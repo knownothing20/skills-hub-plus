@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.4] - 2026-11-21
+
+### Added
+
+- **`skill-hub-sync` 同步工具随仓库分发**：放在 `tools/skill-hub-sync/`
+  （`sync.py` + `SKILL.md` + `README.md`），与母库 `skills/` 物理分开。
+  任一软件里复制这份技能即可使用，不必安装 Skills Hub 的命令行工具；
+  子命令 `status` / `diff` / `pull` / `push` / `adopt`。
+- **母库作为一等同步参与者**：`skill_targets` 表里没有母库记录，只遍历副本表
+  会安静地漏掉它。同步工具显式把母库插在位置列表首位（显示名「母库」），
+  既能作为来源、也能作为目标。
+- **「无基线」与「基线过期」两种状态**：内容全一致但库里没有基线时，
+  不能再报「一致」（一致是相对基线而言的）；基线对不上任何位置时只刷新基线，
+  不复制任何文件。两者都不会白搬目录。
+
+### Fixed
+
+- 单元测试假数据路径里的真实用户名改为占位符 `Example`
+  （`SkillCard.test.tsx`、`mirrorErrors.test.ts`）。
+- **版本号同步漏掉 `src-tauri/Cargo.lock`**：`version.mjs` 原来只管
+  `package.json` + `tauri.conf.json` + `Cargo.toml` 三处，而 `Cargo.lock` 里
+  本项目自己的 `[[package]]` 条目也要跟着改。现在 `sync` 会一并更新，
+  `check` 也会在它不一致时报错退出（退出码 1）。
+
 ## [2.0.3] - 2026-11-19
 
 ### Fixed
