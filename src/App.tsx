@@ -103,8 +103,10 @@ function App() {
   )
   const [managedSkills, setManagedSkills] = useState<ManagedSkill[]>([])
   const [sharedSkillDirs, setSharedSkillDirs] = useState<SharedSkillDirDto[]>([])
-  // 每个工具实际有几个账号目录：卡片据此在图标右下角显示覆盖数
+  // 每个工具实际有几个「可用」账号目录：卡片据此在图标右下角显示覆盖数
   const [toolInstanceTotals, setToolInstanceTotals] = useState<Record<string, number>>({})
+  // 已登出但目录仍在的账号数：算不进分母，但要让用户看见它们还占着地方
+  const [toolSignedOutCounts, setToolSignedOutCounts] = useState<Record<string, number>>({})
   const [loadingStartAt, setLoadingStartAt] = useState<number | null>(null)
   const [toolStatus, setToolStatus] = useState<ToolStatusDto | null>(null)
   const [showNewToolsModal, setShowNewToolsModal] = useState(false)
@@ -190,15 +192,22 @@ function App() {
     [invokeTauri, loadManagedSkills, refreshLibraryHealth, refreshStaleMirrors, refreshStaleStatus],
   )
 
-  // 手动刷新：列表、健康栏、落后状态、版本字母一起重读
+  // 手动刷新：列表、健康栏、落后状态（副本 + 母库）、版本字母一起重读
   const refreshAll = useCallback(async () => {
     await loadManagedSkills()
     void refreshLibraryHealth()
     void refreshStaleStatus()
+    void refreshStaleMirrors()
     invokeTauri<Record<string, Record<string, string>>>('get_peer_version_map')
       .then((map) => setPeerVersionLabels(map || {}))
       .catch(() => {})
-  }, [invokeTauri, loadManagedSkills, refreshLibraryHealth, refreshStaleStatus])
+  }, [
+    invokeTauri,
+    loadManagedSkills,
+    refreshLibraryHealth,
+    refreshStaleStatus,
+    refreshStaleMirrors,
+  ])
 
   // 后台同步完副本后会让界面重新拉一次数据
   useEffect(() => {
@@ -357,13 +366,22 @@ function App() {
         )
         if (cancelled) return
         const totals: Record<string, number> = {}
+        const signedOut: Record<string, number> = {}
         for (const row of rows) {
-          // 只有真正存在的账号目录才计入总数。
-          // 注意这里仍把「已登出但目录还在」的账号算进来：目录还在就意味着
-          // 技能仍被写进去、仍占空间，如实计入才不会被误认为已清理。
-          if (row.exists) totals[row.tool] = (totals[row.tool] ?? 0) + 1
+          if (!row.exists) continue
+          // 已登出的账号目录仍留在磁盘上，但它已经不是「可用账号」：
+          // 同步会跳过它（instance_accepts_sync），继续往里写只会堆积
+          // 没人会读的副本。所以它不该算进封面数的分母——否则界面上
+          // 「已铺 3/6」会让人以为自己有 6 个账号，实际只有 3 个还能用，
+          // 用户注销账号后仍看到旧数字，就是这个分母没跟着变。
+          if (row.account?.signed_in === true) {
+            totals[row.tool] = (totals[row.tool] ?? 0) + 1
+          } else {
+            signedOut[row.tool] = (signedOut[row.tool] ?? 0) + 1
+          }
         }
         setToolInstanceTotals(totals)
+        setToolSignedOutCounts(signedOut)
       } catch (err) {
         console.warn(err)
       }
@@ -381,17 +399,27 @@ function App() {
     void refreshStaleStatus()
   }, [isTauri, managedSkills, refreshLibraryHealth, refreshStaleStatus])
 
-  // 「落后」是扫盘得出的，而盘上的东西会被别的软件改（用户在 Codex 里存一下
-  // 文件、技能自己写日志），本进程完全看不见这些变化。只在列表变化时重扫，
-  // 界面就会长期停在旧结论上：明明内容早已一致、版本字母全是 A，统计条却还
-  // 挂着「落后 3」，点进去又是空的。窗口重新可见时重扫一次，比定时轮询更省，
-  // 也正好覆盖「切到别的软件改完再切回来」这个真实用法。
+  // 「落后」和版本字母都是扫盘得出的，而盘上的东西会被别的软件改（用户在
+  // Codex 里存一下文件、技能自己写日志），本进程完全看不见这些变化。只在
+  // 列表变化时重扫，界面就会长期停在旧结论上。
+  //
+  // 这里必须把**四件事**一起重扫，漏一件就会出现「界面互相打脸」：
+  // 卡片上母库角标还挂着启动时算出的「!」（staleMirrors 没重扫），
+  // 而版本字母表已按新内容算过了（peerVersionLabels 空），于是用户看到
+  // 「说母库和主 skill 不同，却一个字母都没有」——正是 2026-11-21 报的
+  // 「母库和主skill不同为什么没有版本的图标」。
+  // 健康栏 / 副本落后 / 母库落后 / 版本字母，四者共用同一批目录，
+  // 必须同一时刻取快照，否则永远可能自相矛盾。
   useEffect(() => {
     if (!isTauri) return
     const rescan = () => {
       if (document.visibilityState !== 'visible') return
       void refreshLibraryHealth()
       void refreshStaleStatus()
+      void refreshStaleMirrors()
+      invokeTauri<Record<string, Record<string, string>>>('get_peer_version_map')
+        .then((map) => setPeerVersionLabels(map || {}))
+        .catch(() => {})
     }
     window.addEventListener('focus', rescan)
     document.addEventListener('visibilitychange', rescan)
@@ -399,7 +427,7 @@ function App() {
       window.removeEventListener('focus', rescan)
       document.removeEventListener('visibilitychange', rescan)
     }
-  }, [isTauri, refreshLibraryHealth, refreshStaleStatus])
+  }, [isTauri, invokeTauri, refreshLibraryHealth, refreshStaleStatus, refreshStaleMirrors])
 
   const handleHealthBarClick = useCallback(() => {
     if (!libraryHealth) return
@@ -1507,6 +1535,7 @@ function App() {
               skillHealthByName={skillHealthByName}
               sharedDirs={sharedSkillDirs}
               toolInstanceTotals={toolInstanceTotals}
+              toolSignedOutCounts={toolSignedOutCounts}
               staleBySkillTool={staleBySkillTool}
               onRefreshStale={handleRefreshStaleOne}
               t={t}

@@ -13,7 +13,8 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use serde::Serialize;
 
-use super::content_hash::{hash_dir, is_entry_ignored, load_ignore_patterns};
+use super::content_hash::{is_entry_ignored, load_ignore_patterns};
+use super::peer_sync::snapshot_with_time;
 use super::skill_store::SkillStore;
 use super::stale_copies::scan_dir_latest_mtime;
 
@@ -69,10 +70,23 @@ fn classify_mirror(owner: &Path, mirror: &Path) -> Option<&'static str> {
         return None;
     }
     // 内容优先：mtime 不同但内容相同（例如镜像被触碰、复制未保留时间）不算落后。
-    match (hash_dir(owner), hash_dir(mirror)) {
-        (Ok(a), Ok(b)) if a == b => return None,
-        (Ok(_), Ok(_)) => {}
-        _ => return None,
+    //
+    // 这里必须用 `peer_sync::snapshot_with_time` 的口径，不能换成 `hash_dir`：
+    // 两者看似都是「整目录指纹」，但边界不同 ——
+    //   * `hash_dir` 把**目录条目**也喂进哈希（`is_file` 为 false 时只更新路径），
+    //     而版本字母的 `snapshot_with_time` 只统计文件；
+    //   * `hash_dir` 不限单文件大小，`snapshot_with_time` 跳过 5MB 以上的文件。
+    // 于是同一个技能会算出两种结论：母库角标说「落后」（hash_dir 判不一致，
+    // 画成红色「!」），版本字母表却说「只有一种版本」（snapshot 判一致，返回空表）
+    // —— 界面上就成了「说母库和主 skill 不同，却一个字母都没有」。
+    // 「落后」与「A/B」必须看同一件事，否则用户永远得不到一个能自洽的答案。
+    let (owner_fp, _) = snapshot_with_time(owner);
+    let (mirror_fp, _) = snapshot_with_time(mirror);
+    if owner_fp.is_empty() || mirror_fp.is_empty() {
+        return None;
+    }
+    if owner_fp == mirror_fp {
+        return None;
     }
     // 内容确实不同：母库比原件还新 → 有人直接改过镜像，不自动处理。
     if mirror_mtime > owner_mtime {

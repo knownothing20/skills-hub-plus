@@ -134,3 +134,37 @@ fn non_local_skills_are_skipped() {
         .unwrap();
     assert!(scan_stale_mirrors(&store).unwrap().is_empty());
 }
+
+/// 空目录 / 目录条目差异不能算「落后」。
+///
+/// 这是 2026-11-21 那个「母库和主 skill 不同，却一个版本字母都没有」的直接
+/// 回归用例：`mirror_check` 原先用 `content_hash::hash_dir`，它把**目录条目**
+/// 也喂进哈希；而算版本字母的 `peer_sync::snapshot_with_time` 只统计文件。
+/// 两边对同一批目录给出相反结论时，界面就会同时出现「母库落后（红色 !）」
+/// 和「只有一种版本（没有 A/B）」，用户无从判断该信哪个。
+#[test]
+fn empty_directories_do_not_split_from_version_labels() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = store_in(dir.path());
+    let owner = dir.path().join("owner/skill");
+    let mirror = dir.path().join("central/skill");
+    fs::create_dir_all(owner.join("emptydir")).unwrap();
+    fs::create_dir_all(mirror.join("emptydir")).unwrap();
+    fs::write(owner.join("SKILL.md"), b"same").unwrap();
+    fs::copy(owner.join("SKILL.md"), mirror.join("SKILL.md")).unwrap();
+
+    seed(&store, "s1", &owner, &mirror);
+    let stale = scan_stale_mirrors(&store).unwrap();
+    let skill = store.get_skill_by_id("s1").unwrap().unwrap();
+    let labels = crate::core::peer_sync::version_labels(&store, &skill).unwrap();
+
+    assert!(
+        stale.is_empty(),
+        "内容一致时不该报母库落后：{:?}",
+        stale.iter().map(|s| s.verdict.clone()).collect::<Vec<_>>()
+    );
+    assert!(
+        labels.is_empty(),
+        "只有一个版本时不该产出 A/B 字母：{labels:?}"
+    );
+}

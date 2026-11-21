@@ -651,7 +651,13 @@ fn target_key(tool: &str, instance: &str) -> String {
 /// 私有配置（agentport 的 `local/`、`node_modules` 等），本来就不参与同步，
 /// 也不该被当成「另一个版本」。否则同一个技能会因为私有配置差异在版本表里
 /// 裂成 A/B/C/D… 一串毫无意义的字母。
-fn snapshot_with_time(root: &Path) -> (String, u64) {
+///
+/// 这是全应用**唯一的目录内容口径**：版本字母、母库落后判定、CLI 的 `status`
+/// 都复用它。曾经 `mirror_check` 用的是 `content_hash::hash_dir`，两套口径在
+/// 「目录条目算不算」和「5MB 以上文件算不算」上不一致，导致同一个技能一边报
+/// 「母库落后」（红色「!」）、一边算出「只有一种版本」（没有 A/B 字母），
+/// 界面自相矛盾。新增任何「内容是否一致」的判断，都请走这里。
+pub(crate) fn snapshot_with_time(root: &Path) -> (String, u64) {
     let mut hasher = Sha256::new();
     let mut newest = 0u64;
     let mut found = false;

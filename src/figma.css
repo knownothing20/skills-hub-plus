@@ -1140,8 +1140,17 @@
      代价是工具区最小宽度从 200 收到 184 —— 8 个图标本来就需要 227px，
      无论 200 还是 184 都要横向滚动，让给名称更划算。 */
   grid-template-columns:
-    minmax(200px, 256px)
-    fit-content(150px)
+    /* 名称列与 meta 列必须是**固定宽度**，不能用 minmax/fit-content。
+       它们一旦跟着内容伸缩，同屏各行就会算出不同的列线：实测长名字行
+       （browser-headless-ui-verify、docker-task-cleanup 带标签）把 identity
+       顶到 256px 上限，工具区左边界竖线从 x=801 跑到 x=832，整排图标跟着
+       右移 31px —— 视觉上就是「图标把样式顶开了」、行与行图标不对齐。
+       取 256px 而不是更小：这是实测能放下最长技能名的下限（可用宽度
+       256-66=190px，"browser-headless-ui-verify" 需要 181px），
+       收到 232px 只剩 166px，长名字会整段变成省略号。
+       余量交给最后一列 tools（minmax(184px,1fr)），它是唯一该弹性的列。 */
+    256px
+    150px
     46px
     64px
     minmax(184px, 1fr)
@@ -2038,12 +2047,12 @@
 }
 
 @media (max-width: 1080px) {
-  /* 与主规则保持同一套弹性区间：以前这里用 minmax(90px, auto)，
-     meta 内容一多就自己撑宽，把工具区挤爆、行与行还对不齐。
-     名称列上限同步放宽到 240px：这一档窗口本来就窄，名称最先被牺牲，
-     但 200px 只够显示到 134px 可用宽度，"browser-headless-ui-verify" 这类名字会整段只剩省略号。 */
+  /* 与主规则保持同一套「前两列固定」的约束：以前这里用 minmax/auto，
+     meta 内容一多就自己撑宽，把工具区挤爆、行与行还对不齐（正是
+     「图标把样式顶开」的同一种病）。名称列上限 240px 是为了窄窗口下
+     仍能放下 browser-headless-ui-verify 这类长名字。 */
   .list-view .skill-card {
-    grid-template-columns: minmax(140px, 240px) minmax(120px, 160px) minmax(120px, 1fr) 40px 112px 18px;
+    grid-template-columns: 240px 140px 40px 56px minmax(140px, 1fr) 40px 104px 16px;
     gap: 6px;
     padding: 8px 10px;
   }
