@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.7] - 2026-11-21
+
+### Fixed
+
+- **多账号工具只显示 1 个账号**（豆包）：`auto_reconcile_skill_targets` 只扫
+  `home.join(relative_skills_dir)`，而豆包这个适配器的相对目录是 `DoubaoWork/skills`
+  ——实测该目录存在但**完全为空**，真正的账号目录在
+  `DoubaoWork/User Data/<Profile>/...` 下。于是非主账号的副本从来没被登记
+  （实测 Profile 5 磁盘上有 7 个技能，库里只有 1 个），而且它写死
+  `instance: String::new()`，把登记到的那份也标成了主实例。界面因此只能显示
+  「1 个账号」。现在多账号工具走 `discover_root_instances` 逐账号展开，
+  每个账号目录一条记录；单实例工具行为不变。
+
 ## [2.0.6] - 2026-11-21
 
 ### Fixed
