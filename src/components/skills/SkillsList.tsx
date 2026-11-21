@@ -51,6 +51,8 @@ type SkillsListProps = {
   skillHealthByName?: Record<string, SkillHealthDto>
   sharedDirs?: SharedSkillDirDto[]
   toolInstanceTotals?: Record<string, number>
+  /** 已登出但目录仍在的账号数：不参与分母，只用于提示 */
+  toolSignedOutCounts?: Record<string, number>
   staleBySkillTool?: Map<string, StaleCopyStatusDto>
   onRefreshStale?: (skillId: string, toolId: string) => Promise<void>
   toolCounts?: Record<string, number>
@@ -88,6 +90,7 @@ const SkillsList = ({
   skillHealthByName,
   sharedDirs,
   toolInstanceTotals,
+  toolSignedOutCounts,
   staleBySkillTool,
   peerVersionLabels,
   staleMirrorNames,
@@ -159,6 +162,7 @@ const SkillsList = ({
               health={skillHealthByName?.[skill.name]}
               sharedDirs={sharedDirs}
               toolInstanceTotals={toolInstanceTotals}
+              toolSignedOutCounts={toolSignedOutCounts}
               staleBySkillTool={staleBySkillTool}
               versionLabels={peerVersionLabels?.[skill.id]}
               mirrorStale={staleMirrorNames?.has(skill.name)}

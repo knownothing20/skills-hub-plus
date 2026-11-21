@@ -56,6 +56,8 @@ type SkillCardProps = {
   sharedDirs?: SharedSkillDirDto[]
   /** 每个工具实际有几个账号目录（仅统计存在的） */
   toolInstanceTotals?: Record<string, number>
+  /** 已登出但目录仍在的账号数：不参与分母，只用于提示 */
+  toolSignedOutCounts?: Record<string, number>
   toolCounts?: Record<string, number>
   t: TFunction
 }
@@ -92,6 +94,7 @@ const SkillCard = ({
   onRefreshStale,
   sharedDirs,
   toolInstanceTotals,
+  toolSignedOutCounts,
   t,
 }: SkillCardProps) => {
   const [contextMenu, setContextMenu] = useState<ToolContextMenuState | null>(null)
@@ -454,11 +457,16 @@ const SkillCard = ({
                 ? staleBySkillTool?.get(`${skill.name}/${tool.id}`)
                 : undefined
 
-              // 多账号工具：图标右上角直接标出「已覆盖账号数 / 账号总数」
+              // 多账号工具：图标右上角直接标出「已覆盖账号数 / 可用账号数」。
+              // instanceCount 只数「该账号确实有这个技能」的记录，而 denominator
+              // 只算已登录的账号目录 —— 已登出的账号同步时会跳过（
+              // instance_accepts_sync），把它算进分母会让用户注销账号后仍看到
+              // 旧总数，误以为自己还有那么多账号。
               const instanceCount = scopeTargets.filter(
                 (tg) => tg.tool === tool.id && isActiveSkillTarget(tg),
               ).length
               const instanceTotal = toolInstanceTotals?.[tool.id] ?? 1
+              const signedOutCount = toolSignedOutCounts?.[tool.id] ?? 0
               // 只在「这个技能确实进了至少一个账号目录」时才标数字。
               // 否则多账户工具会给整库每个技能都挂一个 0，噪音太大。
               const showInstanceBadge = instanceTotal > 1 && instanceCount > 0
@@ -466,8 +474,10 @@ const SkillCard = ({
                 ? ` · ${t('toolManagement.instanceCoverage', {
                     covered: instanceCount,
                     total: instanceTotal,
-                  })}`
-                : ''
+                  })}${signedOutCount > 0 ? `（另有 ${signedOutCount} 个已登出）` : ''}`
+                : signedOutCount > 0
+                  ? ` · 另有 ${signedOutCount} 个已登出账号`
+                  : ''
 
               let finalClass: string = syncState
               let stateLabel = ''
