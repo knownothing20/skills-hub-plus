@@ -247,15 +247,27 @@ def evaluate(conn: sqlite3.Connection, skill_row) -> dict:
 def classify(info: dict) -> dict:
     """把「谁偏离」归纳成可执行结论。
 
-    除了 Rust 侧的 single/conflict，这里多识别一种真实存在的情况：
-    **所有位置内容彼此相同、但与基线不同** —— 这不是「需要同步」，
-    而是「基线过期」（典型成因：刚把同一份内容分发到所有位置，
-    或升级后基线没跟着更新）。此时只需刷新基线，不应复制任何文件。
+    除了 Rust 侧的 single/conflict，这里多识别两种真实存在的情况：
+
+    **基线过期** —— 所有位置内容彼此相同、但与基线不同。这不是「需要同步」，
+    而是「基线旧了」（典型成因：刚把同一份内容分发到所有位置，或升级后基线
+    没跟着更新）。此时只需刷新基线，不应复制任何文件。
+
+    **位置缺失** —— 内容全一致，但有登记过的位置目录不存在了。界面管这叫
+    「断链」，也是用户在别处迁移／删掉副本后最常见的样子。它同样不是「内容
+    需要同步」：**不能**让 `in_sync` 把它静默吞掉，否则这个技能永远补不回来，
+    断链红字会一直挂着。（2026-11-21：tietu-track-positioning 就是这么卡住的
+    —— agents 目录被删，脚本报「一致」，界面报「断链 1」。）
     """
     valid = [s for s in info["standings"] if s["state"] != MISSING]
+    missing = [s for s in info["standings"] if s["state"] == MISSING]
 
-    # 所有有效位置内容一致 → 无论基线是否存在，都不需要同步内容
+    # 所有有效位置内容一致 → 无论基线是否存在，都不需要复制文件
     if valid and len({s["fp"] for s in valid}) == 1:
+        if missing:
+            # 有位置缺了：以「现有内容」为准把它补回去，同时刷新基线。
+            return {"kind": "missing", "edited": [], "missing": missing,
+                    "unanimous": valid[0]}
         if info["baseline_empty"]:
             return {"kind": "no_baseline", "edited": [], "unanimous": valid[0]}
         if valid[0]["fp"] != fingerprint(info["baseline"]):
@@ -475,6 +487,7 @@ def cmd_status(conn, needle: str | None, as_json: bool, db: Path) -> int:
 
     kind_text = {"conflict": "⚠️  冲突（多份各改各的，我不会动手）",
                  "single": "可同步（只有一份偏离基线）",
+                 "missing": "⚠️  有位置缺失（界面叫「断链」；内容一致，缺的目录补回即可）",
                  "baseline_stale": "ℹ️  基线过期（各位置其实一致，只需刷新基线）",
                  "no_baseline": "ℹ️  尚无基线（需要指定以谁为准，或直接刷新）"}
     print(f"以下 {len(report)} 个技能需要处理：\n")
@@ -495,6 +508,10 @@ def cmd_status(conn, needle: str | None, as_json: bool, db: Path) -> int:
         if item["kind"] in ("baseline_stale", "no_baseline") and item.get("unanimous"):
             print(f"    结论：全部位置内容相同（{item['unanimous']} 个文件），"
                   f"用 python sync.py pull 刷新基线即可，不会复制任何文件")
+        if item["kind"] == "missing":
+            gone = [p["label"] for p in item["places"] if p["state"] == "缺失"]
+            print(f"    结论：现有位置内容一致，但 {'、'.join(gone)} 的目录不存在了。"
+                  f"用 python sync.py pull 按现有内容补回（其余位置不动）")
         print()
     print(f"其余 {len(rows) - len(report)} 个技能一致。")
     print("这只是报告。收回改动：python sync.py pull   ；推出母库：python sync.py push")
@@ -550,6 +567,26 @@ def cmd_pull(conn, needle, dry_run: bool, db: Path, backup_dir: Path | None) -> 
         info = evaluate(conn, row)
         cls = classify(info)
         if cls["kind"] == "in_sync":
+            continue
+        if cls["kind"] == "missing":
+            # 内容全一致，但有位置目录没了（界面叫「断链」）。
+            # 以现有内容为准把它补回来——缺的目录重建，其余位置一个字节都不动。
+            src = cls["unanimous"]
+            gone = cls["missing"]
+            if dry_run:
+                print(f"[干跑] {info['name']}：补回缺失位置 "
+                      f"{'、'.join(s['label'] for s in gone)}"
+                      f"（以 {src['label']} 为准，{src['files']} 文件）")
+                refreshed.append(info["name"])
+                continue
+            # standings 里的 path 是字符串（evaluate 为了 JSON 输出转过了），
+            # 备份只需要还存在的目录，缺失的那些本来就没东西可备份。
+            backup_root = backup([(s["label"], Path(s["path"])) for s in gone
+                                  if Path(s["path"]).is_dir()], "restore")
+            done = propagate(conn, info, src, gone, False)
+            print(f"⇡ {info['name']}：{src['label']} → 补回缺失的 "
+                  f"{'、'.join(done)}（备份：{backup_root.name}）")
+            refreshed.append(info["name"])
             continue
         if cls["kind"] in ("baseline_stale", "no_baseline") and cls.get("unanimous"):
             # 各位置内容已经一致，只有基线是旧的／缺的：只刷新基线，不碰文件。
