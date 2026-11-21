@@ -168,6 +168,44 @@ pub fn record_skill_target_failure(
     store.upsert_skill_target(&record)
 }
 
+/// 把「工具 + 目标目录」这一对登记进数据库。多账号工具按 `instance` 分别登记。
+///
+/// 抽出来是因为多账号工具要逐个账号走一遍，而主实例与其它账号只差
+/// `instance` 与 `target_path` 两处，重复代码没必要。
+fn register_reconciled_target(
+    store: &SkillStore,
+    skill: &SkillRecord,
+    tool: &str,
+    instance: &str,
+    target_path: &std::path::Path,
+    now: i64,
+) -> anyhow::Result<bool> {
+    let existing = store.get_skill_target_instance(&skill.id, tool, "global", None, instance)?;
+    // 快速短路：已记录且状态 ok 就不必重写。
+    if let Some(ref rec) = existing {
+        if rec.status == "ok" {
+            return Ok(false);
+        }
+    }
+    let record = SkillTargetRecord {
+        id: existing
+            .map(|t| t.id)
+            .unwrap_or_else(|| Uuid::new_v4().to_string()),
+        skill_id: skill.id.clone(),
+        tool: tool.to_string(),
+        scope: "global".to_string(),
+        project_path: None,
+        target_path: target_path.to_string_lossy().to_string(),
+        mode: "copy".to_string(),
+        status: "ok".to_string(),
+        last_error: None,
+        synced_at: Some(now),
+        instance: instance.to_string(),
+    };
+    store.upsert_skill_target(&record)?;
+    Ok(true)
+}
+
 pub fn auto_reconcile_skill_targets(
     store: &SkillStore,
     filter_skill_id: Option<&str>,
@@ -208,61 +246,73 @@ pub fn auto_reconcile_skill_targets(
         let central_ignore_content = std::fs::read_to_string(&central_ignore_path).ok();
 
         for adapter in &adapters {
-            if ignored_tools.contains(adapter.id.as_key())
+            let tool_key = adapter.id.as_key();
+            if ignored_tools.contains(tool_key)
                 && !whitelisted_skills.contains(&crate::core::onboarding::whitelist_key(
-                    adapter.id.as_key(),
+                    tool_key,
                     &skill.name,
                 ))
             {
                 continue;
             }
-            let tool_dir = home.join(adapter.relative_skills_dir);
-            if !tool_dir.is_dir() {
-                continue;
-            }
-            let target_path = tool_dir.join(&skill.name);
-            if !target_path.exists() {
-                continue;
-            }
 
-            // 规则下发必须早于下面的 status 短路，也早于内容比对：副本已有
-            // .skillignore 时过去会被 `!exists()` 挡掉，母库后补的规则永远下发
-            // 不下去，而内容哈希又把 .skillignore 本身排除在外（DEFAULT_IGNORES），
-            // 所以两边规则不一致时完全看不出来。
-            if let Some(ref ignore_str) = central_ignore_content {
-                merge_skillignore_into_target(ignore_str, &target_path);
-            }
+            // 多账号工具（豆包这类 Chromium 客户端）必须按账号展开登记。
+            //
+            // 这里曾经只有一个 `home.join(relative_skills_dir)`，并且写死
+            // `instance: String::new()` —— 结果是：非主账号目录里的技能从来没被
+            // 补登记过（Profile 5 磁盘上有 7 个技能，库里只有 1 个），而登记到的
+            // 那份还被标成主实例。界面于是只能显示「1 个账号」，用户以为同步丢了。
+            // 显式走 discover_root_instances，让「一条记录 = 一个账号目录」成立。
+            let instances: Vec<crate::core::tool_adapters::SkillRootInstance> =
+                if adapter.instance_rule.is_some() {
+                    crate::core::tool_adapters::discover_root_instances(adapter)
+                        .into_iter()
+                        .filter(|i| i.exists)
+                        .collect()
+                } else {
+                    // 单实例工具：保持原口径（主目录、空 instance）
+                    let tool_dir = home.join(adapter.relative_skills_dir);
+                    if !tool_dir.is_dir() {
+                        continue;
+                    }
+                    vec![crate::core::tool_adapters::SkillRootInstance {
+                        tool: tool_key.to_string(),
+                        label: String::new(),
+                        path: tool_dir.to_string_lossy().to_string(),
+                        skills: Vec::new(),
+                        is_primary: true,
+                        exists: true,
+                        instance: String::new(),
+                        account: Default::default(),
+                    }]
+                };
 
-            // 快速短路检查：数据库中已记录该目标且状态为 ok，直接跳过比对。
-            // 放在规则下发之后，否则新增规则永远没机会补偿。
-            let existing =
-                store.get_skill_target(&skill.id, adapter.id.as_key(), "global", None)?;
-            if let Some(ref rec) = existing {
-                if rec.status == "ok" {
+            for inst in instances {
+                let target_path = std::path::Path::new(&inst.path).join(&skill.name);
+                if !target_path.exists() {
                     continue;
                 }
-            }
 
-            if target_has_same_content(&central_path, &target_path) {
-                let mode = "copy".to_string();
+                // 规则下发必须早于 status 短路，也早于内容比对：副本已有
+                // .skillignore 时过去会被 `!exists()` 挡掉，母库后补的规则永远
+                // 下发不下去，而内容哈希又把 .skillignore 本身排除在外
+                // （DEFAULT_IGNORES），所以两边规则不一致时完全看不出来。
+                if let Some(ref ignore_str) = central_ignore_content {
+                    merge_skillignore_into_target(ignore_str, &target_path);
+                }
 
-                let record = SkillTargetRecord {
-                    id: existing
-                        .map(|t| t.id)
-                        .unwrap_or_else(|| Uuid::new_v4().to_string()),
-                    skill_id: skill.id.clone(),
-                    tool: adapter.id.as_key().to_string(),
-                    scope: "global".to_string(),
-                    project_path: None,
-                    target_path: target_path.to_string_lossy().to_string(),
-                    mode,
-                    status: "ok".to_string(),
-                    last_error: None,
-                    synced_at: Some(now),
-                    instance: String::new(),
-                };
-                store.upsert_skill_target(&record)?;
-                reconciled_count += 1;
+                if target_has_same_content(&central_path, &target_path) {
+                    if register_reconciled_target(
+                        store,
+                        skill,
+                        tool_key,
+                        &inst.instance,
+                        &target_path,
+                        now,
+                    )? {
+                        reconciled_count += 1;
+                    }
+                }
             }
         }
     }

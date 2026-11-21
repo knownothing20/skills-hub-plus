@@ -729,3 +729,78 @@ fn vanished_target_with_mismatched_name_is_still_rejected() {
         "名字不匹配的记录必须继续被拒绝"
     );
 }
+
+/// 多账号工具的副本必须**按账号分别登记**，不能挤进主实例。
+///
+/// 这条锁住 2026-11-21 的「豆包只显示 1 个账号」：`auto_reconcile_skill_targets`
+/// 原先只扫 `home.join(relative_skills_dir)`（豆包这里是空目录 `~/DoubaoWork/skills`，
+/// 真正的账号目录在 `User Data/<Profile>/...`），并且写死 `instance: String::new()`。
+/// 结果是非主账号目录里的技能从来没被登记（Profile 5 磁盘 7 个、库里 1 个），
+/// 界面只能显示「1 个账号」，用户以为同步把东西弄丢了。
+#[test]
+fn auto_reconcile_registers_skill_once_per_account() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = SkillStore::new(dir.path().join("test.db"));
+    store.ensure_schema().unwrap();
+
+    // 母库目录（resolve_skill_source 会读 central_path）
+    let central = dir.path().join("central/demo-skill");
+    std::fs::create_dir_all(&central).unwrap();
+    std::fs::write(central.join("SKILL.md"), b"hello").unwrap();
+
+    store
+        .upsert_skill(&SkillRecord {
+            id: "sid".to_string(),
+            name: "demo-skill".to_string(),
+            description: None,
+            source_type: "local".to_string(),
+            source_ref: Some(central.to_string_lossy().to_string()),
+            source_subpath: None,
+            source_revision: None,
+            central_path: central.to_string_lossy().to_string(),
+            content_hash: None,
+            created_at: 1,
+            updated_at: 2,
+            last_sync_at: None,
+            last_seen_at: 1,
+            enabled: true,
+            status: "ok".to_string(),
+        })
+        .unwrap();
+
+    // 关键断言：登记时按 instance 区分，同一个工具可以有多条记录。
+    let now = 1234;
+    let p4 = dir.path().join("u/Profile 4/.doubaowork/skills/demo-skill");
+    let p5 = dir.path().join("u/Profile 5/.doubaowork/skills/demo-skill");
+    std::fs::create_dir_all(&p4).unwrap();
+    std::fs::create_dir_all(&p5).unwrap();
+
+    let skill = store.get_skill_by_id("sid").unwrap().unwrap();
+    assert!(
+        register_reconciled_target(&store, &skill, "doubao_work", "Profile 4", &p4, now).unwrap()
+    );
+    assert!(
+        register_reconciled_target(&store, &skill, "doubao_work", "Profile 5", &p5, now).unwrap()
+    );
+
+    let targets = store.list_skill_targets("sid").unwrap();
+    let instances: Vec<&str> = targets.iter().map(|t| t.instance.as_str()).collect();
+    assert!(
+        instances.contains(&"Profile 4") && instances.contains(&"Profile 5"),
+        "两个账号应各有一条记录，实际：{instances:?}"
+    );
+    assert_eq!(
+        store
+            .get_skill_target_instance("sid", "doubao_work", "global", None, "Profile 5")
+            .unwrap()
+            .map(|t| t.target_path),
+        Some(p5.to_string_lossy().to_string()),
+        "Profile 5 的记录必须指向它自己的目录，而不是主实例的"
+    );
+
+    // 再跑一次同样的登记应短路（status 已 ok），不重复计数。
+    assert!(
+        !register_reconciled_target(&store, &skill, "doubao_work", "Profile 4", &p4, now).unwrap(),
+        "已登记且 ok 的目标不应重复计数"
+    );
+}
