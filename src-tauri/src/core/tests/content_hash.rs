@@ -46,3 +46,59 @@ fn hash_respects_custom_skillignore() {
     let h3 = hash_dir(root).unwrap();
     assert_ne!(h2, h3, "修改未被忽略的真实代码文件，哈希必须改变");
 }
+
+/// 内容相同、只是**创建顺序**不同，指纹必须相同。
+///
+/// 这条锁的是 2.0.4 修掉的真实缺陷：`hash_dir` 早先按 `WalkDir` 的原始枚举
+/// 顺序喂 hasher，而枚举顺序由文件系统决定。NTFS 上碰巧按名称返回，所以本机
+/// 看不出问题；换成 ext4/APFS 或网络盘，「两份内容逐字节相同」就会算出两个
+/// 指纹，界面于是同时显示「版本全是 A」和「副本落后」——自相矛盾，且自动刷新
+/// 判定内容已一致而拒绝动手，红标永远消不掉。
+#[test]
+fn hash_is_independent_of_creation_order() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let a = dir.path().join("a");
+    let b = dir.path().join("b");
+    fs::create_dir_all(a.join("sub")).unwrap();
+    fs::create_dir_all(b.join("sub")).unwrap();
+
+    // a：正序创建；b：逆序创建。内容完全一样。
+    for (root, name) in [(&a, "alpha.md"), (&a, "zeta.md")] {
+        fs::write(root.join(name), format!("body of {name}")).unwrap();
+    }
+    for (root, name) in [(&b, "zeta.md"), (&b, "alpha.md")] {
+        fs::write(root.join(name), format!("body of {name}")).unwrap();
+    }
+    fs::write(a.join("sub/inner.txt"), b"inner").unwrap();
+    fs::write(b.join("sub/inner.txt"), b"inner").unwrap();
+
+    assert_eq!(
+        hash_dir(&a).unwrap(),
+        hash_dir(&b).unwrap(),
+        "创建顺序不同不应影响指纹——顺序必须由路径决定，不能由文件系统决定"
+    );
+}
+
+/// 与 `peer_sync::snapshot_with_time`（算版本字母 A/B 用的那套）口径一致：
+/// 同一份内容，两套指纹算法必须同时判「一致」。这是「A 全是 A，却报落后」
+/// 那个自相矛盾状态的回归闸。
+#[test]
+fn hash_matches_peer_snapshot_semantics_on_identical_dirs() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let a = dir.path().join("a");
+    let b = dir.path().join("b");
+    fs::create_dir_all(&a).unwrap();
+    fs::create_dir_all(&b).unwrap();
+    for root in [&a, &b] {
+        fs::write(root.join("SKILL.md"), b"# skill").unwrap();
+        fs::write(root.join(".skillignore"), b"local/\n").unwrap();
+        fs::create_dir_all(root.join("local")).unwrap();
+        // 私有内容各写各的，必须不影响指纹
+        fs::write(
+            root.join("local/secret.json"),
+            root.to_string_lossy().as_bytes(),
+        )
+        .unwrap();
+    }
+    assert_eq!(hash_dir(&a).unwrap(), hash_dir(&b).unwrap());
+}

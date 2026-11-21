@@ -381,6 +381,26 @@ function App() {
     void refreshStaleStatus()
   }, [isTauri, managedSkills, refreshLibraryHealth, refreshStaleStatus])
 
+  // 「落后」是扫盘得出的，而盘上的东西会被别的软件改（用户在 Codex 里存一下
+  // 文件、技能自己写日志），本进程完全看不见这些变化。只在列表变化时重扫，
+  // 界面就会长期停在旧结论上：明明内容早已一致、版本字母全是 A，统计条却还
+  // 挂着「落后 3」，点进去又是空的。窗口重新可见时重扫一次，比定时轮询更省，
+  // 也正好覆盖「切到别的软件改完再切回来」这个真实用法。
+  useEffect(() => {
+    if (!isTauri) return
+    const rescan = () => {
+      if (document.visibilityState !== 'visible') return
+      void refreshLibraryHealth()
+      void refreshStaleStatus()
+    }
+    window.addEventListener('focus', rescan)
+    document.addEventListener('visibilitychange', rescan)
+    return () => {
+      window.removeEventListener('focus', rescan)
+      document.removeEventListener('visibilitychange', rescan)
+    }
+  }, [isTauri, refreshLibraryHealth, refreshStaleStatus])
+
   const handleHealthBarClick = useCallback(() => {
     if (!libraryHealth) return
     const brokenSkills = libraryHealth.skills.filter(
