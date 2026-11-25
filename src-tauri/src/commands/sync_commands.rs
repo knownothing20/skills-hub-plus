@@ -172,7 +172,7 @@ pub fn record_skill_target_failure(
 ///
 /// 抽出来是因为多账号工具要逐个账号走一遍，而主实例与其它账号只差
 /// `instance` 与 `target_path` 两处，重复代码没必要。
-fn register_reconciled_target(
+pub(super) fn register_reconciled_target(
     store: &SkillStore,
     skill: &SkillRecord,
     tool: &str,
@@ -301,17 +301,17 @@ pub fn auto_reconcile_skill_targets(
                     merge_skillignore_into_target(ignore_str, &target_path);
                 }
 
-                if target_has_same_content(&central_path, &target_path) {
-                    if register_reconciled_target(
+                if target_has_same_content(&central_path, &target_path)
+                    && register_reconciled_target(
                         store,
                         skill,
                         tool_key,
                         &inst.instance,
                         &target_path,
                         now,
-                    )? {
-                        reconciled_count += 1;
-                    }
+                    )?
+                {
+                    reconciled_count += 1;
                 }
             }
         }
