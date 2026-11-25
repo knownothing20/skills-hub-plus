@@ -55,6 +55,7 @@ import WindowResizeHandles from './components/WindowResizeHandles'
 import { useDiscoveryScan } from './hooks/useDiscoveryScan'
 import { useBulkOperations } from './hooks/useBulkOperations'
 import { useSkillFilters } from './hooks/useSkillFilters'
+import { resolveProblemFilter } from './hooks/problemFilter'
 import { useTagOperations } from './hooks/useTagOperations'
 import { useSkillImport } from './hooks/useSkillImport'
 import { useToolSync } from './hooks/useToolSync'
@@ -598,13 +599,6 @@ function App() {
     [staleMirrors],
   )
 
-  // 点健康栏的数字时，列表只显示有问题的技能；再点一次恢复
-  const [onlyProblemFilter, setOnlyProblemFilter] = useState<Set<string> | null>(null)
-  const toggleProblemFilter = useCallback(() => {
-    setOnlyProblemFilter((prev) => (prev ? null : new Set(problemSkillNamesRef.current)))
-  }, [])
-  const problemSkillNamesRef = useRef<Set<string>>(new Set())
-
   // 有问题的技能：断链 / 副本落后或手改 / 母库落后 —— 排序时统一置顶
   const problemSkillNames = useMemo(() => {
     const names = new Set<string>()
@@ -621,9 +615,19 @@ function App() {
     return names
   }, [libraryHealth, staleBySkillTool, staleMirrors])
 
-  useEffect(() => {
-    problemSkillNamesRef.current = problemSkillNames
-  }, [problemSkillNames])
+  // 点健康栏的数字时，列表只显示有问题的技能；再点一次恢复。
+  //
+  // 这里存的是「是否启用」的开关，不是那一刻的问题清单快照：快照一旦冻结，
+  // 后台把副本/母库修好之后列表仍挂着旧名字——用户看到「6 个问题」却点不出
+  // 任何问题，只有手动 F5 才恢复。改为每次渲染都用实时的 problemSkillNames
+  // 过滤，问题修完自动清空（顺带让横幅上的计数同步变化）。
+  const [problemFilterOn, setProblemFilterOn] = useState(false)
+  const toggleProblemFilter = useCallback(() => {
+    setProblemFilterOn((prev) => !prev)
+  }, [])
+  const clearProblemFilter = useCallback(() => setProblemFilterOn(false), [])
+  // 过滤集合每次渲染都取自实时的 problemSkillNames；问题修完自动放开。
+  const onlyProblemFilter = resolveProblemFilter(problemFilterOn, problemSkillNames)
 
   const {
     searchQuery,
@@ -878,6 +882,11 @@ function App() {
         )
         await loadManagedSkills()
         void refreshLibraryHealth()
+        // 启动刷新已经改写了副本内容，版本字母若不重算，卡片上仍挂着刷新前的
+        // 字母/角标，跟「已同步」的提示自相矛盾。
+        invokeTauri<Record<string, Record<string, string>>>('get_peer_version_map')
+          .then((map) => setPeerVersionLabels(map || {}))
+          .catch(() => {})
       } else if (result.remaining === 0 && result.stale_mirrors === 0) {
         // 副本与母库都一致时才说「全部同步」
         toast.success(t('stale.startupAllGood'), { duration: 3000 })
@@ -1435,17 +1444,6 @@ function App() {
                       return
                     }
                     toggleProblemFilter()
-                    return;
-                    const lines = staleMirrors
-                      .slice(0, 8)
-                      .map((mirror) => mirror.name)
-                    toast.warning(
-                      t('stale.mirrorsDetailsTitle', { count: staleMirrorCount }),
-                      {
-                        description: `${lines.join('、')}\n${t('stale.mirrorsHint')}`,
-                        duration: 8000,
-                      },
-                    )
                   }}
                 >
                   {t('health.mirror', { count: staleMirrorCount })}
@@ -1469,7 +1467,7 @@ function App() {
             {onlyProblemFilter ? (
               <div className="problem-filter-banner">
                 <span>只显示有问题的技能（{onlyProblemFilter.size} 个）</span>
-                <button type="button" onClick={() => setOnlyProblemFilter(null)}>
+                <button type="button" onClick={clearProblemFilter}>
                   显示全部
                 </button>
               </div>
