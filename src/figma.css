@@ -771,6 +771,37 @@
   color: #bfdbfe;
 }
 .skill-updated { flex: 0 0 auto; margin-left: auto; color: var(--text-tertiary); font-size: 11px; white-space: nowrap; min-width: 76px; text-align: right; }
+/* 时间戳图标（生成 / 更新）。
+   两条硬约束：
+   1) 不参与列宽计算。列表视图里 .skill-updated 落在固定 74px 的 time 列，
+      列宽一旦随内容变化，同屏各行的列线就会漂移（figma.css 里那段长注释
+      记录过实测：工具列从 auto 改固定前，工具区左边界整排右移 31px）。
+      所以图标用「固定 13px 的小盒 + 文字用剩余宽度」的写法，盒子尺寸写死，
+      不依赖 glyph 宽度。
+   2) 卡片视图（非 list-view）里 .skill-updated 靠 margin-left:auto 右浮，
+      图标 + 文字的总宽会变，但它的父级是弹性布局、自己 flex:0 0 auto，
+      只会向左长，不会把别的元素顶开。
+   两种语义用颜色区分而不是换构图，保证文字基线完全一致。 */
+.skill-updated {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.skill-updated-icon {
+  /* 13px 写死：lucide 图标默认 24，size=11 时实际约占 11px，
+     留 1px 两侧余量，任何图标都不会把行高或列宽撑开。 */
+  flex: 0 0 13px;
+  width: 13px;
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.skill-updated-icon.is-created { color: var(--text-tertiary); opacity: .75; }
+.skill-updated-icon.is-updated { color: var(--accent-blue, #2563eb); opacity: .9; }
+.skill-updated-text { flex: 0 1 auto; min-width: 0; }
 .skill-card-footer { min-width: 0; min-height: 38px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .skill-tools-block { min-width: 0; display: flex; align-items: center; gap: 8px; }
 .skill-tools-block > span { flex: 0 0 auto; color: var(--text-tertiary); font-size: 10px; }
@@ -1166,11 +1197,18 @@
        相同，但窄窗口时死值会把整行挤出容器（各列最小值合计约 1061px，
        侧边栏展开时容器可能只剩 950px），而 minmax(0,…) 允许工具列先被
        压缩、图标改为横向滚动。压缩量只取决于容器可用宽度、与内容无关，
-       所以同屏各行仍然一致 —— 这比再加一个媒体查询断点更稳。 */
+       所以同屏各行仍然一致 —— 这比再加一个媒体查询断点更稳。
+
+       time 列从 64px 调到 74px：时间戳前面多了一个 13px 的「生成/更新」
+       图标（外加 4px 间距）。实测最长文案「12 分钟前」用 11px 字体占
+       47.9px，47.9 + 13 + 4 = 64.9px，已经超出原来的 64px；74px 留出
+       约 9px 余量，既不会让文字贴边，也不会因为图标而裁掉文案。
+       这 10px 由 identity 的 1fr 吸收（宽屏下该列本就有数百 px 富余），
+       窄窗口时压缩的是工具列（minmax(0,296px)），不影响列线一致性。 */
     minmax(256px, 1fr)
     150px
     46px
-    64px
+    74px
     minmax(0, 296px)
     42px
     110px

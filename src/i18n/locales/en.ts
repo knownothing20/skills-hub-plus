@@ -725,6 +725,10 @@ export default {
     minutesAgo: '{{minutes}}m ago',
     hoursAgo: '{{hours}}h ago',
     daysAgo: '{{days}}d ago',
+    created: 'Newly created',
+    updatedLabel: 'Updated',
+    createdHint: 'Newly created: imported and never modified',
+    updatedHint: 'Updated: content was refreshed after import',
   },
   delete: {
     confirmPrefix: 'Remove or delete ',

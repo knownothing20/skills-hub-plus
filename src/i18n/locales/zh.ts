@@ -702,6 +702,10 @@ export default {
     minutesAgo: '{{minutes}} 分钟前',
     hoursAgo: '{{hours}} 小时前',
     daysAgo: '{{days}} 天前',
+    created: '新生成',
+    updatedLabel: '已更新',
+    createdHint: '新生成：导入后内容未被改动过',
+    updatedHint: '已更新：内容在被导入后刷新过',
   },
   delete: {
     confirmPrefix: '将 ',

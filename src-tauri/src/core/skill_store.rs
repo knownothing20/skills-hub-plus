@@ -458,8 +458,12 @@ impl SkillStore {
                 upsert_skill_target_on_conn(&transaction, target)?;
             }
             let changed = transaction.execute(
-                "UPDATE skills SET enabled = 1, updated_at = ?1 WHERE id = ?2",
-                params![now_ms(), skill_id],
+                // 切换启用状态不是「内容更新」：这里刻意不碰 updated_at。
+                // 卡片上的时间戳用 created_at 是否等于 updated_at 来区分
+                // 「生成」与「更新」，一旦开关也写 updated_at，任何被关掉
+                // 再打开的技能都会被误标成「更新过」（2026-11 用户反馈）。
+                "UPDATE skills SET enabled = 1 WHERE id = ?1",
+                params![skill_id],
             )?;
             if changed == 0 {
                 anyhow::bail!("skill not found: {}", skill_id);
@@ -557,8 +561,9 @@ impl SkillStore {
     pub fn set_skill_enabled(&self, skill_id: &str, enabled: bool) -> Result<()> {
         self.with_conn(|conn| {
             let changed = conn.execute(
-                "UPDATE skills SET enabled = ?1, updated_at = ?2 WHERE id = ?3",
-                params![enabled as i32, now_ms(), skill_id],
+                // 同上：开关状态变化不改变内容，不该污染 updated_at。
+                "UPDATE skills SET enabled = ?1 WHERE id = ?2",
+                params![enabled as i32, skill_id],
             )?;
             if changed == 0 {
                 anyhow::bail!("skill not found: {}", skill_id);
