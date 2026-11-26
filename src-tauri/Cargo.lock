@@ -4014,7 +4014,7 @@ checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "skills-hub"
-version = "2.0.9"
+version = "2.0.10"
 dependencies = [
  "anyhow",
  "base64 0.22.1",

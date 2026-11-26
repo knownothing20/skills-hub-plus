@@ -266,6 +266,16 @@ pub fn refresh_stale_copy(
     record.last_error = None;
     record.synced_at = Some(now_ms());
     store.upsert_skill_target(&record)?;
+
+    // 成功也要留痕。这里以前只有失败才 warn，成功什么都不写，导致
+    // 「界面报落后，过一会儿自己好了」这类现象事后完全查不到原因。
+    // 记下工具与备份落点，必要时能拿备份倒回去。
+    log::info!(
+        "[stale_copies] 已刷新落后副本 {}/{}（备份 {:?}）",
+        skill.name,
+        record.tool,
+        backup_root
+    );
     Ok(())
 }
 
@@ -306,6 +316,17 @@ pub fn startup_stale_refresh(store: &SkillStore, central_root: &Path) -> Result<
     }
 
     let remaining = statuses.len() - refreshed;
+    // 扫描结果整体留一行，便于把「界面报落后」和「当时到底扫到几个」对上。
+    // statuses 含 behind / hand_edited / conflict 三类，其中只有 behind 会被
+    // 自动刷新；手改与冲突一律留给人处理，所以单独报出 number 与剩余数。
+    log::info!(
+        "[stale_copies] 启动扫描：异常 {} 个（可自动刷新 {}，已刷新 {}，剩余待处理 {}），自动刷新={}",
+        statuses.len(),
+        behind.len(),
+        refreshed,
+        remaining,
+        auto
+    );
     Ok((refreshed, remaining))
 }
 

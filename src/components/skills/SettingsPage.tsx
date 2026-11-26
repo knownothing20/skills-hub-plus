@@ -12,10 +12,11 @@ import {
   Palette,
   Radar,
   RefreshCw,
+  ScrollText,
   ShieldCheck,
   EyeOff,
 } from 'lucide-react'
-import { openUrl } from '@tauri-apps/plugin-opener'
+import { openPath, openUrl } from '@tauri-apps/plugin-opener'
 import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 import { invokeTauri } from '../../hooks/useTauriInvoke'
@@ -369,6 +370,16 @@ const SettingsPage = ({
     }
   }
 
+  const handleOpenLogDir = useCallback(async () => {
+    if (!isTauri) return
+    try {
+      const dir = await invokeTauri<string>('get_log_dir')
+      await openPath(dir)
+    } catch (err) {
+      toast.error(t('logDir.openFailed', { error: String(err) }))
+    }
+  }, [isTauri, t])
+
   const handleOpenProject = useCallback(async () => {
     try {
       if (isTauri) {
@@ -711,6 +722,31 @@ const SettingsPage = ({
                   </button>
                 </div>
                 <div className="settings-helper">{t('lock.reportHint')}</div>
+              </div>
+            </section>
+
+            <section className="settings-card">
+              <div className="settings-card-head">
+                <span className="settings-card-icon">
+                  <ScrollText size={18} />
+                </span>
+                <div>
+                  <h2>{t('logDir.title')}</h2>
+                  <p>{t('logDir.description')}</p>
+                </div>
+              </div>
+              <div className="settings-card-body">
+                <div className="settings-field">
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={() => void handleOpenLogDir()}
+                  >
+                    <FolderOpen size={14} style={{ marginRight: '6px' }} />
+                    {t('logDir.openBtn')}
+                  </button>
+                </div>
+                <div className="settings-helper">{t('logDir.hint')}</div>
               </div>
             </section>
           </div>

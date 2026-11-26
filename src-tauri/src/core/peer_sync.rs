@@ -521,11 +521,18 @@ pub fn reconcile_all(store: &SkillStore) -> Result<(usize, usize, usize)> {
         match reconcile_skill(store, skill, true) {
             Ok(ReconcileOutcome::Adopted { from, updated }) => {
                 adopted += 1;
+                // 落点要打全：只打数量的话，事后排查「到底是哪几份被覆盖了」
+                // 就只能靠猜。updated 里本来就是标签字符串，没理由丢掉。
                 log::info!(
-                    "[peer_sync] {} 采纳来自 {} 的改动，更新 {} 个副本",
+                    "[peer_sync] {} 采纳来自 {} 的改动，更新 {} 个副本：{}",
                     skill.name,
                     from,
-                    updated.len()
+                    updated.len(),
+                    if updated.is_empty() {
+                        "无".to_string()
+                    } else {
+                        updated.join(", ")
+                    }
                 );
             }
             Ok(ReconcileOutcome::Conflict { candidates, .. }) => {

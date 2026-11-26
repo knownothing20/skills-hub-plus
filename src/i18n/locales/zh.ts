@@ -784,6 +784,14 @@ export default {
     ignoreSaveButton: '保存屏蔽设置',
     ignoreSavedSuccess: '屏蔽设置已保存并生效',
   },
+  logDir: {
+    title: '运行日志',
+    description:
+      '自动同步、落后副本刷新、冲突与失败都会写入日志文件。同步出问题时可从这里查看具体是哪个技能、哪个工具、几点发生的。',
+    openBtn: '打开日志目录',
+    hint: '日志按 5MB 轮转，最多保留 10 份归档；时间戳为本地时间。',
+    openFailed: '打开日志目录失败：{{error}}',
+  },
   lock: {
     title: '清单 skills.lock',
     description:

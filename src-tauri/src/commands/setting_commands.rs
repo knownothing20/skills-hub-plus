@@ -1,6 +1,6 @@
 use serde::Serialize;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::core::backup::{
     get_backup_config as get_backup_config_core, perform_backup, perform_restore,
@@ -63,6 +63,16 @@ pub fn save_recent_project_impl(
         &serde_json::to_string(&projects).unwrap_or_else(|_| "[]".to_string()),
     )?;
     Ok(projects)
+}
+
+#[tauri::command]
+pub async fn get_log_dir(app: tauri::AppHandle) -> Result<String, String> {
+    // 与 tauri-plugin-log 的 TargetKind::LogDir 指向同一目录，
+    // 这样界面点开的就是真正在写的那个位置，不会两边不一致。
+    app.path()
+        .app_log_dir()
+        .map(|path| path.to_string_lossy().to_string())
+        .map_err(|err| format!("LOG_DIR_UNAVAILABLE|{err}"))
 }
 
 #[tauri::command]

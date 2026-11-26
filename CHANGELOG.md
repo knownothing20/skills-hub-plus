@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.10] - 2026-11-26
+
+### Changed
+
+- **日志改为本地时间、加大容量并保留归档**：`tauri-plugin-log` 的默认值是
+  `TimezoneStrategy::UseUtc` + `max_file_size(40KB)` + `RotationStrategy::KeepOne`。
+  三者叠加的后果是：时间戳比本地时间慢 8 小时（日志写 `12:42`，实际 `20:42`），
+  而且日志一满 40KB 就被 `fs::remove_file` **整个删除**，不留任何归档——出了问题
+  回头去查，历史已经没了。实测日志目录里只剩一个 240 字节的文件，就两行。
+
+  改为本地时间、单文件 5MB、保留 10 份归档。注意 `RotationStrategy::KeepSome`
+  才开始做「重命名为带日期」的归档，`KeepOne` 是直接删。
+
+- **同步日志补齐可追溯信息**：
+  - `peer_sync` 采纳改动时只打「更新 N 个副本」的数量，其实 `updated` 里本来就是
+    各落点的标签字符串，白白丢掉。改为打印具体落点，事后能直接看出是哪几份被覆盖。
+  - 定时轮询原先只在 `adopted > 0 || conflicts > 0` 时才写一行，长时间无日志时
+    **无法区分「没有改动」和「同步线程已经死了」**。改为每轮必打一行，兼作心跳。
+  - `stale_copies` 自动刷新副本成功时**完全不写日志**（只有失败才 `warn`），导致
+    「界面报落后、过一会儿自己好了」这类现象事后无从追查。现在成功也记技能、工具
+    与备份落点；启动扫描还会汇总一行「异常几个、可自动刷新几个、已刷新几个、剩余几个」。
+
+### Added
+
+- **设置页新增「运行日志」入口**：一键打开日志目录，不用再人肉找
+  `%LOCALAPPDATA%\io.github.mcncarl.skillshub\logs`。新增 `get_log_dir` 命令，
+  指向与 `TargetKind::LogDir` 相同的目录，避免界面与真实写入位置不一致。
+
 ## [2.0.9] - 2026-11-25
 
 ### Fixed

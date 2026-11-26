@@ -807,6 +807,14 @@ export default {
     ignoreSaveButton: 'Save Ignore Settings',
     ignoreSavedSuccess: 'Ignore settings saved and applied',
   },
+  logDir: {
+    title: 'Runtime Logs',
+    description:
+      'Auto sync, stale copy refreshes, conflicts and failures are all written to the log file. When sync misbehaves, check here for the exact skill, tool and timestamp.',
+    openBtn: 'Open Log Folder',
+    hint: 'Logs rotate at 5MB with up to 10 archives kept; timestamps use local time.',
+    openFailed: 'Failed to open log folder: {{error}}',
+  },
   lock: {
     title: 'skills.lock Manifest',
     description:

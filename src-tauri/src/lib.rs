@@ -13,7 +13,7 @@ use core::tool_adapters::{default_tool_adapters, load_tool_config, save_tool_con
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager};
-use tauri_plugin_log::{Target, TargetKind};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 
 /// 最后一次「有人在用界面」的毫秒时间戳。前端节流上报，窗口显示/隐藏时也会刷新。
 static LAST_ACTIVITY_MS: AtomicU64 = AtomicU64::new(0);
@@ -226,6 +226,12 @@ pub fn run() {
             app.handle().plugin(
                 tauri_plugin_log::Builder::default()
                     .level(log::LevelFilter::Info)
+                    // 默认是 UTC，排查时要自己减 8 小时，极易对错时间。改本地时间。
+                    .timezone_strategy(TimezoneStrategy::UseLocal)
+                    // 默认 40KB + KeepOne：一满就把整个日志删除，不留归档，
+                    // 出了问题回头查已经没历史了。这里放宽容量并保留 10 份归档。
+                    .max_file_size(5 * 1024 * 1024)
+                    .rotation_strategy(RotationStrategy::KeepSome(10))
                     .targets([
                         Target::new(TargetKind::LogDir { file_name: None }),
                         #[cfg(desktop)]
@@ -469,11 +475,12 @@ pub fn run() {
                     std::thread::sleep(std::time::Duration::from_secs(COPY_SYNC_INTERVAL_SECS));
                     match core::peer_sync::reconcile_all(&store) {
                         Ok((adopted, conflicts, unchanged)) => {
-                            if adopted > 0 || conflicts > 0 {
-                                log::info!(
-                                    "peer sync: 采纳 {adopted} 个，冲突 {conflicts} 个，无变化 {unchanged} 个"
-                                );
-                            }
+                            // 每轮必打一行：无变化时也要留痕，否则日志里看不出
+                            // 定时器到底还活着没有——之前的写法只在有改动时打，
+                            // 长时间没日志根本无法区分「没改动」和「线程死了」。
+                            log::info!(
+                                "peer sync: 采纳 {adopted} 个，冲突 {conflicts} 个，无变化 {unchanged} 个"
+                            );
                             update_tray_alert(&handle, conflicts > 0);
                             notify_sync_conflict(&handle, conflicts);
                         }
@@ -526,6 +533,7 @@ pub fn run() {
             commands::list_library_files,
             commands::read_library_file,
             commands::get_central_repo_path,
+            commands::get_log_dir,
             commands::get_recent_projects,
             commands::save_recent_project,
             commands::get_tool_status,
