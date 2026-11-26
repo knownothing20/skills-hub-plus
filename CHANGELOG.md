@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.0.11] - 2026-11-26
+## [2.0.12] - 2026-11-27
 
 ### Fixed
 
@@ -21,9 +21,19 @@ All notable changes to this project will be documented in this file.
 
   改为由后端下发两个字段，前端不再猜：
   - `content_changed_at`：内容最后变更时间，取 `skill_baseline_history`
-    里该技能最新一条指纹的时间；没有历史则退回入库时间。
+    里该技能最新一条指纹的时间；**没有历史则取母库文件的最新 mtime**
+    （真实内容写入时间），两者都取不到才退回入库时间。
   - `content_edited`：是否真的被编辑过。历史里只有一条 = 建立基线时落的
-    初次快照，不算编辑；两条及以上才说明至少发生过一次采纳。
+    初次快照，不算编辑；两条及以上才说明至少发生过一次采纳。走 mtime 兜底时，
+    文件比入库晚超过 1 分钟才算编辑过。
+
+  为什么兜底不能取 `updated_at` 或入库时间：17 个技能在历史表里零记录
+  （历史表是 2.0.x 才引入的）。它们的 `updated_at` 大多是同一次批量迁移留下的
+  `11-11 08:14`，不代表内容变更；而文件 mtime 是真的——实测其中 13 个与
+  `updated_at` 精确到秒完全一致（那次批量操作确实写过文件内容），
+  `agentport` 的 mtime 更晚（`11-21 09:10`，之后又被编辑过）。
+  若退回入库时间，这 17 个会全部显示成「09-21 生成」，是假的；
+  用 mtime 后全部如实显示「11-11 更新」及各自真实时间。
 
   `skill_baseline_history` 是唯一真实记录「内容何时变过」的地方，但它混着
   两套时间单位：早期版本用 `as_secs()` 写入（31 行，如 `1795683097`），
@@ -35,7 +45,8 @@ All notable changes to this project will be documented in this file.
   全库 48 个技能实测结果：43 个判为「更新」，5 个（`browser-operator`、
   `digital-human-video-editing`、`web-access`、`zlib-safe`、`openscreen-dev`）
   判为「生成」——这 5 个的历史都只有 1 条，且是安装后几分钟写入的初次基线，
-  符合「装完没动过」的语义。
+  符合「装完没动过」的语义。零历史的 17 个走 mtime 兜底，全部如实判为「更新」
+  （11-11 及之后各有真实修改），不会被误说成「9 月刚装好」。
 
 - **详情页的时间同样取自失效的 `updated_at`**：`SkillDetailView` 顶部那枚
   时钟图标旁显示的是 `skill.updated_at`，与卡片同一个问题。一并改用

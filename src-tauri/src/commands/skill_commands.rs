@@ -208,13 +208,55 @@ pub fn apply_managed_icon_data_url_budget(
     *remaining_bytes -= encoded_bytes;
 }
 
+/// 目录内所有文件的最新修改时间（毫秒）。取不到时返回 0。
+///
+/// 只用于「基线历史里没有记录」时兜底：那批技能在 2.0.x 引入历史表之前
+/// 就被编辑过，历史补不回来，但文件本身的 mtime 是真实的。实测 13 个零历史
+/// 技能的 mtime 与 `updated_at` 精确到秒一致（11-11 08:14 那次批量操作确实
+/// 写过文件内容），说明 mtime 在这批数据上可信。
+///
+/// 跳过 `DEFAULT_IGNORES` 里的目录（`.git` / `__pycache__` / `node_modules`）
+/// 与隐藏文件：那些不是技能内容，被它们刷新会把时间虚推到现在。
+fn dir_latest_mtime_ms(root: &std::path::Path) -> i64 {
+    fn walk(dir: &std::path::Path, best: &mut i64, depth: usize) {
+        // 防御：正常技能不会有深目录，超过 8 层就不再往下（避免异常目录树拖慢列表）
+        if depth > 8 {
+            return;
+        }
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with('.') || name == "node_modules" || name == "__pycache__" {
+                continue;
+            }
+            let Ok(meta) = entry.metadata() else { continue };
+            if meta.is_dir() {
+                walk(&entry.path(), best, depth + 1);
+            } else if let Ok(modified) = meta.modified() {
+                if let Ok(dur) = modified.duration_since(std::time::UNIX_EPOCH) {
+                    let ms = dur.as_millis() as i64;
+                    if ms > *best {
+                        *best = ms;
+                    }
+                }
+            }
+        }
+    }
+    let mut best = 0i64;
+    walk(root, &mut best, 0);
+    best
+}
+
 pub fn get_managed_skills_impl_with_icon_budget(
     store: &SkillStore,
     icon_data_url_budget: usize,
 ) -> Result<Vec<ManagedSkillDto>, String> {
     let skills = store.list_skills().map_err(|err| err.to_string())?;
     // 一次查全表的「内容变更时间」映射，避免在下面的循环里逐技能查库（48 次查询）。
-    // 查询失败时不阻断列表渲染：退回空映射 = 全部按「从未编辑」处理。
+    // 查询失败时不阻断列表渲染：退回空映射 = 全部走下面的文件 mtime 兜底。
     let change_map = store.get_content_change_map().unwrap_or_default();
     let mut remaining_icon_bytes = icon_data_url_budget;
     Ok(skills
@@ -276,11 +318,25 @@ pub fn get_managed_skills_impl_with_icon_budget(
                 })
                 .collect();
 
-            // 没有历史记录 = 安装后从未被编辑过，时间是入库那一刻。
-            let (content_changed_at, content_edited) = change_map
-                .get(&skill.id)
-                .copied()
-                .unwrap_or((skill.created_at, false));
+            // 有基线历史 → 用历史（最贴近「内容被检测到变更」的时刻）。
+            // 没有历史 → 用母库文件的最新 mtime（真实内容写入时间）。
+            // 两者都取不到 → 退回入库时间，至少不是错的时间。
+            //
+            // 为什么不退回 `updated_at`：那 17 个零历史技能里，`updated_at`
+            // 大多是同一次批量迁移留下的 11-11 08:14，不代表内容变更；而它们的
+            // 文件 mtime 才是真的（13 个与 updated_at 秒级一致，其余更晚）。
+            let (content_changed_at, content_edited) = match change_map.get(&skill.id) {
+                Some((latest, edited)) => (*latest, *edited),
+                None => {
+                    let mtime = dir_latest_mtime_ms(std::path::Path::new(&skill.central_path));
+                    if mtime > 0 {
+                        // 文件比入库晚超过 1 分钟，才算「装进来之后被改过」
+                        (mtime, mtime > skill.created_at + 60_000)
+                    } else {
+                        (skill.created_at, false)
+                    }
+                }
+            };
 
             ManagedSkillDto {
                 id: skill.id,
