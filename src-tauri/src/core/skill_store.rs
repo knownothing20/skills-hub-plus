@@ -273,6 +273,52 @@ impl SkillStore {
         })
     }
 
+    /// 每个技能的「内容最后变更时间」。
+    ///
+    /// 为什么不能直接用 `skills.updated_at`：那个字段只在安装、启用/停用、
+    /// 设为母版、重建镜像这类**元数据或结构**操作时写入，而真正的内容变更
+    /// （用户改技能里的 md、`sync.py pull` 拉下新版本）走的是 `peer_sync`
+    /// 的采纳路径——那条路径只写 `skill_baselines` 与 `skill_baseline_history`，
+    /// 从来没碰过 `updated_at`。所以拿 `updated_at` 判断「有没有更新过」必然
+    /// 漏掉全部真实编辑（2026-11 小红书被误判成「生成」就是这么来的）。
+    ///
+    /// 这里改用 `skill_baseline_history`：每检测到一次指纹变化就落一条，
+    /// 是唯一真实记录了「内容何时变过」的地方。
+    ///
+    /// 返回值 `(content_changed_at, edited)`：
+    /// - `content_changed_at`：要显示的时间。改动过取最新一条历史，否则取入库时间。
+    /// - `edited`：是否真的被编辑过。历史里只有一条 = 建立基线时落的初次快照，
+    ///   不代表内容变更；两条及以上才说明至少发生过一次采纳。
+    ///
+    /// 注意历史表里混着两套时间单位：早期版本用 `as_secs()` 写入（31 行），
+    /// 现在用 `as_millis()`（53 行）。统一按 1e11 为界归一化到毫秒——
+    /// 秒级今天是 1.7e9，毫秒级 1.7e12，界线两侧距离足够远，不会误判。
+    pub fn get_content_change_map(&self) -> Result<std::collections::HashMap<String, (i64, bool)>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT h.skill_id,
+                        COUNT(*) AS n,
+                        MAX(CASE WHEN h.created_at < 100000000000
+                                 THEN h.created_at * 1000 ELSE h.created_at END) AS latest
+                 FROM skill_baseline_history h
+                 GROUP BY h.skill_id",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            })?;
+            let mut out = std::collections::HashMap::new();
+            for row in rows {
+                let (skill_id, count, latest) = row?;
+                out.insert(skill_id, (latest, count >= 2));
+            }
+            Ok(out)
+        })
+    }
+
     /// 记一条历史指纹，只保留最近 keep 条
     pub fn push_baseline_history(
         &self,

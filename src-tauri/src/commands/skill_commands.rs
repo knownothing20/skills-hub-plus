@@ -39,6 +39,12 @@ pub struct ManagedSkillDto {
     pub central_path: String,
     pub created_at: i64,
     pub updated_at: i64,
+    /// 「内容最后变更时间」。区别于 `updated_at`——后者只反映元数据操作
+    /// （安装、启用/停用、设母版），内容被改动时不会变。卡片上的相对时间
+    /// 与「生成/更新」图标都应该用这个字段，否则会把真实编辑显示成安装时刻。
+    pub content_changed_at: i64,
+    /// 内容是否真的被编辑过。首次建立基线落的那条历史不算编辑。
+    pub content_edited: bool,
     pub last_sync_at: Option<i64>,
     pub enabled: bool,
     pub has_external_source: bool,
@@ -207,6 +213,9 @@ pub fn get_managed_skills_impl_with_icon_budget(
     icon_data_url_budget: usize,
 ) -> Result<Vec<ManagedSkillDto>, String> {
     let skills = store.list_skills().map_err(|err| err.to_string())?;
+    // 一次查全表的「内容变更时间」映射，避免在下面的循环里逐技能查库（48 次查询）。
+    // 查询失败时不阻断列表渲染：退回空映射 = 全部按「从未编辑」处理。
+    let change_map = store.get_content_change_map().unwrap_or_default();
     let mut remaining_icon_bytes = icon_data_url_budget;
     Ok(skills
         .into_iter()
@@ -267,6 +276,13 @@ pub fn get_managed_skills_impl_with_icon_budget(
                 })
                 .collect();
 
+            // 没有历史记录 = 安装后从未被编辑过，时间是入库那一刻。
+            let (content_changed_at, content_edited) = change_map
+                .get(&skill.id)
+                .copied()
+                .map(|(latest, edited)| (latest, edited))
+                .unwrap_or((skill.created_at, false));
+
             ManagedSkillDto {
                 id: skill.id,
                 name: skill.name,
@@ -280,6 +296,8 @@ pub fn get_managed_skills_impl_with_icon_budget(
                 central_path: skill.central_path,
                 created_at: skill.created_at,
                 updated_at: skill.updated_at,
+                content_changed_at,
+                content_edited,
                 last_sync_at: skill.last_sync_at,
                 enabled: skill.enabled,
                 has_external_source: update_capability.has_external_source,

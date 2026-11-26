@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { openPath } from '@tauri-apps/plugin-opener'
 import { isActiveSkillTarget } from './skillSyncStatus'
+import { resolveDisplayTime } from '../../hooks/skillTimestamp'
 import { roleOfTarget } from './skillOwner'
 import SkillIgnoreModal from './modals/SkillIgnoreModal'
 import { SyncCompareModal } from './modals/SyncCompareModal'
@@ -816,7 +817,7 @@ const SkillDetailView = ({
             </button>
             <span className="detail-meta-item">
               <Clock size={13} />
-              {formatRelative(skill.updated_at)}
+              {formatRelative(resolveDisplayTime(skill))}
             </span>
             <span className="detail-meta-item">
               <File size={13} />

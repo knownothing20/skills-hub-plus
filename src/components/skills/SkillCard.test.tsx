@@ -16,6 +16,8 @@ const createSkill = (updateable: boolean): ManagedSkill => ({
   central_path: '/Users/example/.agents/skills/example',
   created_at: 1,
   updated_at: 1,
+  content_changed_at: 1,
+  content_edited: false,
   enabled: true,
   updateable,
   status: 'ok',

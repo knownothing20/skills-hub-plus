@@ -2,6 +2,64 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.11] - 2026-11-26
+
+### Fixed
+
+- **「生成 / 更新」判定一直判错，真实编辑全被说成「刚装好」**：
+  卡片原先用 `updated_at - created_at > 1s` 推断「更新过」，前提是
+  「内容一改 `updated_at` 就动」。这个前提不成立——`skills.updated_at`
+  只在安装、启用/停用、设为母版、重建镜像这类**元数据或结构**操作时写入，
+  而真正的内容变更（用户改技能里的 md、`sync.py pull` 拉下新版本）走
+  `peer_sync::reconcile` 的采纳路径，那条路径只写 `skill_baselines` 和
+  `skill_baseline_history`，**从头到尾没有回写 `skills.updated_at`**。
+
+  实测反例：`xiaohongshu-ai-creator` 入库于 11-25 21:39:58，内容在
+  11-26 21:02:13 改过（13 个文件），21:12:09 被轮询检测到并扩散到各副本。
+  但它的 `created_at == updated_at == 11-25 21:39:58`，旧逻辑判为「生成」，
+  卡片还显示「1 天前」——而它明明是几十分钟前刚改的。
+
+  改为由后端下发两个字段，前端不再猜：
+  - `content_changed_at`：内容最后变更时间，取 `skill_baseline_history`
+    里该技能最新一条指纹的时间；没有历史则退回入库时间。
+  - `content_edited`：是否真的被编辑过。历史里只有一条 = 建立基线时落的
+    初次快照，不算编辑；两条及以上才说明至少发生过一次采纳。
+
+  `skill_baseline_history` 是唯一真实记录「内容何时变过」的地方，但它混着
+  两套时间单位：早期版本用 `as_secs()` 写入（31 行，如 `1795683097`），
+  现在用 `as_millis()`（53 行，如 `1795683097000`）。早前把秒级值当毫秒
+  解析，换算出 `1970-01-22 02:48` 这种鬼时间，误以为数据损坏。现统一按
+  `1e11` 为界归一化到毫秒（秒级今天是 1.7e9，毫秒级 1.7e12，界线两侧距离
+  足够远，不会误判）。
+
+  全库 48 个技能实测结果：43 个判为「更新」，5 个（`browser-operator`、
+  `digital-human-video-editing`、`web-access`、`zlib-safe`、`openscreen-dev`）
+  判为「生成」——这 5 个的历史都只有 1 条，且是安装后几分钟写入的初次基线，
+  符合「装完没动过」的语义。
+
+- **详情页的时间同样取自失效的 `updated_at`**：`SkillDetailView` 顶部那枚
+  时钟图标旁显示的是 `skill.updated_at`，与卡片同一个问题。一并改用
+  `content_changed_at`。
+
+### Added
+
+- **卡片时间戳加图标区分「生成」与「更新」**：同样是「23 小时前」，可能是
+  刚装进来没动过，也可能是刚被更新并扩散到了各工具，语义完全不同。用
+  `FilePlus2`（生成）与 `Pencil`（更新）两个图标区分，并各配 tooltip。
+
+  布局约束：图标与文字排进 `.skill-updated` 这个 `inline-flex`，图标用
+  `flex: 0 0 13px` 占固定槽位，文字 `flex: 0 1 auto`。列表视图网格的 time 列
+  从 64px 增到 74px 容纳图标。实测列线仍然严格对齐（`timeLeftUnique:[742]`、
+  `toolsLeftUnique:[823]`、`widthsUnique:[74]`、无溢出），没有出现历史上
+  踩过的「工具区左边界整排右移」问题。
+
+### Changed
+
+- **启用/停用不再刷新 `updated_at`**：`set_skill_enabled` 与
+  `enable_skill_with_targets_atomically` 里的 `UPDATE skills SET ... updated_at = ?`
+  去掉了 `updated_at` 赋值。开关是状态而非内容变更，写进去只会污染时间线
+  （虽然判定已不依赖该字段，但仍不该写脏数据）。
+
 ## [2.0.10] - 2026-11-26
 
 ### Changed

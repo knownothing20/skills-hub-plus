@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { getToolSyncState, isActiveSkillTarget } from './skillSyncStatus'
 import { roleOfTarget } from './skillOwner'
 import { isSkillUpdateable } from './skillUpdateability'
-import { resolveTimestampKind } from '../../hooks/skillTimestamp'
+import { resolveDisplayTime, resolveTimestampKind } from '../../hooks/skillTimestamp'
 import type {
   ManagedSkill,
   SharedSkillDirDto,
@@ -112,6 +112,7 @@ const SkillCard = ({
   // 卡片上那个相对时间只回答「多久以前」，分不清「刚装好」和「刚更新」。
   // 两者语义不同（后者意味着内容已经在各工具之间扩散过），用图标区分。
   const timestampKind = resolveTimestampKind(skill)
+  const displayTime = resolveDisplayTime(skill)
   const scopeTargets = skill.targets.filter(
     (target) => (target.scope ?? 'global') === scope,
   )
@@ -388,8 +389,10 @@ const SkillCard = ({
         <div className="skill-updated">
           {/* 时间戳本身只说明「多久以前」，但同样是「23 小时前」，
               可能是刚装进来没动过，也可能是刚被更新过——语义完全不同。
-              这里用 created_at / updated_at 是否相等来区分，配一个图标补足。
-              图标排进固定宽度的 grid 列（.skill-updated 内部再分格），
+              判定与显示值统一用后端的 content_changed_at / content_edited：
+              skills.updated_at 只在元数据操作时写入，内容被编辑时不会变，
+              拿它判断会把真实编辑显示成安装时刻（2026-11 小红书误判）。
+              图标排进固定宽度的 flex 槽（.skill-updated-icon 有 flex-basis），
               不参与列宽计算，因此各行图标与文字仍然严格对齐。 */}
           <span
             className={`skill-updated-icon is-${timestampKind}`}
@@ -399,7 +402,7 @@ const SkillCard = ({
           >
             {timestampKind === 'created' ? <FilePlus2 size={11} /> : <Pencil size={11} />}
           </span>
-          <span className="skill-updated-text">{formatRelative(skill.updated_at)}</span>
+          <span className="skill-updated-text">{formatRelative(displayTime)}</span>
         </div>
       </div>
 

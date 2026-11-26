@@ -53,6 +53,10 @@ export type ManagedSkill = {
   central_path: string
   created_at: number
   updated_at: number
+  /** 内容最后变更时间。区别于 updated_at：后者只随元数据操作变，不随内容编辑变。 */
+  content_changed_at: number
+  /** 内容是否真的被编辑过（首次建立基线的那条历史不算）。 */
+  content_edited: boolean
   last_sync_at?: number | null
   enabled: boolean
   updateable: boolean
