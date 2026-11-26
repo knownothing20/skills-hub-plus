@@ -98,6 +98,7 @@ Improvements this fork ships on top of the upstream `v0.9.1` baseline:
 | 13 | **Software-level shield with per-skill exceptions** | Block an entire tool from discovery, sync and reconciliation, then whitelist individual Skills inside it (entries shaped `tool/skill`) so those keep syncing. Files on disk are never touched, so unblocking restores the exact previous state; shared skill folders only stop being scanned once every tool that owns them is blocked. |
 | 14 | **The owner is only an origin record** | `source_ref` keeps the software a skill was first created in, which is what the crown badge shows. It no longer decides who wins — the baseline does — and the central copy is just one peer that doubles as the backup. |
 | 15 | **Copy-only sync (2.0.1)** | Symlinks are gone for good: `auto`, `link only` and per-tool modes were removed, leaving a single full-directory copy everywhere. A link would collapse N peer copies into one file and break "whoever edited it is newest", the version letters and the baseline comparison. |
+| 16 | **Honest content-change timestamps (2.0.11)** | The card timestamp and the "created / updated" icon read from `skill_baseline_history`, not `skills.updated_at`. The latter is written only by metadata operations (install, enable/disable, set-as-master) and **never moves when content is edited**, so using it renders real edits as install time. |
 
 ## Upstream features worth adopting
 

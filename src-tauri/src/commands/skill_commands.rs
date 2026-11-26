@@ -280,7 +280,6 @@ pub fn get_managed_skills_impl_with_icon_budget(
             let (content_changed_at, content_edited) = change_map
                 .get(&skill.id)
                 .copied()
-                .map(|(latest, edited)| (latest, edited))
                 .unwrap_or((skill.created_at, false));
 
             ManagedSkillDto {
