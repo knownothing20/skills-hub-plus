@@ -77,6 +77,13 @@ an older version is not spread.
 |:---:|:---:|:---:|
 | ![Bulk actions](docs/assets/my-skills-list-bulk-actions.png) | ![Explore online skills](docs/assets/explore-online-skills.png) | ![Scheduled updates](docs/assets/updates-scheduled-run.png) |
 
+> The timestamp at the bottom-right of each skill card carries a small icon:
+> 📄 file-plus means **never touched since install**, ✏️ pencil means **the content has been edited**.
+> "3 hours ago" reads very differently in the two cases — freshly installed vs. edited and already
+> propagated to every tool. The time comes from the newest fingerprint change in
+> `skill_baseline_history`, not `skills.updated_at` (which is only written on install,
+> enable/disable and set-as-master, never on content edits).
+
 ## What's different from upstream
 
 Improvements this fork ships on top of the upstream `v0.9.1` baseline:

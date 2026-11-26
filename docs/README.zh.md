@@ -73,6 +73,11 @@ graph LR
 |:---:|:---:|:---:|
 | ![批量操作](assets/my-skills-list-bulk-actions.png) | ![探索在线技能](assets/explore-online-skills.png) | ![定时更新](assets/updates-scheduled-run.png) |
 
+> 技能卡片右下角的时间带一个小图标:📄 文件加号表示**装进来后没动过**,✏️ 铅笔表示**内容被编辑过**。
+> 同样是「3 小时前」,前者是刚装好、后者是被改过并已扩散到各工具,语义完全不同。
+> 时间取自 `skill_baseline_history` 里最新一次指纹变更,而不是 `skills.updated_at`
+> (那个字段只在安装、启用/停用、设母版时写入,内容编辑时不会变)。
+
 ## 与上游的差异
 
 本分支在上游 `v0.9.1` 基础上做出的改进:
