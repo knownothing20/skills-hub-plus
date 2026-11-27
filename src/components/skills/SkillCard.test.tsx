@@ -18,6 +18,7 @@ const createSkill = (updateable: boolean): ManagedSkill => ({
   updated_at: 1,
   content_changed_at: 1,
   content_edited: false,
+  version: null,
   enabled: true,
   updateable,
   status: 'ok',

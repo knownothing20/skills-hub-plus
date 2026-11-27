@@ -653,6 +653,19 @@ const SkillDetailView = ({
         <div className="detail-summary">
           <div className="detail-title-row" style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
             <div className="detail-skill-name">{skill.name}</div>
+            {/* 与卡片同一口径：没声明版本号也显示 v0，配色弱化。
+                放在名字与同步状态之间，读起来是「这是什么技能的哪个版本」。 */}
+            <span
+              className={`skill-version-badge${skill.version ? '' : ' is-unversioned'}`}
+              title={
+                skill.version
+                  ? `技能声明的版本号：v${skill.version}`
+                  : '这个技能没有声明版本号（manifest.json 与 SKILL.md frontmatter 里都没有 version）'
+              }
+              aria-label={skill.version ? `版本 v${skill.version}` : '未声明版本号，显示为 v0'}
+            >
+              v{skill.version ?? '0'}
+            </span>
             <span className={`detail-sync-status ${syncState}`}>
               <i aria-hidden="true" />
               {syncStatus}

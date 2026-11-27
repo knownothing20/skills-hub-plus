@@ -34,6 +34,9 @@ pub struct ManagedSkillDto {
     pub description: Option<String>,
     pub icon_data_url: Option<String>,
     pub brand_color: Option<String>,
+    /// 技能自己声明的版本号（`manifest.json` 或 `SKILL.md` frontmatter）。
+    /// 48 个技能里只有 8 个有，其余为 null —— 前端统一显示成 `v0`。
+    pub version: Option<String>,
     pub source_type: String,
     pub source_ref: Option<String>,
     pub central_path: String,
@@ -344,6 +347,7 @@ pub fn get_managed_skills_impl_with_icon_budget(
                 description: skill.description,
                 icon_data_url: ui_metadata.icon_data_url,
                 brand_color: ui_metadata.brand_color,
+                version: ui_metadata.version,
                 source_type: skill.source_type,
                 source_ref: skill
                     .source_ref

@@ -205,6 +205,22 @@ const SkillCard = ({
               <button className="skill-name clickable" type="button" onClick={() => onOpenDetail(skill)}>
                 {skill.name}
               </button>
+              {/* 版本号徽章：没有声明版本号的技能也显示 v0，不留空位——
+                  只有 8/48 声明了版本，若按「没有就不渲染」处理，其余 40 个
+                  技能的行会参差不齐。固定 min-width 保证各行右边界一致。 */}
+              <span
+                className={`skill-version-badge${skill.version ? '' : ' is-unversioned'}`}
+                title={
+                  skill.version
+                    ? `技能声明的版本号：v${skill.version}`
+                    : '这个技能没有声明版本号（manifest.json 与 SKILL.md frontmatter 里都没有 version）'
+                }
+                aria-label={
+                  skill.version ? `版本 v${skill.version}` : '未声明版本号，显示为 v0'
+                }
+              >
+                v{skill.version ?? '0'}
+              </span>
               {mirrorStale ? (
                 // 只放一个图标徽标：完整文案塞进标题行会把技能名挤成 "ag..."，
                 // 反而看不到是哪个技能。文案走 title 与 aria-label。

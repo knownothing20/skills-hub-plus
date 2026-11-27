@@ -57,6 +57,11 @@ export type ManagedSkill = {
   content_changed_at: number
   /** 内容是否真的被编辑过（首次建立基线的那条历史不算）。 */
   content_edited: boolean
+  /**
+   * 技能自己声明的版本号（`manifest.json` 或 `SKILL.md` frontmatter）。
+   * 48 个技能里只有 8 个有，其余为 null —— 界面统一显示成 `v0`。
+   */
+  version?: string | null
   last_sync_at?: number | null
   enabled: boolean
   updateable: boolean

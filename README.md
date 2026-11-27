@@ -106,6 +106,7 @@ Improvements this fork ships on top of the upstream `v0.9.1` baseline:
 | 14 | **The owner is only an origin record** | `source_ref` keeps the software a skill was first created in, which is what the crown badge shows. It no longer decides who wins — the baseline does — and the central copy is just one peer that doubles as the backup. |
 | 15 | **Copy-only sync (2.0.1)** | Symlinks are gone for good: `auto`, `link only` and per-tool modes were removed, leaving a single full-directory copy everywhere. A link would collapse N peer copies into one file and break "whoever edited it is newest", the version letters and the baseline comparison. |
 | 16 | **Honest content-change timestamps (2.0.11)** | The card timestamp and the "created / updated" icon read from `skill_baseline_history`, not `skills.updated_at`. The latter is written only by metadata operations (install, enable/disable, set-as-master) and **never moves when content is edited**, so using it renders real edits as install time. Skills with no history fall back to the real file mtime. |
+| 17 | **Self-declared skill versions (2.0.13)** | Cards and the detail view show the version a skill declares itself (`manifest.json` or `SKILL.md` frontmatter). Only 8 of 48 declare one; the rest render `v0`. Says far more than the A/B letters about *which* version a copy holds. |
 
 ## Upstream features worth adopting
 

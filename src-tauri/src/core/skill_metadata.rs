@@ -19,6 +19,111 @@ const MAX_RASTER_PIXELS: u64 = 262_144;
 pub struct SkillUiMetadata {
     pub icon_data_url: Option<String>,
     pub brand_color: Option<String>,
+    /// 技能自己声明的版本号（如 `0.6.0`），来自 `manifest.json` 的 `version`
+    /// 或 `SKILL.md` frontmatter 的 `version:`。
+    ///
+    /// 为什么需要它：A/B 字母只能说明「哪份内容更新」，说不出「这是哪个版本」。
+    /// tietu 就是典型——母库 0.6.0、workbuddy 0.6.1，光看字母只能猜。
+    ///
+    /// 覆盖率很低（48 个技能里只有 8 个声明了），所以**没声明不是错误**，
+    /// 前端统一显示为 `v0`。
+    pub version: Option<String>,
+}
+
+/// 版本号只接受这种形状：`1` / `1.2` / `1.2.3` / `1.2.3-beta.1`。
+///
+/// 不是洁癖——frontmatter 里 `version:` 后面偶尔会跟注释或引号，也可能被写成
+/// 一段描述。宁可当作「没有版本号」（显示 v0），也不要把脏字符串塞进徽章
+/// 把布局撑坏。
+fn sanitize_version(raw: &str) -> Option<String> {
+    let trimmed = raw.trim().trim_matches(|c| c == '"' || c == '\'');
+    // 截掉行尾注释（`1.2.3 # 备注`）
+    let trimmed = trimmed.split('#').next().unwrap_or("").trim();
+    if trimmed.is_empty() || trimmed.len() > 24 {
+        return None;
+    }
+    let ok = trimmed
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' || ch == '+' || ch == '_');
+    if !ok || !trimmed.chars().next().is_some_and(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    Some(trimmed.to_string())
+}
+
+/// 从 `SKILL.md` 的 YAML frontmatter 里取 `version:`。
+///
+/// 只扫 frontmatter 区间（第一个 `---` 到第二个 `---`），不碰正文：
+/// 正文里出现 `version: 2` 这类字样很常见（示例配置、代码块），
+/// 全局搜索会误命中。
+fn version_from_frontmatter(text: &str) -> Option<String> {
+    let mut lines = text.lines();
+    // 第一行必须是 `---`，否则不是 frontmatter
+    if lines.next().map(str::trim) != Some("---") {
+        return None;
+    }
+    for line in lines {
+        let trimmed = line.trim();
+        if trimmed == "---" {
+            break;
+        }
+        // 只在顶层匹配：缩进的 `version:` 属于某个子对象，不是技能版本
+        if leading_spaces(line) != 0 {
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("version:") {
+            return sanitize_version(rest);
+        }
+    }
+    None
+}
+
+/// 从 `manifest.json` 里取顶层 `version`。
+///
+/// 手写一个极简扫描器而不是引入 JSON 依赖：这里只要一个字符串字段，
+/// 且文件是几百字节的小配置。用 `serde_json` 也可以，但会让这个模块
+/// 从「读 UI 元数据」变成「解析整个 manifest」，得不偿失。
+fn version_from_manifest(text: &str) -> Option<String> {
+    // 找一个形如 `"version": "0.6.0"` 的顶层键值对
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("\"version\"") {
+            continue;
+        }
+        let Some((_, rest)) = trimmed.split_once(':') else {
+            continue;
+        };
+        let value = rest.trim().trim_end_matches(',');
+        return sanitize_version(value);
+    }
+    None
+}
+
+/// 读技能声明的版本号。`manifest.json` 优先于 `SKILL.md`：
+/// manifest 是显式的发布元数据，frontmatter 更像是顺手写的。
+fn read_skill_version(skill_root: &Path) -> Option<String> {
+    const MAX_BYTES: u64 = 32 * 1024;
+
+    let manifest = skill_root.join("manifest.json");
+    if let Ok(bytes) = read_bounded_regular_file(skill_root, &manifest, MAX_BYTES, "manifest.json")
+    {
+        if let Ok(text) = std::str::from_utf8(&bytes) {
+            if let Some(version) = version_from_manifest(text) {
+                return Some(version);
+            }
+        }
+    }
+
+    let skill_md = skill_root.join("SKILL.md");
+    if let Ok(bytes) = read_bounded_regular_file(skill_root, &skill_md, MAX_BYTES, "SKILL.md") {
+        if let Ok(text) = std::str::from_utf8(&bytes) {
+            if let Some(version) = version_from_frontmatter(text) {
+                return Some(version);
+            }
+        }
+    }
+
+    None
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -42,12 +147,22 @@ pub fn read_skill_ui_metadata(skill_root: &Path) -> SkillUiMetadata {
                 .and_then(|name| name.to_str())
                 .unwrap_or("<unknown>");
             log::warn!("ignored invalid UI metadata for Skill {skill_label}: {err:#}");
-            SkillUiMetadata::default()
+            // icon 之类的元数据坏了不该连版本号一起丢掉：版本号来自另外两个
+            // 文件，与出错的 openai.yaml 无关，单独再读一次。
+            SkillUiMetadata {
+                version: read_skill_version(skill_root),
+                ..Default::default()
+            }
         }
     }
 }
 
 fn try_read_skill_ui_metadata(skill_root: &Path) -> Result<SkillUiMetadata> {
+    // 版本号与 icon/brand_color 的来源完全无关：它来自 manifest.json 或
+    // SKILL.md，而 icon 来自 agents/openai.yaml。后者绝大多数技能都没有，
+    // 所以**不能**在没有 openai.yaml 时直接返回 default，否则版本号永远读不到。
+    let version = read_skill_version(skill_root);
+
     let metadata_path = skill_root.join("agents").join("openai.yaml");
     let text_bytes = match read_bounded_regular_file(
         skill_root,
@@ -57,7 +172,10 @@ fn try_read_skill_ui_metadata(skill_root: &Path) -> Result<SkillUiMetadata> {
     ) {
         Ok(bytes) => bytes,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(SkillUiMetadata::default())
+            return Ok(SkillUiMetadata {
+                version,
+                ..Default::default()
+            })
         }
         Err(err) => return Err(err).context("read agents/openai.yaml"),
     };
@@ -77,6 +195,7 @@ fn try_read_skill_ui_metadata(skill_root: &Path) -> Result<SkillUiMetadata> {
     Ok(SkillUiMetadata {
         icon_data_url,
         brand_color: fields.brand_color.filter(|color| is_brand_color(color)),
+        version,
     })
 }
 
@@ -1029,5 +1148,88 @@ mod tests {
         );
         assert!(fields.icon_small.is_none());
         assert!(!is_brand_color(fields.brand_color.as_deref().unwrap()));
+    }
+
+    // ---- 版本号 ----
+
+    #[test]
+    fn reads_version_from_skill_md_frontmatter() {
+        // 真实样本：browser-use 的 frontmatter
+        let text = "---\nname: browser-use\nauthor: antigravity\nversion: 1.2.0\n---\n\n# 正文\n";
+        assert_eq!(version_from_frontmatter(text), Some("1.2.0".to_string()));
+    }
+
+    #[test]
+    fn reads_version_from_manifest() {
+        // 真实样本：tietu-track-positioning 的 manifest.json
+        let text = "{\n  \"code\": \"tietu-track-positioning\",\n  \"version\": \"0.6.0\",\n  \"type\": \"skill\"\n}\n";
+        assert_eq!(version_from_manifest(text), Some("0.6.0".to_string()));
+    }
+
+    #[test]
+    fn manifest_version_wins_over_frontmatter() {
+        let dir = tempfile::tempdir().unwrap();
+        write_skill(dir.path(), "interface:\n  display_name: \"x\"\n");
+        fs::write(dir.path().join("manifest.json"), "{\"version\": \"0.6.1\"}").unwrap();
+        fs::write(
+            dir.path().join("SKILL.md"),
+            "---\nname: x\nversion: 0.6.0\n---\n",
+        )
+        .unwrap();
+        assert_eq!(read_skill_version(dir.path()), Some("0.6.1".to_string()));
+    }
+
+    #[test]
+    fn version_is_read_even_without_openai_yaml() {
+        // 这是回归防线：48 个技能里只有 1 个有 agents/openai.yaml，
+        // 早期实现会在该文件缺失时直接返回 default，导致版本号永远读不到。
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path()).unwrap();
+        fs::write(
+            dir.path().join("SKILL.md"),
+            "---\nname: x\nversion: 2.5.4\n---\n",
+        )
+        .unwrap();
+        let meta = read_skill_ui_metadata(dir.path());
+        assert_eq!(meta.version, Some("2.5.4".to_string()));
+    }
+
+    #[test]
+    fn no_version_yields_none() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path()).unwrap();
+        fs::write(dir.path().join("SKILL.md"), "---\nname: x\n---\n").unwrap();
+        assert_eq!(read_skill_version(dir.path()), None);
+    }
+
+    #[test]
+    fn version_in_body_is_ignored() {
+        // 正文里的 `version: 2` 不能当技能版本——只在 frontmatter 区间内找
+        let text = "---\nname: x\n---\n\n## 配置\n\nversion: 2\n";
+        assert_eq!(version_from_frontmatter(text), None);
+    }
+
+    #[test]
+    fn nested_version_key_is_ignored() {
+        // 缩进的 version 属于某个子对象，不是技能版本
+        let text = "---\nname: x\nmetadata:\n  version: 9.9.9\n---\n";
+        assert_eq!(version_from_frontmatter(text), None);
+    }
+
+    #[test]
+    fn sanitizes_quotes_comments_and_junk() {
+        assert_eq!(sanitize_version("\"1.2.3\""), Some("1.2.3".to_string()));
+        assert_eq!(sanitize_version("'1.2.3'"), Some("1.2.3".to_string()));
+        assert_eq!(sanitize_version("1.2.3 # 备注"), Some("1.2.3".to_string()));
+        assert_eq!(
+            sanitize_version("1.2.3-beta.1"),
+            Some("1.2.3-beta.1".to_string())
+        );
+        // 不以数字开头、含空格、超长 → 一律当作没有版本号
+        assert_eq!(sanitize_version("version"), None);
+        assert_eq!(sanitize_version("beta"), None);
+        assert_eq!(sanitize_version("1.2.3 说明文字"), None);
+        assert_eq!(sanitize_version(""), None);
+        assert_eq!(sanitize_version(&"1".repeat(30)), None);
     }
 }

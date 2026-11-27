@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.13] - 2026-11-27
+
+### Added
+
+- **技能自声明版本号（卡片 + 详情页都显示）**：A/B 字母只说得出「哪份内容更新」，
+  说不出「这是哪个版本」。`tietu-track-positioning` 就是典型——母库 `0.6.0`、
+  `workbuddy` 是 `0.6.1`，光看字母只能猜谁是谁。现在直接读技能自己的版本号：
+
+  | 来源 | 说明 |
+  |---|---|
+  | `manifest.json` 顶层 `version` | 发布元数据，优先 |
+  | `SKILL.md` frontmatter 的 `version:` | 次选，只扫 frontmatter 区间 |
+
+  **覆盖率只有 8/48**（其余 40 个技能两个文件里都没写版本号），所以按你的要求
+  **没声明的一律显示 `v0`**，不留空位——若按「没有就不渲染」处理，40 行会参差不齐。
+  `v0` 用弱化灰，真实版本号用主色，一眼能分出来。
+
+  布局约束：徽章 `flex: 0 0 auto` + `min-width: 34px`，**绝不参与标题行的弹性分配**，
+  技能名（`flex: 1 1 0`）仍优先吃满剩余宽度并省略。给 `flex: 1` 会和名字抢宽度，
+  导致长名字被截得更早——`web-access`、`digital-human-video-editing` 这类长名会先暴露。
+
+### Fixed
+
+- **`agents/openai.yaml` 缺失时版本号永远读不到**：`try_read_skill_ui_metadata`
+  原先在该文件 NotFound 时直接 `return SkillUiMetadata::default()`，而版本号来自
+  另两个文件（`manifest.json` / `SKILL.md`），与它无关。48 个技能里只有 1 个有
+  `openai.yaml`，不修这条路径，版本号功能等于完全不生效。现在先读版本号，再决定
+  是否提前返回。同理，`openai.yaml` 解析出错时的容错分支也会单独再读一次版本号，
+  不因 icon 元数据坏掉而连带丢弃版本信息。
+
+- **版本号解析对脏数据保守**：`version:` 后面可能跟引号、行尾注释或一段描述。
+  `sanitize_version` 只接受「以数字开头、仅含 `[alnum . - + _]`、长度 ≤24」的形状，
+  不合格一律当作没有版本号（显示 v0），不把脏字符串塞进徽章把布局撑坏。
+  另外只在 frontmatter 区间内匹配、且跳过缩进行——正文里的示例配置
+  （`version: 2`）与子对象里的 `metadata.version` 都不会被误当成技能版本。
+
+  Rust 侧新增 8 条测试锁住这些语义，其中包括「没有 openai.yaml 也能读到版本号」
+  这条回归防线。
+
 ## [2.0.12] - 2026-11-27
 
 ### Fixed

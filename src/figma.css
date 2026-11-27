@@ -627,6 +627,46 @@
    长名字依然会被截断；max-width:none 解掉继承来的 100% 上限。 */
 .skill-name { max-width: none; min-width: 0; flex: 1 1 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .skill-name.clickable { flex: 1 1 0; min-width: 0; max-width: none; }
+/* 技能自声明版本徽章。
+   min-width 而非 width：`v2.5.4` 和 `v0` 宽度不同，用 min-width 让短版本
+   保持同一最小占位、长版本自然撑开；同时 flex: 0 0 auto 保证它不参与
+   标题行的弹性分配，技能名（flex: 1 1 0）仍然优先吃掉剩余宽度并省略。
+   绝不能给它 flex: 1 —— 那会和技能名抢宽度，导致长名字被截得更早。 */
+.skill-version-badge {
+  flex: 0 0 auto;
+  min-width: 34px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 4px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: .2px;
+  white-space: nowrap;
+  color: var(--accent-primary, #2563eb);
+  background: color-mix(in srgb, var(--accent-primary, #2563eb) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #2563eb) 22%, transparent);
+}
+/* 未声明版本号（显示 v0）用弱化色，避免 40 个灰色的 v0 抢走注意力 */
+.skill-version-badge.is-unversioned {
+  color: var(--text-tertiary);
+  background: var(--bg-element, #f1f3f5);
+  border-color: var(--border-subtle, #e5e7eb);
+  font-weight: 500;
+}
+/* 详情页标题行：技能名可能很长，必须能省略，否则会把同步状态与右侧按钮挤出屏幕。
+   版本徽章与 .skill-name 同一套规则（flex: 0 0 auto + min-width），不抢宽度。 */
+.detail-skill-name {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-title-row > .skill-version-badge { margin-left: 2px; }
 .skill-description { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 11px; line-height: 16px; }
 .skill-description.empty { color: var(--text-tertiary); }
 .skill-card-meta { min-width: 0; min-height: 24px; display: flex; align-items: center; gap: 7px; }
