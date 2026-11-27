@@ -35,11 +35,18 @@ All notable changes to this project will be documented in this file.
 - **版本号解析对脏数据保守**：`version:` 后面可能跟引号、行尾注释或一段描述。
   `sanitize_version` 只接受「以数字开头、仅含 `[alnum . - + _]`、长度 ≤24」的形状，
   不合格一律当作没有版本号（显示 v0），不把脏字符串塞进徽章把布局撑坏。
-  另外只在 frontmatter 区间内匹配、且跳过缩进行——正文里的示例配置
+  另外 frontmatter 只在 `---` 区间内匹配、且跳过缩进行——正文里的示例配置
   （`version: 2`）与子对象里的 `metadata.version` 都不会被误当成技能版本。
 
-  Rust 侧新增 8 条测试锁住这些语义，其中包括「没有 openai.yaml 也能读到版本号」
-  这条回归防线。
+- **`manifest.json` 必须真正解析 JSON**：早期实现手写了一个逐行扫描器，只认
+  「行首是 `"version"`」的缩进写法。单行紧凑格式 `{"version": "0.6.1"}` 里该键
+  从不出现在行首，于是静默返回 `None` 并**悄悄退回 `SKILL.md` 的版本号**——
+  版本号看起来读到了，其实读的是另一个文件。这类静默降级比直接报错更难发现。
+  现在用 `serde_json` 正经解析，顶层取不到就是没有；只有 manifest 本身不是合法
+  JSON（带注释、尾逗号）时才退回行扫描兜底。`"version": 2` 这类数字写法也接受。
+
+  Rust 侧新增 11 条测试锁住这些语义，包括「没有 openai.yaml 也能读到版本号」、
+  「紧凑单行 manifest」、「嵌套 version 应忽略」三条回归防线。
 
 ## [2.0.12] - 2026-11-27
 

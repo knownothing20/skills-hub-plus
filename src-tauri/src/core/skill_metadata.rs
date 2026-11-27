@@ -80,23 +80,42 @@ fn version_from_frontmatter(text: &str) -> Option<String> {
 
 /// 从 `manifest.json` 里取顶层 `version`。
 ///
-/// 手写一个极简扫描器而不是引入 JSON 依赖：这里只要一个字符串字段，
-/// 且文件是几百字节的小配置。用 `serde_json` 也可以，但会让这个模块
-/// 从「读 UI 元数据」变成「解析整个 manifest」，得不偿失。
+/// 必须真正解析 JSON，不能靠逐行扫描：`{"version": "0.6.0"}` 这种单行紧凑
+/// 格式在任何行里都不以 `"version"` 开头，行扫描会静默返回 None，然后悄悄
+/// 退回 `SKILL.md` 的版本号——版本号看起来「读到了」，其实读的是另一份文件。
+/// 这类静默降级比直接报错更难发现。
+///
+/// 解析成功后 `serde_json` 可能把数字版本（`"version": 2`）给出 NonString，
+/// 此时再转成字符串交给 `sanitize_version` 校验，而不是直接丢弃。
 fn version_from_manifest(text: &str) -> Option<String> {
-    // 找一个形如 `"version": "0.6.0"` 的顶层键值对
-    for line in text.lines() {
-        let trimmed = line.trim();
-        if !trimmed.starts_with("\"version\"") {
-            continue;
+    match serde_json::from_str::<serde_json::Value>(text) {
+        // 解析成功就以顶层 `version` 为准：没有就是没有，**不再走兜底扫描**，
+        // 否则会把嵌套层（如 `metadata.version`）误当成技能版本号。
+        Ok(value) => match value.get("version") {
+            Some(serde_json::Value::String(raw)) => sanitize_version(raw),
+            // `"version": 2` 这类数字写法也接受
+            Some(serde_json::Value::Number(raw)) => sanitize_version(&raw.to_string()),
+            _ => None,
+        },
+        // 带注释/尾逗号的 manifest 不是合法 JSON。此时退回行扫描，至少能救回
+        // 「键独占一行」的常见缩进写法。
+        Err(_) => {
+            for line in text.lines() {
+                let trimmed = line.trim();
+                let Some(rest) = trimmed.strip_prefix("\"version\"") else {
+                    continue;
+                };
+                let Some((_, rest)) = rest.split_once(':') else {
+                    continue;
+                };
+                let value = rest.trim().trim_end_matches(',');
+                if let Some(version) = sanitize_version(value) {
+                    return Some(version);
+                }
+            }
+            None
         }
-        let Some((_, rest)) = trimmed.split_once(':') else {
-            continue;
-        };
-        let value = rest.trim().trim_end_matches(',');
-        return sanitize_version(value);
     }
-    None
 }
 
 /// 读技能声明的版本号。`manifest.json` 优先于 `SKILL.md`：
@@ -1164,6 +1183,37 @@ mod tests {
         // 真实样本：tietu-track-positioning 的 manifest.json
         let text = "{\n  \"code\": \"tietu-track-positioning\",\n  \"version\": \"0.6.0\",\n  \"type\": \"skill\"\n}\n";
         assert_eq!(version_from_manifest(text), Some("0.6.0".to_string()));
+    }
+
+    #[test]
+    fn reads_version_from_compact_manifest() {
+        // 回归防线：早期实现逐行找行首 `"version"`，单行紧凑 JSON 里该键
+        // 从不在行首，于是静默返回 None 并退回 SKILL.md 的版本号。
+        assert_eq!(
+            version_from_manifest("{\"version\": \"0.6.1\"}"),
+            Some("0.6.1".to_string())
+        );
+        // 键顺序无关
+        assert_eq!(
+            version_from_manifest("{\"type\":\"skill\",\"version\":\"1.2.0\"}"),
+            Some("1.2.0".to_string())
+        );
+    }
+
+    #[test]
+    fn reads_numeric_version_from_manifest() {
+        assert_eq!(
+            version_from_manifest("{\"version\": 2}"),
+            Some("2".to_string())
+        );
+    }
+
+    #[test]
+    fn nested_manifest_version_is_ignored() {
+        // 合法 JSON 但 version 在嵌套层 → 不是技能版本号。
+        // 注意这里必须什么都不返回，不能退回行扫描把 9.9.9 捡回来。
+        let text = "{\n  \"metadata\": {\n    \"version\": \"9.9.9\"\n  }\n}\n";
+        assert_eq!(version_from_manifest(text), None);
     }
 
     #[test]
